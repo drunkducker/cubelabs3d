@@ -30,10 +30,10 @@ export default function HeroCubeExperience() {
   const nextMove = solution[solutionStep] || (touches.length ? "SOLVED" : "SWIPE CUBE");
 
   const addMove = useCallback((move: string) => {
-    if (animating || playing || solving || touches.length >= 12) return;
+    if (animating || playing || solving) return;
     setTouches(current => [...current, move]);
     setStep(current => current + 1);
-  }, [animating, playing, solving, touches.length]);
+  }, [animating, playing, solving]);
 
   useEffect(() => {
     if (!playing || animating) return;
@@ -74,7 +74,6 @@ export default function HeroCubeExperience() {
         <button type="button" disabled={!touches.length || solutionStep >= solution.length || animating || playing} onClick={next} className="cta-purple flex items-center justify-center gap-[7px] rounded-[13px] p-[13px] disabled:opacity-40"><PlayIcon className="h-4 w-4" />Next</button>
         <button type="button" disabled={!touches.length || solutionStep >= solution.length || animating} onClick={togglePlay} className="glass flex items-center justify-center gap-[7px] rounded-[13px] p-[13px] disabled:opacity-40">{playing ? <PauseIcon className="h-4 w-4" /> : <AutoPlayIcon className="h-4 w-4" />}{playing ? "Pause" : "Auto Play"}</button>
       </div>
-      {touches.length >= 12 && !solving && <p className="mt-3 text-center text-xs font-bold text-[var(--gold)]">Scramble ready—press Next or Auto Play.</p>}
       {solving && solutionStep >= solution.length && <p className="mt-3 text-center text-sm font-extrabold text-[var(--green)]">Solved ✓</p>}
     </section>
   </>;
