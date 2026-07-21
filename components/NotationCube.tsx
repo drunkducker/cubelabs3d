@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RefreshIcon } from "./icons";
 
 type Face = "U" | "D" | "F" | "B" | "R" | "L";
 
@@ -78,12 +79,15 @@ function addSticker(
   sticker.position.set(...position);
   sticker.rotation.set(...rotation);
   sticker.userData.label = label;
+  sticker.userData.face = face;
   group.add(sticker);
 }
 
 export default function NotationCube() {
   const mountRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState("Spin the cube, then tap a sticker");
+  const [viewNonce, setViewNonce] = useState(0);
+  const [spinning, setSpinning] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -92,7 +96,8 @@ export default function NotationCube() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 240);
     const distance = 4 * 4.8;
-    camera.position.set(distance * 0.82, distance * 0.68, distance);
+    const cubeAnchor = new THREE.Vector3(-2.5, 2, 0);
+    camera.position.set(cubeAnchor.x + distance * 0.82, cubeAnchor.y + distance * 0.68, cubeAnchor.z + distance);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.55));
@@ -110,8 +115,13 @@ export default function NotationCube() {
     controls.rotateSpeed = 0.72;
     controls.minDistance = 4 * 2.2;
     controls.maxDistance = 4 * 5.4;
-    controls.target.set(0, 0, 0);
+    controls.target.copy(cubeAnchor);
+    controls.autoRotate = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    controls.autoRotateSpeed = 0.55;
+    controls.touches.ONE = THREE.TOUCH.ROTATE;
+    controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     controls.update();
+    controls.saveState();
 
     scene.add(new THREE.HemisphereLight("#ffffff", "#223052", 2.2));
     const key = new THREE.DirectionalLight("#ffffff", 2.4);
@@ -122,7 +132,7 @@ export default function NotationCube() {
     scene.add(rim);
 
     const root = new THREE.Group();
-    root.position.set(-2.5, 2, 0);
+    root.position.copy(cubeAnchor);
     scene.add(root);
 
     const size = 4;
@@ -158,15 +168,65 @@ export default function NotationCube() {
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const onPointerUp = (event: PointerEvent) => {
+    let selectedSticker: THREE.Mesh | null = null;
+    let hoveredSticker: THREE.Mesh | null = null;
+    let pointerStart: { pointerId: number; x: number; y: number } | null = null;
+
+    const glowSticker = (mesh: THREE.Mesh | null, intensity: number) => {
+      if (!mesh) return;
+      const face = mesh.userData.face as Face | undefined;
+      if (!face) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      mats.forEach(item => {
+        const mat = item as THREE.MeshStandardMaterial;
+        mat.emissive.set(intensity ? "#4d7cff" : FACE_COLORS[face]);
+        mat.emissiveIntensity = intensity || 0.035;
+      });
+    };
+
+    const pickSticker = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(pickables, false)[0];
-      if (hit?.object.userData.label) setSelected(`${hit.object.userData.label} sticker`);
+      return raycaster.intersectObjects(pickables, false)[0]?.object as THREE.Mesh | undefined;
     };
+
+    const onPointerDown = (event: PointerEvent) => {
+      pointerStart = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      controls.autoRotate = false;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      const hit = pickSticker(event) ?? null;
+      if (hit === hoveredSticker) return;
+      if (hoveredSticker !== selectedSticker) glowSticker(hoveredSticker, 0);
+      hoveredSticker = hit;
+      if (hoveredSticker && hoveredSticker !== selectedSticker) glowSticker(hoveredSticker, 0.18);
+      renderer.domElement.style.cursor = hoveredSticker ? "pointer" : "grab";
+    };
+
+    const onPointerUp = (event: PointerEvent) => {
+      const start = pointerStart;
+      pointerStart = null;
+      if (!start || start.pointerId !== event.pointerId) return;
+      if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) return;
+      const hit = pickSticker(event);
+      if (!hit?.userData.label) return;
+      if (selectedSticker && selectedSticker !== hit) glowSticker(selectedSticker, 0);
+      selectedSticker = hit;
+      glowSticker(selectedSticker, 0.42);
+      setSelected(`${hit.userData.label} sticker`);
+    };
+    const onPointerLeave = () => {
+      if (hoveredSticker !== selectedSticker) glowSticker(hoveredSticker, 0);
+      hoveredSticker = null;
+      renderer.domElement.style.cursor = "grab";
+    };
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
     renderer.domElement.addEventListener("pointerup", onPointerUp);
+    renderer.domElement.addEventListener("pointerleave", onPointerLeave);
 
     const resize = () => {
       const width = Math.max(1, mount.clientWidth);
@@ -191,6 +251,9 @@ export default function NotationCube() {
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerleave", onPointerLeave);
       controls.dispose();
       bodyGeometry.dispose();
       bodyMaterial.dispose();
@@ -204,7 +267,14 @@ export default function NotationCube() {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, []);
+  }, [viewNonce]);
+
+  const resetView = () => {
+    setSelected("Spin the cube, then tap a sticker");
+    setViewNonce(value => value + 1);
+    setSpinning(true);
+    window.setTimeout(() => setSpinning(false), 500);
+  };
 
   return (
     <section className="cube-card relative mt-3 overflow-hidden rounded-[22px]">
@@ -214,6 +284,15 @@ export default function NotationCube() {
       <div className="absolute right-3 top-3 z-[4] rounded-[11px] border border-[rgba(46,166,255,.28)] bg-black/35 px-3 py-1.5 text-xs font-extrabold text-[var(--blue)]">
         4×4 labels
       </div>
+      <button
+        type="button"
+        aria-label="Reset notation cube view"
+        onClick={resetView}
+        style={{ transform: spinning ? "rotate(360deg)" : "rotate(0deg)" }}
+        className="absolute right-3 top-12 z-[4] grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] bg-black/35 text-[var(--text)] transition-transform duration-500"
+      >
+        <RefreshIcon className="h-[19px] w-[19px]" />
+      </button>
       <div ref={mountRef} className="h-[min(58dvh,500px)] min-h-[390px] w-full touch-none" />
       <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">
         {selected}
