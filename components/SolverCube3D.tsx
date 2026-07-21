@@ -1,22 +1,19 @@
 "use client";
 
 /**
- * Stable solver-playback cube.
+ * Stable, flash-free solver-playback cube.
  *
- * The important rule in this version is that a cubie is never re-parented.
- * Every physical cubie stays directly under `cubeRoot` for its entire lifetime.
- * A face turn is displayed by multiplying the selected cubies' exact starting
- * matrices by a temporary rotation matrix. When the animation finishes, the
- * result is snapped back to the cube's discrete coordinate system: every matrix
- * entry is exactly -1, 0, or 1 and every position is exactly -1, 0, or 1.
+ * Every physical cubie stays mounted under one permanent cube parent. Face turns
+ * are applied directly to each selected cubie's local matrix, so there is no
+ * re-parenting and no accumulated quaternion drift.
  *
- * That removes the two causes of the folding/drifting bug:
- * 1. accumulated floating-point quaternion error; and
- * 2. repeated attach/detach operations through a rotated/scaled parent.
+ * Cubie starting matrices are memoized for the lifetime of the cubie. Parent UI
+ * rerenders therefore cannot replace an animated cubie's matrix with a fresh
+ * translation matrix, which was the remaining source of the visible flash.
  */
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { applySequence, solved, toFaceletString } from "@/lib/cube-engine";
 
@@ -116,16 +113,27 @@ function Sticker({ color, position, rotation = [0, 0, 0] }: { color: string; pos
   );
 }
 
-function Cubie({ cell, facelets, register }: { cell: Cell; facelets: string; register: (key: string, group: THREE.Group | null) => void }) {
+const Cubie = memo(function Cubie({
+  cell,
+  facelets,
+  register,
+}: {
+  cell: Cell;
+  facelets: string;
+  register: (key: string, group: THREE.Group | null) => void;
+}) {
   const { x, y, z } = cell;
   const key = `${x}:${y}:${z}`;
+  const initialMatrix = useMemo(() => new THREE.Matrix4().makeTranslation(x, y, z), [x, y, z]);
+  const setGroup = useCallback(
+    (group: THREE.Group | null) => {
+      register(key, group);
+    },
+    [key, register],
+  );
 
   return (
-    <group
-      ref={(group) => register(key, group)}
-      matrixAutoUpdate={false}
-      matrix={new THREE.Matrix4().makeTranslation(x, y, z)}
-    >
+    <group ref={setGroup} matrixAutoUpdate={false} matrix={initialMatrix}>
       <RoundedBox args={[0.9, 0.9, 0.9]} radius={0.075} smoothness={3}>
         <meshStandardMaterial color="#111318" roughness={0.4} metalness={0.05} />
       </RoundedBox>
@@ -137,13 +145,18 @@ function Cubie({ cell, facelets, register }: { cell: Cell; facelets: string; reg
       {z === -1 && <Sticker color={COLOR[facelets[stickerIndex("B", x, y, z)]]} position={[0, 0, -0.468]} />}
     </group>
   );
-}
+});
 
 function Scene({ scramble, solution, step, onAnimating }: { scramble: string; solution: string[]; step: number; onAnimating: (value: boolean) => void }) {
   const initialFacelets = useMemo(() => toFaceletString(applySequence(solved(), scramble)), [scramble]);
   const cubies = useRef(new Map<string, THREE.Group>());
   const shownStep = useRef(0);
   const animation = useRef<Animation | null>(null);
+  const onAnimatingRef = useRef(onAnimating);
+
+  useEffect(() => {
+    onAnimatingRef.current = onAnimating;
+  }, [onAnimating]);
 
   const register = useCallback((key: string, group: THREE.Group | null) => {
     if (group) cubies.current.set(key, group);
@@ -153,8 +166,8 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
   useEffect(() => {
     shownStep.current = 0;
     animation.current = null;
-    onAnimating(false);
-  }, [initialFacelets, onAnimating]);
+    onAnimatingRef.current(false);
+  }, [initialFacelets]);
 
   useEffect(() => {
     if (step === shownStep.current || animation.current) return;
@@ -175,8 +188,8 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
     }
 
     animation.current = { ...target, startedAt: performance.now(), nextStep, cubies: selected };
-    onAnimating(true);
-  }, [step, solution, onAnimating]);
+    onAnimatingRef.current(true);
+  }, [step, solution]);
 
   useFrame(() => {
     const current = animation.current;
@@ -203,7 +216,7 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
 
       shownStep.current = current.nextStep;
       animation.current = null;
-      onAnimating(false);
+      onAnimatingRef.current(false);
     }
   });
 
