@@ -40,15 +40,16 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     if(!mount) return;
 
     const scene=new THREE.Scene();
-    scene.background=new THREE.Color("#080b14");
     const focusLayout=variant==="focus";
-    const camera=new THREE.PerspectiveCamera(focusLayout?17:18,1,.1,400);
-    const distance=size*(focusLayout?3.55:4.15);
-    camera.position.set(distance*.62,distance*.54,distance);
+    scene.background=focusLayout?null:new THREE.Color("#080b14");
+    const camera=new THREE.PerspectiveCamera(focusLayout?37:18,1,.1,400);
+    const distance=size*(focusLayout?1.85:4.15);
+    camera.position.set(distance*.82,distance*.68,distance);
 
-    const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
+    const renderer=new THREE.WebGLRenderer({antialias:true,alpha:focusLayout,powerPreference:"high-performance"});
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.55));
     renderer.outputColorSpace=THREE.SRGBColorSpace;
+    if(focusLayout) renderer.setClearAlpha(0);
     renderer.domElement.style.touchAction="none";
     mount.appendChild(renderer.domElement);
 
@@ -61,8 +62,8 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     controls.zoomSpeed=.9;
     controls.rotateSpeed=.72;
     controls.panSpeed=.8;
-    controls.minDistance=size*1.15;
-    controls.maxDistance=size*7;
+    controls.minDistance=size*(focusLayout?1.35:1.15);
+    controls.maxDistance=size*(focusLayout?4.2:7);
     controls.target.set(0,0,0);
     controls.touches.ONE=THREE.TOUCH.ROTATE;
     controls.touches.TWO=THREE.TOUCH.DOLLY_PAN;
@@ -221,7 +222,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
   const changeMode=(mode:ViewMode)=>{ setViewMode(mode); actionsRef.current?.setViewMode(mode); };
   const isPlayableCore=size<=5;
   const stageClass=isPlayableCore?"h-[430px] sm:h-[470px]":"h-[390px] sm:h-[440px]";
-  const focusStageClass="h-[min(76dvh,610px)] min-h-[470px]";
+  const focusStageClass="h-[min(58dvh,500px)] min-h-[390px] sm:h-[470px]";
   const eyebrow=isPlayableCore?`PLAYABLE ${size}×${size} CUBE`:"PLAYABLE LARGE CUBE";
   const description=isPlayableCore
     ?"Swipe stickers first. Buttons stay tucked away for backup moves, undo, scramble, and view control."
