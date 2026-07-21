@@ -1,19 +1,15 @@
 /**
- * Public catalog route for Cube Lab 3D.
+ * Public home route for Cube Lab 3D.
  *
- * The home page no longer mounts the heavy Three.js game immediately. Instead,
- * it presents a fast catalog and sends an interested visitor to `/play/3x3`.
- * This separation improves first-load performance and creates room for more
- * puzzle pages without turning the home page into one oversized game screen.
+ * The homepage is now solver-first: the first viewport helps visitors begin a
+ * 3×3 solve without an account, while lower swipeable rails introduce the
+ * broader Cube Lab ecosystem. Keeping this route lightweight protects mobile
+ * loading performance until the full solver editor is embedded here.
  */
 
-import HomeCatalog from "./HomeCatalog";
+import HomeLanding from "./HomeLanding";
 
-/**
- * Renders the mobile-first puzzle catalog at the site root.
- *
- * @returns The catalog experience and its direct link to the playable 3×3.
- */
+/** Renders the premium mobile-first Cube Lab 3D landing page. */
 export default function Home() {
-  return <HomeCatalog />;
+  return <HomeLanding />;
 }
