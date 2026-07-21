@@ -1,16 +1,22 @@
 "use client";
 
 /**
- * Solver playback cube using one permanent set of 27 physical cubies.
+ * Stable solver-playback cube.
  *
- * Each move now rotates the selected cubies directly in the cube's own local
- * coordinate system. No re-parenting, world-space conversion, duplicate layer,
- * visibility swap, or mesh replacement is used. This prevents flashing, folding,
- * drifting, and pieces jumping away from the cube during long move sequences.
+ * The important rule in this version is that a cubie is never re-parented.
+ * Every physical cubie stays directly under `cubeRoot` for its entire lifetime.
+ * A face turn is displayed by multiplying the selected cubies' exact starting
+ * matrices by a temporary rotation matrix. When the animation finishes, the
+ * result is snapped back to the cube's discrete coordinate system: every matrix
+ * entry is exactly -1, 0, or 1 and every position is exactly -1, 0, or 1.
+ *
+ * That removes the two causes of the folding/drifting bug:
+ * 1. accumulated floating-point quaternion error; and
+ * 2. repeated attach/detach operations through a rotated/scaled parent.
  */
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { applySequence, solved, toFaceletString } from "@/lib/cube-engine";
 
@@ -27,15 +33,11 @@ type Vec3 = [number, number, number];
 type Axis = "x" | "y" | "z";
 type Cell = { x: number; y: number; z: number };
 type MoveSpec = { axis: Axis; layer: -1 | 0 | 1; angle: number };
-type AnimatedCubie = {
-  group: THREE.Group;
-  startPosition: THREE.Vector3;
-  startQuaternion: THREE.Quaternion;
-};
+type CubieRecord = { group: THREE.Group; matrix: THREE.Matrix4 };
 type Animation = MoveSpec & {
   startedAt: number;
   nextStep: number;
-  cubies: AnimatedCubie[];
+  cubies: CubieRecord[];
 };
 
 const MOVE: Record<string, Omit<MoveSpec, "angle"> & { clockwise: number }> = {
@@ -45,12 +47,6 @@ const MOVE: Record<string, Omit<MoveSpec, "angle"> & { clockwise: number }> = {
   B: { axis: "z", layer: -1, clockwise: 1 },
   R: { axis: "x", layer: 1, clockwise: -1 },
   L: { axis: "x", layer: -1, clockwise: 1 },
-};
-
-const AXIS_VECTOR: Record<Axis, THREE.Vector3> = {
-  x: new THREE.Vector3(1, 0, 0),
-  y: new THREE.Vector3(0, 1, 0),
-  z: new THREE.Vector3(0, 0, 1),
 };
 
 const CELLS: Cell[] = [];
@@ -79,26 +75,37 @@ function stickerIndex(face: string, x: number, y: number, z: number) {
   return 45 + (1 - y) * 3 + (1 - x);
 }
 
-function snapCubie(group: THREE.Group) {
-  group.position.set(
-    Math.round(group.position.x),
-    Math.round(group.position.y),
-    Math.round(group.position.z),
-  );
+function matrixCoordinate(matrix: THREE.Matrix4, axis: Axis) {
+  const index = axis === "x" ? 12 : axis === "y" ? 13 : 14;
+  return matrix.elements[index];
+}
 
-  const matrix = new THREE.Matrix4().makeRotationFromQuaternion(group.quaternion);
-  const elements = matrix.elements;
-  const rotationIndices = [0, 1, 2, 4, 5, 6, 8, 9, 10];
-  rotationIndices.forEach((index) => {
+function snapCubeMatrix(matrix: THREE.Matrix4) {
+  const snapped = matrix.clone();
+  const elements = snapped.elements;
+  const orientationIndexes = [0, 1, 2, 4, 5, 6, 8, 9, 10];
+
+  orientationIndexes.forEach((index) => {
     const value = elements[index];
     elements[index] = Math.abs(value) < 0.5 ? 0 : value > 0 ? 1 : -1;
   });
 
-  group.quaternion.setFromRotationMatrix(matrix).normalize();
-  group.scale.set(1, 1, 1);
-  group.userData.grid = group.position.clone();
-  group.updateMatrix();
-  group.updateMatrixWorld(true);
+  elements[12] = Math.round(elements[12]);
+  elements[13] = Math.round(elements[13]);
+  elements[14] = Math.round(elements[14]);
+  elements[3] = 0;
+  elements[7] = 0;
+  elements[11] = 0;
+  elements[15] = 1;
+
+  return snapped;
+}
+
+function rotationMatrix(axis: Axis, angle: number) {
+  const matrix = new THREE.Matrix4();
+  if (axis === "x") return matrix.makeRotationX(angle);
+  if (axis === "y") return matrix.makeRotationY(angle);
+  return matrix.makeRotationZ(angle);
 }
 
 function Sticker({ color, position, rotation = [0, 0, 0] }: { color: string; position: Vec3; rotation?: Vec3 }) {
@@ -115,11 +122,9 @@ function Cubie({ cell, facelets, register }: { cell: Cell; facelets: string; reg
 
   return (
     <group
-      ref={(group) => {
-        if (group) group.userData.grid = new THREE.Vector3(x, y, z);
-        register(key, group);
-      }}
-      position={[x, y, z]}
+      ref={(group) => register(key, group)}
+      matrixAutoUpdate={false}
+      matrix={new THREE.Matrix4().makeTranslation(x, y, z)}
     >
       <RoundedBox args={[0.9, 0.9, 0.9]} radius={0.075} smoothness={3}>
         <meshStandardMaterial color="#111318" roughness={0.4} metalness={0.05} />
@@ -139,12 +144,11 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
   const cubies = useRef(new Map<string, THREE.Group>());
   const shownStep = useRef(0);
   const animation = useRef<Animation | null>(null);
-  const turnQuaternion = useRef(new THREE.Quaternion());
 
-  const register = (key: string, group: THREE.Group | null) => {
+  const register = useCallback((key: string, group: THREE.Group | null) => {
     if (group) cubies.current.set(key, group);
     else cubies.current.delete(key);
-  };
+  }, []);
 
   useEffect(() => {
     shownStep.current = 0;
@@ -157,19 +161,18 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
 
     const forward = step > shownStep.current;
     const move = forward ? solution[shownStep.current] : invert(solution[shownStep.current - 1]);
+    if (!move) return;
+
     const target = spec(move);
     const nextStep = forward ? shownStep.current + 1 : shownStep.current - 1;
-
     const selected = Array.from(cubies.current.values())
-      .filter((group) => {
-        const grid = group.userData.grid as THREE.Vector3;
-        return Math.round(grid[target.axis]) === target.layer;
-      })
-      .map((group) => ({
-        group,
-        startPosition: group.position.clone(),
-        startQuaternion: group.quaternion.clone(),
-      }));
+      .filter((group) => Math.round(matrixCoordinate(group.matrix, target.axis)) === target.layer)
+      .map((group) => ({ group, matrix: group.matrix.clone() }));
+
+    if (selected.length !== 9) {
+      console.error(`Cube animation selected ${selected.length} cubies for ${move}; expected 9.`);
+      return;
+    }
 
     animation.current = { ...target, startedAt: performance.now(), nextStep, cubies: selected };
     onAnimating(true);
@@ -179,18 +182,25 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
     const current = animation.current;
     if (!current) return;
 
-    const t = Math.min(1, (performance.now() - current.startedAt) / 460);
+    const elapsed = performance.now() - current.startedAt;
+    const t = Math.min(1, elapsed / 460);
     const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    const q = turnQuaternion.current.setFromAxisAngle(AXIS_VECTOR[current.axis], current.angle * eased);
+    const animatedRotation = rotationMatrix(current.axis, current.angle * eased);
 
-    current.cubies.forEach(({ group, startPosition, startQuaternion }) => {
-      group.position.copy(startPosition).applyQuaternion(q);
-      group.quaternion.copy(q).multiply(startQuaternion).normalize();
-      group.updateMatrix();
+    current.cubies.forEach(({ group, matrix }) => {
+      group.matrix.multiplyMatrices(animatedRotation, matrix);
+      group.matrixWorldNeedsUpdate = true;
     });
 
     if (t >= 1) {
-      current.cubies.forEach(({ group }) => snapCubie(group));
+      const completedRotation = rotationMatrix(current.axis, current.angle);
+
+      current.cubies.forEach(({ group, matrix }) => {
+        const exactResult = snapCubeMatrix(new THREE.Matrix4().multiplyMatrices(completedRotation, matrix));
+        group.matrix.copy(exactResult);
+        group.matrixWorldNeedsUpdate = true;
+      });
+
       shownStep.current = current.nextStep;
       animation.current = null;
       onAnimating(false);
@@ -204,12 +214,7 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
       <directionalLight position={[-5, 3, 4]} intensity={0.8} color="#9fd8ff" />
       <group rotation={[-0.08, -0.08, 0]} scale={0.9}>
         {CELLS.map((cell) => (
-          <Cubie
-            key={`${initialFacelets}:${cell.x}:${cell.y}:${cell.z}`}
-            cell={cell}
-            facelets={initialFacelets}
-            register={register}
-          />
+          <Cubie key={`${initialFacelets}:${cell.x}:${cell.y}:${cell.z}`} cell={cell} facelets={initialFacelets} register={register} />
         ))}
       </group>
       <OrbitControls enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 4.5} maxPolarAngle={(3.4 * Math.PI) / 4.5} />
