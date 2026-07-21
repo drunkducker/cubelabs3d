@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import SiteHeader from "@/components/SiteHeader";
 
 type Axis = "x" | "y" | "z";
 type Direction = 1 | -1;
@@ -26,21 +27,33 @@ export default function NxNCubeGame({ size = 10 }: { size?: number }) {
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#070912");
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 200);
-    const distance = Math.max(15, size * 2.05);
-    camera.position.set(distance * 0.78, distance * 0.66, distance);
+    scene.background = new THREE.Color("#080b14");
+
+    // A narrower field of view reduces the stretched, wide-angle look. The
+    // camera starts at the same familiar three-quarter angle as the 3×3 page.
+    const camera = new THREE.PerspectiveCamera(27, 1, 0.1, 200);
+    const distance = size * 2.45;
+    const homePosition = new THREE.Vector3(distance * 0.72, distance * 0.62, distance);
+    camera.position.copy(homePosition);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.style.touchAction = "none";
     mount.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.075;
     controls.enablePan = false;
-    controls.minDistance = size * 1.45;
-    controls.maxDistance = size * 3.2;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.85;
+    controls.rotateSpeed = 0.72;
+    controls.minDistance = size * 1.55;
+    controls.maxDistance = size * 4.2;
+    controls.target.set(0, 0, 0);
+    controls.update();
+    controls.saveState();
 
     scene.add(new THREE.HemisphereLight("#ffffff", "#223052", 2.2));
     const key = new THREE.DirectionalLight("#ffffff", 2.4);
@@ -80,9 +93,8 @@ export default function NxNCubeGame({ size = 10 }: { size?: number }) {
       root.add(pivot);
       selected.forEach(c => pivot.attach(c.mesh));
       const started = performance.now();
-      const duration = 230;
       const animate = (now: number) => {
-        const p = Math.min(1, (now - started) / duration);
+        const p = Math.min(1, (now - started) / 230);
         pivot.rotation[move.axis] = move.direction * Math.PI * 0.5 * (1 - Math.pow(1 - p, 3));
         if (p < 1) return requestAnimationFrame(animate);
         pivot.updateMatrixWorld(true);
@@ -119,8 +131,9 @@ export default function NxNCubeGame({ size = 10 }: { size?: number }) {
       if (active) return;
       queue.length = 0;
       cubies.forEach(c => { c.mesh.position.copy(c.home); c.mesh.quaternion.identity(); c.grid.copy(c.home); });
-      setMoves(0); setStatus(`${size}×${size} reset`);
-      camera.position.set(distance * 0.78, distance * 0.66, distance); controls.target.set(0,0,0); controls.update();
+      setMoves(0);
+      setStatus(`${size}×${size} reset`);
+      controls.reset();
     };
     actionsRef.current = { turn, scramble, reset };
 
@@ -136,21 +149,28 @@ export default function NxNCubeGame({ size = 10 }: { size?: number }) {
   const edge = (size - 1) / 2;
   const faceMoves: Record<string, Move> = { R:{axis:"x",layer:edge,direction:-1,label:"R"}, L:{axis:"x",layer:-edge,direction:1,label:"L"}, U:{axis:"y",layer:edge,direction:-1,label:"U"}, D:{axis:"y",layer:-edge,direction:1,label:"D"}, F:{axis:"z",layer:edge,direction:-1,label:"F"}, B:{axis:"z",layer:-edge,direction:1,label:"B"} };
 
-  return <main className="min-h-dvh bg-[#05070d] px-3 py-5 text-[#eef3fb]">
-    <div className="mx-auto w-full max-w-[980px]">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="text-xs font-extrabold tracking-[.16em] text-[#70b7ff]">UNIVERSAL ENGINE TEST</p><h1 className="text-4xl font-extrabold sm:text-6xl">{size}×{size} Cube</h1><p className="mt-2 text-[#9da9ba]">Our Cube Labs renderer scaled up while the current 3×3 stays untouched.</p></div>
-        <Link href="/solve" className="rounded-xl border border-white/15 bg-white/5 px-4 py-3 font-bold">Back to solvers</Link>
-      </div>
-      <section className="overflow-hidden rounded-3xl border border-white/10 bg-[#080b14] shadow-2xl">
-        <div className="flex justify-between border-b border-white/10 px-4 py-3 text-sm text-[#aeb8c8]"><span>{status}</span><strong className="text-white">{moves} moves</strong></div>
-        <div ref={mountRef} className="h-[58dvh] min-h-[440px] touch-none sm:h-[68dvh] sm:min-h-[520px]" />
+  return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
+    <div className="orb orb-a" />
+    <div className="orb orb-b" />
+    <div className="relative z-[1]">
+      <SiteHeader />
+      <Link href="/solve" className="mt-4 inline-flex text-sm font-bold text-[var(--muted)]">← Back to solvers</Link>
+      <section className="mt-5">
+        <p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">UNIVERSAL ENGINE TEST</p>
+        <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play the<br/><span className="accent-text">{size}×{size} Cube</span></h1>
+        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">The proven Cube Labs look, scaled up. Drag to rotate and pinch with two fingers to zoom.</p>
       </section>
+
+      <section className="glass mt-[18px] overflow-hidden rounded-[22px]">
+        <div className="flex justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><strong className="text-[var(--text)]">{moves} moves</strong></div>
+        <div ref={mountRef} className="h-[360px] w-full touch-none sm:h-[420px]" />
+      </section>
+
       <section className="mt-3 grid gap-2">
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">{Object.entries(faceMoves).map(([label,move]) => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turn(move)} className="min-h-12 rounded-xl border border-white/10 bg-white/5 font-extrabold disabled:opacity-40">{label}</button>)}</div>
-        <div className="grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="min-h-12 rounded-xl bg-gradient-to-r from-[#4d7cff] to-[#2ea6ff] font-extrabold text-[#06101e] disabled:opacity-40">Scramble</button><button disabled={busy} onClick={() => actionsRef.current?.reset()} className="min-h-12 rounded-xl border border-white/10 bg-white/10 font-extrabold disabled:opacity-40">Reset</button></div>
+        <div className="grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move]) => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+        <div className="grid grid-cols-2 gap-2"><button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button><button disabled={busy} onClick={() => actionsRef.current?.reset()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">Reset View & Cube</button></div>
       </section>
-      <p className="mt-3 text-sm leading-6 text-[#8d98aa]">Drag to rotate and pinch or scroll to zoom. This first test covers generation, mobile rendering, and animated outer-layer turns.</p>
+      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">One finger rotates the view. Two-finger pinch zooms the cube in and out without changing the page layout.</p>
     </div>
   </main>;
 }
