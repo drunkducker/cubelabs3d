@@ -41,9 +41,11 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
 
     const scene=new THREE.Scene();
     const focusLayout=variant==="focus";
+    const focusZoom=size*4.2;
+    const focusOffset=new THREE.Vector3(-1,2.5,0);
     scene.background=focusLayout?null:new THREE.Color("#080b14");
     const camera=new THREE.PerspectiveCamera(focusLayout?37:18,1,.1,400);
-    const distance=size*(focusLayout?1.85:4.15);
+    const distance=focusLayout?focusZoom:size*4.15;
     camera.position.set(distance*.82,distance*.68,distance);
 
     const renderer=new THREE.WebGLRenderer({antialias:true,alpha:focusLayout,powerPreference:"high-performance"});
@@ -74,7 +76,9 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const key=new THREE.DirectionalLight("#ffffff",2.4); key.position.set(8,12,10); scene.add(key);
     const rim=new THREE.DirectionalLight("#5c7cff",1.4); rim.position.set(-10,3,-8); scene.add(rim);
 
-    const root=new THREE.Group(); scene.add(root);
+    const root=new THREE.Group();
+    if(focusLayout) root.position.copy(focusOffset);
+    scene.add(root);
     const edge=(size-1)/2;
     const geometry=new THREE.BoxGeometry(.92,.92,.92);
     const cubies:Cubie[]=[];
@@ -239,7 +243,6 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       <section className="cube-card relative mt-3 overflow-hidden rounded-[22px]">
         <div className="absolute left-3 top-3 z-[4] rounded-[11px] border border-[var(--border)] bg-black/35 px-3 py-1.5 text-xs font-bold text-[var(--muted)]">PLAYABLE {size}×{size} CUBE</div>
         <button type="button" aria-label="Reset cube" disabled={busy} onClick={()=>actionsRef.current?.resetCube()} className="absolute right-3 top-3 z-[4] grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] bg-black/35 text-lg font-extrabold disabled:opacity-40">↻</button>
-        <div className="platform-ring absolute bottom-[58px] left-1/2 z-[1] h-[66px] w-[230px] -translate-x-1/2 rounded-[50%]"/>
         <div ref={mountRef} className={`${focusStageClass} w-full touch-none`}/>
         <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{status}</div>
       </section>
