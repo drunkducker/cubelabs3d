@@ -24,7 +24,7 @@ const moveLabel = (axis:Axis,layer:number,edge:number,direction:Direction) => {
   return `${depth>1?depth:""}${side}${direction<0?"′":""}`;
 };
 
-export default function NxNCubeGame({ size=10 }: { size?:number }) {
+export default function NxNCubeGame({ size=10, variant="full" }: { size?:number; variant?: "full" | "focus" }) {
   const mountRef=useRef<HTMLDivElement>(null);
   const actionsRef=useRef<{
     turn:(move:Move)=>void; scramble:()=>void; undo:()=>void; resetCube:()=>void; resetView:()=>void; setViewMode:(mode:ViewMode)=>void;
@@ -41,8 +41,9 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
 
     const scene=new THREE.Scene();
     scene.background=new THREE.Color("#080b14");
-    const camera=new THREE.PerspectiveCamera(18,1,.1,400);
-    const distance=size*4.15;
+    const focusLayout=variant==="focus";
+    const camera=new THREE.PerspectiveCamera(focusLayout?17:18,1,.1,400);
+    const distance=size*(focusLayout?3.55:4.15);
     camera.position.set(distance*.62,distance*.54,distance);
 
     const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
@@ -213,17 +214,46 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
       cubies.forEach(c=>(Array.isArray(c.mesh.material)?c.mesh.material:[c.mesh.material]).forEach(m=>m.dispose()));
       geometry.dispose(); renderer.dispose(); renderer.domElement.remove();
     };
-  },[size]);
+  },[size,variant]);
 
   const edge=(size-1)/2;
   const faceMoves:Record<string,Move>={R:{axis:"x",layer:edge,direction:-1,label:"R"},L:{axis:"x",layer:-edge,direction:1,label:"L"},U:{axis:"y",layer:edge,direction:-1,label:"U"},D:{axis:"y",layer:-edge,direction:1,label:"D"},F:{axis:"z",layer:edge,direction:-1,label:"F"},B:{axis:"z",layer:-edge,direction:1,label:"B"}};
   const changeMode=(mode:ViewMode)=>{ setViewMode(mode); actionsRef.current?.setViewMode(mode); };
   const isPlayableCore=size<=5;
   const stageClass=isPlayableCore?"h-[430px] sm:h-[470px]":"h-[390px] sm:h-[440px]";
+  const focusStageClass="h-[min(76dvh,610px)] min-h-[470px]";
   const eyebrow=isPlayableCore?`PLAYABLE ${size}×${size} CUBE`:"PLAYABLE LARGE CUBE";
   const description=isPlayableCore
     ?"Swipe stickers first. Buttons stay tucked away for backup moves, undo, scramble, and view control."
     :"Swipe exact layers, rotate the cube, or switch to Move mode to position it anywhere inside the viewport.";
+
+  if(variant==="focus") return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-4 pb-[calc(18px+env(safe-area-inset-bottom))] pt-[14px]">
+    <div className="orb orb-a"/><div className="orb orb-b"/>
+    <div className="relative z-[1]">
+      <div className="flex items-center justify-between">
+        <Link href="/solve" className="rounded-full border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--muted)]">← Solvers</Link>
+        <div className="rounded-full border border-[rgba(46,166,255,.28)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--blue)]">{moves} moves</div>
+      </div>
+
+      <section className="cube-card relative mt-3 overflow-hidden rounded-[22px]">
+        <div className="absolute left-3 top-3 z-[4] rounded-[11px] border border-[var(--border)] bg-black/35 px-3 py-1.5 text-xs font-bold text-[var(--muted)]">PLAYABLE {size}×{size} CUBE</div>
+        <button type="button" aria-label="Reset cube" disabled={busy} onClick={()=>actionsRef.current?.resetCube()} className="absolute right-3 top-3 z-[4] grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] bg-black/35 text-lg font-extrabold disabled:opacity-40">↻</button>
+        <div className="platform-ring absolute bottom-[58px] left-1/2 z-[1] h-[66px] w-[230px] -translate-x-1/2 rounded-[50%]"/>
+        <div ref={mountRef} className={`${focusStageClass} w-full touch-none`}/>
+        <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{status}</div>
+      </section>
+
+      <details className="glass mt-3 rounded-[18px] p-3">
+        <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Controls if needed</summary>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={()=>changeMode("turn")} className={`${viewMode==="turn"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Turn Cube</button>
+          <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Move Cube</button>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-2"><button disabled={busy} onClick={()=>actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button><button disabled={busy||!canUndo} onClick={()=>actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button><button onClick={()=>actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button></div>
+        <div className="mt-2 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+      </details>
+    </div>
+  </main>;
 
   return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
     <div className="orb orb-a"/><div className="orb orb-b"/>
