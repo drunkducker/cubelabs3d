@@ -3,10 +3,10 @@
 /**
  * Solver playback cube.
  *
- * The cube keeps the current sticker state rendered continuously. Only while a
- * move is active do we split the affected layer into a temporary rotating group.
- * This avoids the visible one-frame remount/flash that happened when layer
- * membership was derived directly from the requested step.
+ * Every cubie mesh remains mounted for the lifetime of the scene. During a move,
+ * the affected static cubies are hidden and an already-mounted duplicate layer is
+ * revealed and rotated. Keeping the same geometry and materials alive removes the
+ * bright remount flash seen on mobile at the end of each move.
  */
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
@@ -61,9 +61,9 @@ function Sticker({ color, position, rotation = [0, 0, 0] }: { color: string; pos
   );
 }
 
-function Cubie({ x, y, z, facelets }: Cell & { facelets: string }) {
+function Cubie({ x, y, z, facelets, visible = true }: Cell & { facelets: string; visible?: boolean }) {
   return (
-    <group position={[x, y, z]}>
+    <group position={[x, y, z]} visible={visible}>
       <RoundedBox args={[0.9, 0.9, 0.9]} radius={0.075} smoothness={3}>
         <meshStandardMaterial color="#111318" roughness={0.4} metalness={0.05} />
       </RoundedBox>
@@ -90,6 +90,7 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
     setActive(null);
     shownStep.current = 0;
     animation.current = null;
+    if (layerRef.current) layerRef.current.rotation.set(0, 0, 0);
     onAnimating(false);
   }, [initial, onAnimating]);
 
@@ -104,6 +105,7 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
       applySequence(solved(), [scramble, ...solution.slice(0, nextStep)].filter(Boolean).join(" ")),
     );
 
+    if (layerRef.current) layerRef.current.rotation.set(0, 0, 0);
     setActive(target);
     animation.current = { ...target, nextFacelets, nextStep, startedAt: performance.now() };
     onAnimating(true);
@@ -120,18 +122,16 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
     group.rotation[current.axis] = current.angle * eased;
 
     if (t >= 1) {
-      group.rotation.set(0, 0, 0);
       shownStep.current = current.nextStep;
+      animation.current = null;
       setFacelets(current.nextFacelets);
       setActive(null);
-      animation.current = null;
+      group.rotation.set(0, 0, 0);
       onAnimating(false);
     }
   });
 
   const inLayer = (cell: Cell) => active ? cell[active.axis] === active.layer : false;
-  const movingCells = active ? CELLS.filter(inLayer) : [];
-  const staticCells = active ? CELLS.filter((cell) => !inLayer(cell)) : CELLS;
 
   return (
     <>
@@ -139,12 +139,17 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
       <directionalLight position={[5, 8, 7]} intensity={1.8} />
       <directionalLight position={[-5, 3, 4]} intensity={0.8} color="#9fd8ff" />
       <group rotation={[-0.08, -0.08, 0]} scale={0.9}>
-        {staticCells.map((cell) => <Cubie key={`s:${cell.x}:${cell.y}:${cell.z}`} {...cell} facelets={facelets} />)}
-        {active && (
-          <group ref={layerRef}>
-            {movingCells.map((cell) => <Cubie key={`m:${cell.x}:${cell.y}:${cell.z}`} {...cell} facelets={facelets} />)}
-          </group>
-        )}
+        {/* Permanent base cube: affected cubies are hidden, never unmounted. */}
+        {CELLS.map((cell) => (
+          <Cubie key={`base:${cell.x}:${cell.y}:${cell.z}`} {...cell} facelets={facelets} visible={!inLayer(cell)} />
+        ))}
+
+        {/* Permanent moving copy: all meshes stay mounted; only the active layer is visible. */}
+        <group ref={layerRef}>
+          {CELLS.map((cell) => (
+            <Cubie key={`move:${cell.x}:${cell.y}:${cell.z}`} {...cell} facelets={facelets} visible={Boolean(active && inLayer(cell))} />
+          ))}
+        </group>
       </group>
       <OrbitControls enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 4.5} maxPolarAngle={(3.4 * Math.PI) / 4.5} />
     </>
