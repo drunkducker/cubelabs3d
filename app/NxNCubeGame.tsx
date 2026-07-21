@@ -219,17 +219,16 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
       <Link href="/solve" className="mt-4 inline-flex text-sm font-bold text-[var(--muted)]">← Back to solvers</Link>
       <section className="mt-5"><p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">PLAYABLE LARGE CUBE</p><h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play the<br/><span className="accent-text">{size}×{size} Cube</span></h1><p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Swipe exact layers, rotate the cube, or switch to Move mode to position it anywhere inside the viewport.</p></section>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button onClick={()=>changeMode("turn")} className={`${viewMode==="turn"?"cta-purple":"glass"} min-h-11 rounded-xl font-extrabold`}>Turn Cube</button>
-        <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-11 rounded-xl font-extrabold`}>Move Cube</button>
-      </div>
-
       <section className="glass mt-3 overflow-hidden rounded-[22px]">
         <div className="flex justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><strong className="text-[var(--text)]">{moves} moves</strong></div>
         <div ref={mountRef} className="h-[390px] w-full touch-none sm:h-[440px]"/>
       </section>
 
       <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button onClick={()=>changeMode("turn")} className={`${viewMode==="turn"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Turn Cube</button>
+        <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Move Cube</button>
+      </div>
       <div className="mt-2 grid grid-cols-3 gap-2"><button disabled={busy} onClick={()=>actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button><button disabled={busy||!canUndo} onClick={()=>actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button><button onClick={()=>actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button></div>
       <button disabled={busy} onClick={()=>actionsRef.current?.resetCube()} className="glass mt-2 min-h-12 w-full rounded-xl font-extrabold disabled:opacity-40">Reset Cube</button>
 
