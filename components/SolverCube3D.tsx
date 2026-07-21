@@ -3,9 +3,10 @@
 /**
  * Solver playback cube using one permanent set of 27 physical cubies.
  *
- * During a turn, the affected cubies are temporarily attached to a pivot group,
- * rotated, and then attached back to the cube root. No duplicate layers, mesh
- * replacement, visibility swaps, or sticker recoloring happen between moves.
+ * The display transform lives on an outer frame. The cube root and turn pivot are
+ * siblings inside that frame, so re-parenting a layer never mixes scaled/world
+ * coordinates. Positions and orientations are snapped to the exact cube grid after
+ * every turn to prevent the cube from drifting, folding, or developing gaps.
  */
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
@@ -61,6 +62,27 @@ function stickerIndex(face: string, x: number, y: number, z: number) {
   if (face === "D") return 27 + (1 - z) * 3 + (x + 1);
   if (face === "L") return 36 + (1 - y) * 3 + (z + 1);
   return 45 + (1 - y) * 3 + (1 - x);
+}
+
+function snapCubie(group: THREE.Group) {
+  group.position.set(
+    Math.round(group.position.x),
+    Math.round(group.position.y),
+    Math.round(group.position.z),
+  );
+
+  const rotation = new THREE.Matrix4().makeRotationFromQuaternion(group.quaternion);
+  const elements = rotation.elements;
+  const indices = [0, 1, 2, 4, 5, 6, 8, 9, 10];
+  indices.forEach((index) => {
+    const value = elements[index];
+    elements[index] = Math.abs(value) < 0.5 ? 0 : value > 0 ? 1 : -1;
+  });
+  group.quaternion.setFromRotationMatrix(rotation).normalize();
+  group.scale.set(1, 1, 1);
+  group.userData.grid = group.position.clone();
+  group.updateMatrix();
+  group.updateMatrixWorld(true);
 }
 
 function Sticker({ color, position, rotation = [0, 0, 0] }: { color: string; position: Vec3; rotation?: Vec3 }) {
@@ -146,11 +168,10 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
     turnGroup.rotation[current.axis] = current.angle * eased;
 
     if (t >= 1) {
+      turnGroup.updateMatrixWorld(true);
       current.cubies.forEach((group) => {
         root.attach(group);
-        group.position.set(Math.round(group.position.x), Math.round(group.position.y), Math.round(group.position.z));
-        group.userData.grid = group.position.clone();
-        group.quaternion.normalize();
+        snapCubie(group);
       });
       turnGroup.rotation.set(0, 0, 0);
       shownStep.current = current.nextStep;
@@ -164,8 +185,10 @@ function Scene({ scramble, solution, step, onAnimating }: { scramble: string; so
       <hemisphereLight args={["#ffffff", "#18345f", 1.5]} />
       <directionalLight position={[5, 8, 7]} intensity={1.8} />
       <directionalLight position={[-5, 3, 4]} intensity={0.8} color="#9fd8ff" />
-      <group ref={cubeRoot} rotation={[-0.08, -0.08, 0]} scale={0.9}>
-        {CELLS.map((cell) => <Cubie key={`${initialFacelets}:${cell.x}:${cell.y}:${cell.z}`} cell={cell} facelets={initialFacelets} register={register} />)}
+      <group rotation={[-0.08, -0.08, 0]} scale={0.9}>
+        <group ref={cubeRoot}>
+          {CELLS.map((cell) => <Cubie key={`${initialFacelets}:${cell.x}:${cell.y}:${cell.z}`} cell={cell} facelets={initialFacelets} register={register} />)}
+        </group>
         <group ref={pivot} />
       </group>
       <OrbitControls enablePan={false} enableZoom={false} minPolarAngle={Math.PI / 4.5} maxPolarAngle={(3.4 * Math.PI) / 4.5} />
