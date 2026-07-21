@@ -42,7 +42,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const scene=new THREE.Scene();
     const focusLayout=variant==="focus";
     const focusZoom=size*4.2;
-    const focusOffset=new THREE.Vector3(-2.25,2,0);
+    const focusOffset=new THREE.Vector3(-1.25,-.5,0);
     scene.background=focusLayout?null:new THREE.Color("#080b14");
     const camera=new THREE.PerspectiveCamera(focusLayout?37:18,1,.1,400);
     const distance=focusLayout?focusZoom:size*4.15;
@@ -80,8 +80,8 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     if(focusLayout) root.position.copy(focusOffset);
     scene.add(root);
     const edge=(size-1)/2;
-    const bodyGeometry=new THREE.BoxGeometry(.92,.92,.92);
-    const stickerGeometry=new THREE.BoxGeometry(.72,.72,.05);
+    const bodyGeometry=new THREE.BoxGeometry(.9,.9,.9);
+    const stickerGeometry=new THREE.BoxGeometry(.76,.76,.045);
     const cubies:Cubie[]=[];
     const materials:THREE.Material[]=[];
     const material=(color:string,sticker=false)=>{
@@ -95,11 +95,11 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       materials.push(mat);
       return mat;
     };
-    const bodyMaterial=material(COLORS.I);
     const addSticker=(group:THREE.Group,color:string,position:[number,number,number],rotation:[number,number,number]=[0,0,0])=>{
       const sticker=new THREE.Mesh(stickerGeometry,material(color,true));
       sticker.position.set(...position);
       sticker.rotation.set(...rotation);
+      sticker.userData.isSticker=true;
       group.add(sticker);
     };
 
@@ -109,16 +109,18 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       const x=xi-edge,y=yi-edge,z=zi-edge;
       const mesh=new THREE.Group();
       mesh.position.set(x,y,z);
-      const body=new THREE.Mesh(bodyGeometry,bodyMaterial);
+      const body=new THREE.Mesh(bodyGeometry,material(COLORS.I));
       mesh.add(body);
-      if(x===edge) addSticker(mesh,COLORS.R,[.49,0,0],[0,Math.PI/2,0]);
-      if(x===-edge) addSticker(mesh,COLORS.L,[-.49,0,0],[0,Math.PI/2,0]);
-      if(y===edge) addSticker(mesh,COLORS.U,[0,.49,0],[Math.PI/2,0,0]);
-      if(y===-edge) addSticker(mesh,COLORS.D,[0,-.49,0],[Math.PI/2,0,0]);
-      if(z===edge) addSticker(mesh,COLORS.F,[0,0,.49]);
-      if(z===-edge) addSticker(mesh,COLORS.B,[0,0,-.49]);
+      if(x===edge) addSticker(mesh,COLORS.R,[.468,0,0],[0,Math.PI/2,0]);
+      if(x===-edge) addSticker(mesh,COLORS.L,[-.468,0,0],[0,Math.PI/2,0]);
+      if(y===edge) addSticker(mesh,COLORS.U,[0,.468,0],[Math.PI/2,0,0]);
+      if(y===-edge) addSticker(mesh,COLORS.D,[0,-.468,0],[Math.PI/2,0,0]);
+      if(z===edge) addSticker(mesh,COLORS.F,[0,0,.468]);
+      if(z===-edge) addSticker(mesh,COLORS.B,[0,0,-.468]);
       root.add(mesh);
-      cubies.push({mesh,grid:new THREE.Vector3(x,y,z),home:new THREE.Vector3(x,y,z)});
+      const cubie={mesh,grid:new THREE.Vector3(x,y,z),home:new THREE.Vector3(x,y,z)};
+      mesh.traverse(child=>{ child.userData.cubie=cubie; });
+      cubies.push(cubie);
     }
 
     const raycaster=new THREE.Raycaster();
@@ -135,11 +137,12 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const glowCubie=(cubie:Cubie,intensity:number)=>{
       cubie.mesh.traverse(child=>{
         if(!(child instanceof THREE.Mesh)) return;
+        if(!child.userData.isSticker) return;
         const mats=Array.isArray(child.material)?child.material:[child.material];
         mats.forEach(m=>{
           const mat=m as THREE.MeshStandardMaterial;
           mat.emissive.set(intensity ? "#4d7cff" : mat.color);
-          mat.emissiveIntensity=intensity;
+          mat.emissiveIntensity=intensity || .035;
         });
       });
     };
@@ -218,7 +221,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       setPointerFromEvent(event);
       const hit=raycaster.intersectObjects(cubies.map(c=>c.mesh),true)[0];
       if(!hit||!hit.face){ controls.enabled=true; return; }
-      const cubie=cubies.find(c=>c.mesh===hit.object||c.mesh.children.includes(hit.object)); if(!cubie) return;
+      const cubie=(hit.object as THREE.Object3D).userData.cubie as Cubie|undefined; if(!cubie) return;
       const normalMatrix=new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld);
       const normal=hit.face.normal.clone().applyMatrix3(normalMatrix).normalize();
       pointerStart={pointerId:event.pointerId,clientX:event.clientX,clientY:event.clientY,cubie,normal};
