@@ -147,7 +147,7 @@ export default function NotationCube() {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 240);
     const distance = size * 4.8;
-    const cubeAnchor = new THREE.Vector3(-2.5, 2, 0);
+    const cubeAnchor = new THREE.Vector3(0, 0, 0);
     camera.position.set(cubeAnchor.x + distance * 0.82, cubeAnchor.y + distance * 0.68, cubeAnchor.z + distance);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -245,17 +245,18 @@ export default function NotationCube() {
       });
     };
 
-    const clearHighlight = () => {
+    const clearHighlight = (keepSelection = true) => {
       highlighted.forEach(cubie => glowCubie(cubie, 0));
       highlighted = [];
       previewGesture = null;
-      if (selectedSticker) glowSticker(selectedSticker, 0.42);
+      if (keepSelection && selectedSticker) glowSticker(selectedSticker, 0.42);
     };
 
     const highlightLayer = (gesture: Gesture) => {
       clearHighlight();
       highlighted = cubies.filter(cubie => Math.abs(cubie.grid[gesture.axis] - gesture.layer) < 0.01);
       highlighted.forEach(cubie => glowCubie(cubie, 0.3));
+      previewGesture = gesture;
     };
 
     const setPointerFromEvent = (event: PointerEvent) => {
@@ -298,7 +299,11 @@ export default function NotationCube() {
 
     const turnLayer = (gesture: Gesture) => {
       if (active) return;
-      clearHighlight();
+      if (selectedSticker) {
+        glowSticker(selectedSticker, 0);
+        selectedSticker = null;
+      }
+      clearHighlight(false);
       active = true;
       controls.enabled = false;
       controls.autoRotate = false;
@@ -328,6 +333,7 @@ export default function NotationCube() {
           cubie.grid.applyMatrix4(rotation).set(snapGrid(cubie.grid.x, size), snapGrid(cubie.grid.y, size), snapGrid(cubie.grid.z, size));
         });
         root.remove(pivot);
+        clearHighlight(false);
         active = false;
         controls.enabled = true;
         setSelected(`${gesture.label} complete`);
@@ -388,7 +394,6 @@ export default function NotationCube() {
       if (Math.hypot(dx, dy) < 16) return;
       event.preventDefault();
       const gesture = resolveGesture(pointerStart, dx, dy);
-      previewGesture = gesture;
       highlightLayer(gesture);
       setSelected(`${gesture.label} layer`);
     };
@@ -405,8 +410,8 @@ export default function NotationCube() {
       const dy = event.clientY - start.clientY;
       const distanceMoved = Math.hypot(dx, dy);
 
-      if (distanceMoved >= 34 && previewGesture) {
-        turnLayer(previewGesture);
+      if (distanceMoved >= 34) {
+        turnLayer(previewGesture ?? resolveGesture(start, dx, dy));
         return;
       }
 
@@ -509,3 +514,4 @@ export default function NotationCube() {
     </section>
   );
 }
+
