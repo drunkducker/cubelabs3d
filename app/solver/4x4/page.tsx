@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function FourByFourPage() {
-  return <NxNCubeGame size={4} />;
+  return <NxNCubeGame size={4} variant="focus" />;
 }
