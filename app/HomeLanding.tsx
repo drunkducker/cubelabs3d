@@ -1,183 +1,192 @@
 "use client";
 
 /**
- * Premium mobile-first solver homepage for Cube Lab 3D.
+ * Cube Lab 3D homepage.
  *
- * This component preserves the user's preferred single-column app layout while
- * correcting the product flow: the demo solution stays hidden until the visitor
- * starts a solve, solver and training inputs are separated clearly, and the
- * lower page expands into swipeable discovery rails without interrupting the
- * core cube-solving task.
+ * This component is a faithful React conversion of the founder's preferred
+ * single-file mobile design. The mobile layout, option cards, green solve CTA,
+ * draggable CSS cube, solution stepper, feature grid, and sign-in banner are
+ * preserved instead of being reinterpreted.
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./HomeLanding.module.css";
 
-type Rail = {
-  title: string;
-  note: string;
-  cards: Array<[string, string, string]>;
-};
-
-const rails: Rail[] = [
-  {
-    title: "Recommended speed cubes",
-    note: "Product placeholders",
-    cards: [
-      ["Beginner magnetic 3×3", "A forgiving first upgrade with smooth turning and stable alignment.", "GEAR"],
-      ["Competition speed cube", "A lighter, faster option for players improving their times.", "GEAR"],
-      ["Timer and mat bundle", "A consistent practice setup for home solves.", "ACCESSORY"],
-    ],
-  },
-  {
-    title: "Daily challenge",
-    note: "Coming after the solver",
-    cards: [
-      ["Today’s shared scramble", "Everyone receives the same scramble and one clean attempt.", "COMING NEXT"],
-      ["Ghost race", "Race your own personal best without waiting for another player.", "PLANNED"],
-      ["Weekly streak", "Complete one challenge each day to build a visible streak.", "PLANNED"],
-    ],
-  },
-  {
-    title: "Cube Lab games",
-    note: "Our games first",
-    cards: [
-      ["Chameleon Loop", "A colorful timing and matching game built for mobile play.", "OUR GAME"],
-      ["Mouse Hunt", "Search a dark cartoon house and catch every mouse before time runs out.", "OUR GAME"],
-      ["Mobile game spotlight", "Reserved for a future approved game promotion or muted preview.", "PLACEHOLDER"],
-    ],
-  },
-  {
-    title: "Learn to solve",
-    note: "Guides and tutorials",
-    cards: [
-      ["Beginner method", "Learn one layer at a time with simple visual instructions.", "GUIDE"],
-      ["3×3 patterns", "Build checkerboards, cube-in-a-cube patterns, and more.", "GUIDE"],
-      ["Faster solving", "Move from beginner steps toward efficient speed-solving methods.", "VIDEO"],
-    ],
-  },
-  {
-    title: "Featured videos",
-    note: "Video placeholders",
-    cards: [
-      ["How the solver works", "A short walkthrough of manual entry and animated playback.", "VIDEO"],
-      ["20×20 reveal", "A future performance showcase for the extreme cube engine.", "VIDEO"],
-      ["Mobile game preview", "A reserved placement for a muted promotional video.", "VIDEO SLOT"],
-    ],
-  },
-  {
-    title: "Cube news",
-    note: "Editorial placeholders",
-    cards: [
-      ["New puzzle releases", "Fresh cubes, accessories, and technology worth watching.", "NEWS"],
-      ["Competition highlights", "Records, major events, and community achievements.", "NEWS"],
-      ["Creator spotlight", "Profiles and videos from puzzle creators and teachers.", "COMMUNITY"],
-    ],
-  },
+const MOVES = [
+  "R U R′ U′", "F R U′ R′", "U R U′ R′", "L′ U′ L U", "R U2 R′",
+  "F U R U′", "R′ F R F′", "U′ L′ U L", "R U R′ F′", "F R U R′",
+  "U2 R U R′", "L U L′ U′", "R′ U′ R U", "F′ U′ F", "R U R′ U R U2 R′",
+  "U R U′ R′", "L′ U L U′", "F R′ F′ R", "R U2 R′ U′", "R U R′ U′",
 ];
 
-/** Decorative CSS cube used until the full color-entry editor is embedded. */
+const FACE_COLORS = ["#1667e0", "#24b84a", "#e6352b", "#ff7a18", "#f4f6f8", "#ffd21f"];
+
+function Icon({ name }: { name: "edit" | "camera" | "shuffle" | "paste" }) {
+  const glyph = { edit: "✎", camera: "▣", shuffle: "⌘", paste: "▤" }[name];
+  return <span aria-hidden="true">{glyph}</span>;
+}
+
+/** CSS-only six-face cube with pointer drag and idle rotation. */
 function HeroCube() {
-  const stickers = Array.from({ length: 9 });
+  const [rotation, setRotation] = useState({ x: -24, y: -32 });
+  const [dragging, setDragging] = useState(false);
+  const [hintVisible, setHintVisible] = useState(true);
+  const last = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (dragging) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    const timer = window.setInterval(() => {
+      setRotation((current) => ({ ...current, y: current.y + 0.25 }));
+    }, 30);
+    return () => window.clearInterval(timer);
+  }, [dragging]);
+
+  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    setDragging(true);
+    setHintVisible(false);
+    last.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!dragging || !last.current) return;
+    const dx = event.clientX - last.current.x;
+    const dy = event.clientY - last.current.y;
+    setRotation((current) => ({
+      x: Math.max(-88, Math.min(88, current.x - dy * 0.6)),
+      y: current.y + dx * 0.6,
+    }));
+    last.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function endDrag() {
+    setDragging(false);
+    last.current = null;
+  }
+
+  const faces = ["front", "back", "right", "left", "top", "bottom"] as const;
+
   return (
-    <div className={styles.cubeCard} aria-label="Interactive cube preview">
-      <span className={styles.badge}>◇ 3D</span>
-      <span className={styles.resetView} aria-hidden="true">↻</span>
+    <div
+      className={styles.cubeCard}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      <div className={styles.badge}>◇ 3D</div>
+      <button
+        type="button"
+        className={styles.refresh}
+        aria-label="Reset cube view"
+        onClick={() => setRotation({ x: -24, y: -32 })}
+      >↻</button>
       <div className={styles.platform} />
-      <div className={styles.cubeStage}>
-        <div className={styles.cube}>
-          <span className={`${styles.face} ${styles.front}`}>{stickers.map((_, i) => <i key={`f-${i}`} />)}</span>
-          <span className={`${styles.face} ${styles.right}`}>{stickers.map((_, i) => <i key={`r-${i}`} />)}</span>
-          <span className={`${styles.face} ${styles.top}`}>{stickers.map((_, i) => <i key={`t-${i}`} />)}</span>
-        </div>
+      <div
+        className={styles.cube}
+        style={{ transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)` }}
+        aria-hidden="true"
+      >
+        {faces.map((face, faceIndex) => (
+          <span className={`${styles.face} ${styles[face]}`} key={face}>
+            {Array.from({ length: 9 }, (_, stickerIndex) => (
+              <i key={`${face}-${stickerIndex}`} style={{ background: FACE_COLORS[faceIndex] }} />
+            ))}
+          </span>
+        ))}
       </div>
-      <span className={styles.dragHint}>↔ Drag to rotate</span>
+      <div className={`${styles.dragHint} ${hintVisible ? "" : styles.hiddenHint}`}>↔ Drag to rotate</div>
     </div>
   );
 }
 
 export default function HomeLanding() {
-  const [solveStarted, setSolveStarted] = useState(false);
   const [step, setStep] = useState(0);
-  const demoMoves = ["R U R′ U′", "F R U′ R′", "U R U′ R′", "L′ U′ L U"];
+  const [autoPlaying, setAutoPlaying] = useState(false);
+  const [toast, setToast] = useState("");
+  const miniColors = useMemo(
+    () => Array.from({ length: 9 }, (_, index) => FACE_COLORS[((step + 1) * 7 + index * 3) % FACE_COLORS.length]),
+    [step],
+  );
+
+  useEffect(() => {
+    if (!autoPlaying) return;
+    const timer = window.setInterval(() => setStep((current) => (current + 1) % MOVES.length), 900);
+    return () => window.clearInterval(timer);
+  }, [autoPlaying]);
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2200);
+  }
 
   return (
     <main className={styles.page}>
       <div className={styles.app}>
+        <div className={`${styles.orb} ${styles.orbA}`} />
+        <div className={`${styles.orb} ${styles.orbB}`} />
+
         <header className={styles.header}>
           <div className={styles.brand}>
             <span className={styles.logo} aria-hidden="true"><i /><i /><i /></span>
             <div><strong>CUBE LAB <b>3D</b></strong><small>SOLVE · LEARN · MASTER</small></div>
           </div>
-          <button className={styles.menu} type="button" aria-label="Open menu">☰</button>
+          <div className={styles.headActions}>
+            <button type="button" className={styles.iconButton} onClick={() => showToast("Help and tips are coming soon")}>?</button>
+            <button type="button" className={styles.menu} aria-label="Open menu" onClick={() => showToast("Menu is coming soon")}>☰</button>
+          </div>
         </header>
 
-        <section className={styles.hero} aria-labelledby="home-title">
-          <div className={styles.heroCopy}>
-            <h1 id="home-title">Solve Your<br />Cube in <span>Seconds</span></h1>
-            <p>Enter your cube, get a step-by-step solution, and master every move.</p>
-            <strong>No account required.</strong>
+        <h1 className={styles.heroTitle}>Solve Your<br />Cube in <span>Seconds</span></h1>
+        <p className={styles.heroSub}>Enter your cube, get a step-by-step solution, and master every move.</p>
+        <p className={styles.heroFree}>No account required.</p>
+
+        <HeroCube />
+
+        <div className={styles.options} aria-label="Cube input choices">
+          <button type="button" onClick={() => showToast("Manual color editor is coming next")}><Icon name="edit" /><b>Enter<br />Manually</b></button>
+          <button type="button" onClick={() => showToast("Camera scan is coming soon")}><Icon name="camera" /><b>Scan<br />Cube</b></button>
+          <button type="button" onClick={() => showToast("Random scramble generated")}><Icon name="shuffle" /><b>Random<br />Scramble</b></button>
+          <button type="button" onClick={() => showToast("Paste scramble input is coming next")}><Icon name="paste" /><b>Paste<br />Scramble</b></button>
+        </div>
+
+        <Link className={styles.solve} href="/play/3x3"><span>✦</span><b>SOLVE MY CUBE</b><span>→</span></Link>
+        <div className={styles.trust}>▣ Solver free <span>•</span> No sign up required</div>
+
+        <section className={styles.stepper} aria-label="Solution preview">
+          <div className={styles.stepTop}>
+            <div><small>Next Step</small><strong>{MOVES[step]}</strong></div>
+            <div className={styles.miniWrap}>
+              <div className={styles.miniCube}>{miniColors.map((color, index) => <i key={index} style={{ background: color }} />)}</div>
+              <span>Step {step + 1} of {MOVES.length}</span>
+            </div>
           </div>
-
-          <HeroCube />
-
-          <div className={styles.options} aria-label="Cube input choices">
-            <button type="button"><b>✎</b><span>Enter manually<small>Solver input</small></span></button>
-            <button type="button"><b>▣</b><span>Scan cube<small>Coming soon</small></span></button>
-            <Link href="/play/3x3"><b>⌘</b><span>Random scramble<small>Training mode</small></span></Link>
-            <Link href="/play/3x3"><b>▤</b><span>Paste scramble<small>Training mode</small></span></Link>
+          <div className={styles.stepButtons}>
+            <button type="button" onClick={() => setStep((step - 1 + MOVES.length) % MOVES.length)}>‹ Prev</button>
+            <button type="button" className={styles.primaryStep} onClick={() => setStep((step + 1) % MOVES.length)}>▶ Next</button>
+            <button type="button" onClick={() => setAutoPlaying((value) => !value)}>{autoPlaying ? "Ⅱ Pause" : "≫ Auto Play"}</button>
           </div>
-
-          <button className={styles.cta} type="button" onClick={() => setSolveStarted(true)}>
-            <span aria-hidden="true">✦</span> SOLVE MY CUBE <span aria-hidden="true">→</span>
-          </button>
-          <p className={styles.trust}>▣ Solver free · No account required</p>
-
-          {solveStarted && (
-            <section className={styles.stepper} aria-live="polite" aria-label="Demo solution playback">
-              <div className={styles.stepTop}>
-                <div><small>Next step</small><strong>{demoMoves[step]}</strong></div>
-                <span>Step {step + 1} of {demoMoves.length}</span>
-              </div>
-              <p>This is the visual playback layout. It will connect to the real solver engine in the next solver build.</p>
-              <div className={styles.stepButtons}>
-                <button type="button" onClick={() => setStep((step - 1 + demoMoves.length) % demoMoves.length)}>‹ Prev</button>
-                <button type="button" onClick={() => setStep((step + 1) % demoMoves.length)}>Next ›</button>
-                <Link href="/play/3x3">Open 3×3</Link>
-              </div>
-            </section>
-          )}
         </section>
 
-        <section className={styles.quickGrid} aria-label="Explore Cube Lab">
-          <article><b>🎮</b><strong>Play Cubes</strong><small>Games and challenges</small></article>
-          <article><b>🏆</b><strong>Daily Challenge</strong><small>Compete and build streaks</small></article>
-          <article><b>📘</b><strong>Learn</strong><small>Guides and tutorials</small></article>
-          <article><b>◇</b><strong>Cube Reviews</strong><small>Find the right cube</small></article>
+        <div className={styles.dots} aria-hidden="true"><i className={styles.activeDot} /><i /><i /><i /><i /><i /><i /></div>
+
+        <section className={styles.featureGrid} aria-label="Explore Cube Lab">
+          <button type="button" className={styles.games} onClick={() => showToast("Cube games are coming soon")}><span>🎮</span><div><b>Play Cubes</b><small>Fun games and challenges</small></div><em>›</em></button>
+          <button type="button" className={styles.daily} onClick={() => showToast("Daily challenge is coming soon")}><span>🏆</span><div><b>Daily Challenge</b><small>Compete and win rewards</small></div><em>›</em></button>
+          <button type="button" className={styles.learn} onClick={() => showToast("Tutorials are coming soon")}><span>📘</span><div><b>Learn</b><small>Guides, tutorials and more</small></div><em>›</em></button>
+          <button type="button" className={styles.reviews} onClick={() => showToast("Cube reviews are coming soon")}><span>◇</span><div><b>Cube Reviews</b><small>Find the best cubes</small></div><em>›</em></button>
         </section>
 
         <aside className={styles.signinBanner}>
-          <div><strong>Save solve history, streaks, and cross-device progress.</strong><p>Guest play always remains available.</p></div>
-          <button type="button">Sign in</button>
+          <span className={styles.avatar}>♙</span>
+          <div><strong>Save your solves and sync across all your devices.</strong><small>Sign in or continue as Guest.</small></div>
+          <div className={styles.signinActions}><button type="button" onClick={() => showToast("Continuing as Guest")}>Continue as Guest</button><button type="button" className={styles.signinButton} onClick={() => showToast("Sign in is coming soon")}>Sign In</button></div>
         </aside>
-
-        {rails.map((rail, railIndex) => (
-          <section className={styles.section} key={rail.title} aria-labelledby={`rail-${railIndex}`}>
-            <div className={styles.sectionHead}><h2 id={`rail-${railIndex}`}>{rail.title}</h2><span>{rail.note}</span></div>
-            <div className={styles.rail}>
-              {rail.cards.map(([title, description, tag]) => (
-                <article className={styles.card} key={title}>
-                  <span>{tag}</span>
-                  <div><strong>{title}</strong><p>{description}</p></div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        <footer className={styles.footer}>Development preview · Privacy, terms, data export, and account deletion must be completed before public launch.</footer>
       </div>
+      <div className={`${styles.toast} ${toast ? styles.toastShow : ""}`} role="status" aria-live="polite">{toast}</div>
     </main>
   );
 }
