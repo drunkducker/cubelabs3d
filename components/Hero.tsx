@@ -1,11 +1,9 @@
-/* ==========================================================================
+/* ========================================================================== 
    HERO
-   The first screen: headline promise, the interactive 3D cube stage, the
-   four solve options, and the primary CTA. Composed from client components.
+   The first screen now uses one shared interactive demo: users touch the cube,
+   see their moves recorded below, and play the exact reverse solution.
    ========================================================================== */
-import CubeStage from "./CubeStage";
-import SolveOptions from "./SolveOptions";
-import SolveButton from "./SolveButton";
+import HeroCubeExperience from "./HeroCubeExperience";
 
 export default function Hero() {
   return (
@@ -19,9 +17,7 @@ export default function Hero() {
         Enter your cube, get a step-by-step solution, and master every move.
       </p>
       <p className="mt-2 text-[15px] font-bold text-[var(--green)]">No account required.</p>
-      <CubeStage />
-      <SolveOptions />
-      <SolveButton />
+      <HeroCubeExperience />
     </section>
   );
 }
