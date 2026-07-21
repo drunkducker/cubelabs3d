@@ -1,11 +1,144 @@
 "use client";
-import { useEffect,useRef,useState } from "react";
-import { ChevronLeftIcon,PlayIcon,AutoPlayIcon,PauseIcon } from "./icons";
-const MOVES=["R U R' U'","F R U' R'","U R U' R'","L' U' L U","R U2 R'","F U R U'","R' F R F'","U' L' U L","R U R' F'","F R U R'","U2 R U R'","L U L' U'","R' U' R U","F' U' F","R U R' U R U2 R'","U R U' R'","L' U L U'","F R' F' R","R U2 R' U'","R U R' U'"];
-const COLORS=["#1667e0","#e6352b","#24b84a","#ffd21f","#ff7a18","#f4f6f8"];
-const miniCells=(seed:number)=>Array.from({length:9},(_,i)=>COLORS[(seed*7+i*3)%COLORS.length]);
-export default function SolutionStepper(){
- const total=MOVES.length; const [step,setStep]=useState(0); const [playing,setPlaying]=useState(false); const timer=useRef<ReturnType<typeof setInterval>|null>(null);
- useEffect(()=>{if(!playing)return; timer.current=setInterval(()=>setStep(s=>{const n=(s+1)%total;if(n===0)setPlaying(false);return n}),900); return()=>{if(timer.current)clearInterval(timer.current)}},[playing,total]);
- return <div className="glass mt-[18px] rounded-[22px] p-4"><div className="flex items-start justify-between"><div><div className="text-[13px] font-bold text-[var(--purple)]">Next Step</div><div className="mt-0.5 text-[30px] font-extrabold">{MOVES[step]}</div></div><div className="flex items-center gap-[10px]"><div className="grid h-[46px] w-[46px] grid-cols-3 grid-rows-3 gap-0.5 rounded-[9px] bg-[#0c0c0f] p-[3px]">{miniCells(step+1).map((c,i)=><i key={i} className="rounded-[2px]" style={{background:c}}/>)}</div><span className="rounded-full border border-[rgba(139,92,246,.35)] bg-[rgba(139,92,246,.18)] px-[11px] py-1.5 text-xs font-bold">Step {step+1} of {total}</span></div></div><div className="mt-[14px] grid grid-cols-[1fr_1.15fr_1fr] gap-[9px]"><button onClick={()=>setStep(s=>(s-1+total)%total)} className="glass flex items-center justify-center gap-[7px] rounded-[13px] p-[13px]"><ChevronLeftIcon className="h-4 w-4"/>Prev</button><button onClick={()=>setStep(s=>(s+1)%total)} className="cta-purple flex items-center justify-center gap-[7px] rounded-[13px] p-[13px]"><PlayIcon className="h-4 w-4"/>Next</button><button onClick={()=>setPlaying(p=>!p)} className="glass flex items-center justify-center gap-[7px] rounded-[13px] p-[13px]">{playing?<PauseIcon className="h-4 w-4"/>:<AutoPlayIcon className="h-4 w-4"/>}{playing?"Pause":"Auto Play"}</button></div></div>
+
+/**
+ * Solver showcase displayed directly below the primary homepage CTA.
+ *
+ * This replaces the old fake move-step demo with a truthful preview of the
+ * actual puzzle experiences available from the Solve My Puzzle hub.
+ */
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+const SOLVERS = [
+  {
+    size: "3×3",
+    name: "Rubik’s Cube",
+    status: "READY",
+    href: "/solver/3x3",
+    description: "Generate a scramble, solve it, and follow every move on the stable 3D cube.",
+    grid: 3,
+    accent: "var(--green)",
+  },
+  {
+    size: "2×2",
+    name: "Pocket Cube",
+    status: "READY",
+    href: "/solver/2x2",
+    description: "A fast corner-only solve with touch-friendly playback and speed controls.",
+    grid: 2,
+    accent: "var(--purple)",
+  },
+  {
+    size: "4×4",
+    name: "Revenge Cube",
+    status: "BETA",
+    href: "/solver/4x4",
+    description: "Explore true 4×4 geometry, wide turns, and guided reverse-scramble playback.",
+    grid: 4,
+    accent: "var(--gold)",
+  },
+] as const;
+
+const STICKERS = ["#1464e8", "#e53935", "#24c45a", "#ffd21f", "#ff7a18", "#f7f7f2"];
+
+function PuzzleFace({ size, seed }: { size: number; seed: number }) {
+  return (
+    <div
+      className="grid h-[82px] w-[82px] shrink-0 gap-[3px] rounded-[16px] bg-[#0b0d12] p-[6px] shadow-[0_12px_30px_rgba(0,0,0,.35)]"
+      style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+      aria-hidden="true"
+    >
+      {Array.from({ length: size * size }, (_, index) => (
+        <span
+          key={index}
+          className="rounded-[4px] border border-white/10"
+          style={{ background: STICKERS[(index * 3 + seed * 2) % STICKERS.length] }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default function SolutionStepper() {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActive((value) => (value + 1) % SOLVERS.length);
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const solver = SOLVERS[active];
+
+  return (
+    <section className="glass mt-[18px] overflow-hidden rounded-[22px] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-extrabold tracking-[.17em] text-[var(--purple)]">
+            PICK YOUR PUZZLE
+          </p>
+          <h3 className="mt-1 text-[25px] font-extrabold leading-tight">
+            One tap from scramble to solution.
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            Choose a cube, watch every turn in 3D, and move at your own pace.
+          </p>
+        </div>
+        <span className="whitespace-nowrap rounded-full border border-[var(--border)] bg-black/25 px-3 py-1 text-[11px] font-extrabold text-[var(--green)]">
+          2 READY
+        </span>
+      </div>
+
+      <Link
+        href={solver.href}
+        className="mt-4 flex items-center gap-4 rounded-[18px] border border-[var(--border)] bg-black/20 p-3 transition-transform active:scale-[.985]"
+      >
+        <PuzzleFace size={solver.grid} seed={active + 1} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[30px] font-black leading-none">{solver.size}</span>
+            <span
+              className="rounded-full border px-2 py-1 text-[10px] font-black tracking-[.12em]"
+              style={{ color: solver.accent, borderColor: `color-mix(in srgb, ${solver.accent} 45%, transparent)` }}
+            >
+              {solver.status}
+            </span>
+          </div>
+          <p className="mt-1 font-extrabold">{solver.name}</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{solver.description}</p>
+          <p className="mt-2 text-xs font-extrabold" style={{ color: solver.accent }}>
+            Open solver →
+          </p>
+        </div>
+      </Link>
+
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {SOLVERS.map((item, index) => (
+          <button
+            key={item.size}
+            type="button"
+            onClick={() => setActive(index)}
+            className={`rounded-xl border px-2 py-3 text-left transition-colors ${
+              index === active
+                ? "border-[var(--purple)] bg-[rgba(139,92,246,.14)]"
+                : "border-[var(--border)] bg-black/15"
+            }`}
+          >
+            <span className="block text-lg font-black">{item.size}</span>
+            <span className="mt-0.5 block truncate text-[10px] font-bold text-[var(--muted)]">
+              {item.status === "BETA" ? "Preview beta" : "Solve now"}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <Link
+        href="/solve"
+        className="mt-3 flex items-center justify-center rounded-xl border border-[var(--border)] bg-black/20 p-3 text-sm font-extrabold text-[var(--text)]"
+      >
+        View all puzzle solvers →
+      </Link>
+    </section>
+  );
 }
