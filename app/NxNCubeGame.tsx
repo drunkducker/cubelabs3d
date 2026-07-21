@@ -12,6 +12,7 @@ type Move = { axis: Axis; layer: number; direction: Direction; label: string; re
 type Cubie = { mesh: THREE.Mesh; grid: THREE.Vector3; home: THREE.Vector3 };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; cubie: Cubie; normal: THREE.Vector3 };
 type ViewMode = "turn" | "move";
+type Gesture = { axis: Axis; layer: number; direction: Direction };
 
 const COLORS = { R: "#e52b3d", L: "#ff7a00", U: "#f5f1e8", D: "#ffd500", F: "#00a85a", B: "#1557d5", I: "#111319" };
 const axisVector = (axis: Axis) => axis === "x" ? new THREE.Vector3(1,0,0) : axis === "y" ? new THREE.Vector3(0,1,0) : new THREE.Vector3(0,0,1);
@@ -89,6 +90,7 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
     const raycaster=new THREE.Raycaster();
     const pointer=new THREE.Vector2();
     let pointerStart:PointerStart|null=null;
+    let previewGesture:Gesture|null=null;
     let activePointers=0;
     let highlighted:Cubie[]=[];
     let currentMode:ViewMode="turn";
@@ -99,6 +101,7 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
     const clearHighlight=()=>{
       highlighted.forEach(c=>{ const mats=Array.isArray(c.mesh.material)?c.mesh.material:[c.mesh.material]; mats.forEach(m=>{ const mat=m as THREE.MeshStandardMaterial; mat.emissive.setHex(0); mat.emissiveIntensity=0; }); });
       highlighted=[];
+      previewGesture=null;
     };
     const highlightLayer=(axis:Axis,layer:number)=>{
       clearHighlight();
@@ -141,6 +144,7 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
     const setMode=(mode:ViewMode)=>{
       currentMode=mode;
       pointerStart=null;
+      previewGesture=null;
       clearHighlight();
       controls.enabled=true;
       controls.touches.ONE=mode==="move"?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE;
@@ -151,7 +155,7 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
 
     const setPointerFromEvent=(event:PointerEvent)=>{ const rect=renderer.domElement.getBoundingClientRect(); pointer.x=((event.clientX-rect.left)/rect.width)*2-1; pointer.y=-((event.clientY-rect.top)/rect.height)*2+1; raycaster.setFromCamera(pointer,camera); };
     const projectedScreenDirection=(worldDirection:THREE.Vector3)=>{ const origin=new THREE.Vector3(0,0,0).project(camera); const endpoint=worldDirection.clone().project(camera); return new THREE.Vector2(endpoint.x-origin.x,-(endpoint.y-origin.y)).normalize(); };
-    const resolveGesture=(start:PointerStart,dx:number,dy:number)=>{
+    const resolveGesture=(start:PointerStart,dx:number,dy:number):Gesture=>{
       const faceAxis=dominantAxis(start.normal);
       const candidates=(["x","y","z"] as Axis[]).filter(a=>a!==faceAxis);
       const drag=new THREE.Vector2(dx,dy).normalize();
@@ -163,6 +167,7 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
 
     const onPointerDown=(event:PointerEvent)=>{
       activePointers+=1;
+      previewGesture=null;
       if(currentMode==="move"){ pointerStart=null; controls.enabled=true; renderer.domElement.style.cursor="grabbing"; return; }
       if(active||activePointers>1){ pointerStart=null; controls.enabled=true; clearHighlight(); return; }
       setPointerFromEvent(event);
@@ -172,12 +177,14 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
       const normalMatrix=new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld);
       const normal=hit.face.normal.clone().applyMatrix3(normalMatrix).normalize();
       pointerStart={pointerId:event.pointerId,clientX:event.clientX,clientY:event.clientY,cubie,normal};
+      event.preventDefault();
       controls.enabled=false; renderer.domElement.setPointerCapture(event.pointerId); setStatus("Swipe a row or column");
     };
     const onPointerMove=(event:PointerEvent)=>{
       if(currentMode==="move"||!pointerStart||event.pointerId!==pointerStart.pointerId||activePointers>1) return;
-      const dx=event.clientX-pointerStart.clientX,dy=event.clientY-pointerStart.clientY; if(Math.hypot(dx,dy)<10) return;
-      const g=resolveGesture(pointerStart,dx,dy); highlightLayer(g.axis,g.layer); setStatus(`Selected ${moveLabel(g.axis,g.layer,edge,1)} layer`);
+      event.preventDefault();
+      const dx=event.clientX-pointerStart.clientX,dy=event.clientY-pointerStart.clientY; if(Math.hypot(dx,dy)<16) return;
+      const g=resolveGesture(pointerStart,dx,dy); previewGesture=g; highlightLayer(g.axis,g.layer); previewGesture=g; setStatus(`Selected ${moveLabel(g.axis,g.layer,edge,g.direction)} layer`);
     };
     const finishPointer=(event:PointerEvent)=>{
       activePointers=Math.max(0,activePointers-1);
@@ -185,7 +192,7 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
       if(!pointerStart||event.pointerId!==pointerStart.pointerId){ if(activePointers===0) controls.enabled=true; return; }
       const start=pointerStart; pointerStart=null;
       const dx=event.clientX-start.clientX,dy=event.clientY-start.clientY;
-      if(Math.hypot(dx,dy)>=28&&!active){ const g=resolveGesture(start,dx,dy); turn({...g,label:moveLabel(g.axis,g.layer,edge,g.direction)}); }
+      if(Math.hypot(dx,dy)>=34&&!active){ const g=previewGesture??resolveGesture(start,dx,dy); turn({...g,label:moveLabel(g.axis,g.layer,edge,g.direction)}); }
       else { clearHighlight(); setStatus(`${size}×${size} ready`); }
       controls.enabled=activePointers===0;
     };
@@ -211,20 +218,29 @@ export default function NxNCubeGame({ size=10 }: { size?:number }) {
   const edge=(size-1)/2;
   const faceMoves:Record<string,Move>={R:{axis:"x",layer:edge,direction:-1,label:"R"},L:{axis:"x",layer:-edge,direction:1,label:"L"},U:{axis:"y",layer:edge,direction:-1,label:"U"},D:{axis:"y",layer:-edge,direction:1,label:"D"},F:{axis:"z",layer:edge,direction:-1,label:"F"},B:{axis:"z",layer:-edge,direction:1,label:"B"}};
   const changeMode=(mode:ViewMode)=>{ setViewMode(mode); actionsRef.current?.setViewMode(mode); };
+  const isPlayableCore=size<=5;
+  const stageClass=isPlayableCore?"h-[430px] sm:h-[470px]":"h-[390px] sm:h-[440px]";
+  const eyebrow=isPlayableCore?`PLAYABLE ${size}×${size} CUBE`:"PLAYABLE LARGE CUBE";
+  const description=isPlayableCore
+    ?"Swipe stickers first. Buttons stay tucked away for backup moves, undo, scramble, and view control."
+    :"Swipe exact layers, rotate the cube, or switch to Move mode to position it anywhere inside the viewport.";
 
   return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
     <div className="orb orb-a"/><div className="orb orb-b"/>
     <div className="relative z-[1]">
       <SiteHeader/>
       <Link href="/solve" className="mt-4 inline-flex text-sm font-bold text-[var(--muted)]">← Back to solvers</Link>
-      <section className="mt-5"><p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">PLAYABLE LARGE CUBE</p><h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play the<br/><span className="accent-text">{size}×{size} Cube</span></h1><p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Swipe exact layers, rotate the cube, or switch to Move mode to position it anywhere inside the viewport.</p></section>
+      <section className="mt-5"><p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">{eyebrow}</p><h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play the<br/><span className="accent-text">{size}×{size} Cube</span></h1><p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">{description}</p></section>
 
       <section className="glass mt-3 overflow-hidden rounded-[22px]">
         <div className="flex justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><strong className="text-[var(--text)]">{moves} moves</strong></div>
-        <div ref={mountRef} className="h-[390px] w-full touch-none sm:h-[440px]"/>
+        <div ref={mountRef} className={`${stageClass} w-full touch-none`}/>
       </section>
 
-      <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+      {isPlayableCore ? <details className="glass mt-3 rounded-[18px] p-3">
+        <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Face buttons</summary>
+        <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+      </details> : <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>}
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button onClick={()=>changeMode("turn")} className={`${viewMode==="turn"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Turn Cube</button>
         <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Move Cube</button>

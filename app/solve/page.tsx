@@ -4,7 +4,7 @@ import SiteHeader from "@/components/SiteHeader";
 const puzzles=[
  {name:"3×3 Rubik's Cube",description:"Full verified solver with polished 3D playback.",status:"READY",href:"/solver/3x3",accent:"text-[var(--green)]",badge:"bg-[rgba(52,208,88,.14)] border-[rgba(52,208,88,.35)]"},
  {name:"2×2 Pocket Cube",description:"Fast corner-only solver with animated playback.",status:"READY",href:"/solver/2x2",accent:"text-[var(--purple)]",badge:"bg-[rgba(139,92,246,.14)] border-[rgba(139,92,246,.35)]"},
- {name:"4×4 Revenge Cube",description:"Working 4×4 playground and playback. Full arbitrary-state solver is still in development.",status:"BETA",href:"/solver/4x4",accent:"text-[var(--gold)]",badge:"bg-[rgba(245,185,66,.14)] border-[rgba(245,185,66,.35)]"},
+ {name:"4×4 Revenge Cube",description:"Playable 4×4 with thumb swipes, highlights, scramble, undo, zoom, and move mode. Full arbitrary-state solver is still in development.",status:"BETA",href:"/solver/4x4",accent:"text-[var(--gold)]",badge:"bg-[rgba(245,185,66,.14)] border-[rgba(245,185,66,.35)]"},
  {name:"10×10 Cube Engine Test",description:"Stress-test our own Cube Labs engine at 10×10 before generalizing the smaller NxN cubes.",status:"TEST",href:"/play/10x10",accent:"text-[#70b7ff]",badge:"bg-[rgba(46,166,255,.14)] border-[rgba(46,166,255,.35)]"},
  {name:"Mirror Cube",description:"3×3 shape-mod mode using size and shape instead of sticker colors.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
  {name:"Pyraminx",description:"Fast four-sided twisty-puzzle solving and playback.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
