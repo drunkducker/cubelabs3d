@@ -1,53 +1,34 @@
-/**
- * Root document shared by every Cube Lab 3D route.
- *
- * This file owns global metadata, the Geist font variables, favicon links, and
- * the one global stylesheet. Route components provide the actual page content.
- */
-
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+/* ==========================================================================
+   ROOT LAYOUT
+   Sets document metadata, loads global styles, and wraps the app in the
+   ToastProvider so any client component can raise feedback messages.
+   ========================================================================== */
+import type { Metadata, Viewport } from "next";
+import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Cube Lab 3D — Play Online Puzzle Cubes",
-  description: "Play a touch-friendly 3D puzzle cube now and explore the growing Cube Lab puzzle catalog.",
-  other: {
-    "codex-preview": "development",
-  },
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
+  title: "Cube Lab 3D — Solve Your Cube in Seconds",
+  description:
+    "Solve your Rubik's Cube in seconds. Enter your cube and get a free, step-by-step solution. No account required.",
 };
 
-/**
- * Builds the shared HTML document around the active route.
- *
- * @param props.children - Page content selected by the router.
- * @returns The accessible English-language document shell.
- */
+export const viewport: Viewport = {
+  themeColor: "#05070d",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
