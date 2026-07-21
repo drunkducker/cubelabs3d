@@ -9,7 +9,7 @@ import SiteHeader from "@/components/SiteHeader";
 type Axis = "x" | "y" | "z";
 type Direction = 1 | -1;
 type Move = { axis: Axis; layer: number; direction: Direction; label: string; record?: boolean };
-type Cubie = { mesh: THREE.Mesh; grid: THREE.Vector3; home: THREE.Vector3 };
+type Cubie = { mesh: THREE.Group; grid: THREE.Vector3; home: THREE.Vector3 };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; cubie: Cubie; normal: THREE.Vector3 };
 type ViewMode = "turn" | "move";
 type Gesture = { axis: Axis; layer: number; direction: Direction };
@@ -42,7 +42,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const scene=new THREE.Scene();
     const focusLayout=variant==="focus";
     const focusZoom=size*4.2;
-    const focusOffset=new THREE.Vector3(-1,2.5,0);
+    const focusOffset=new THREE.Vector3(-2.25,2,0);
     scene.background=focusLayout?null:new THREE.Color("#080b14");
     const camera=new THREE.PerspectiveCamera(focusLayout?37:18,1,.1,400);
     const distance=focusLayout?focusZoom:size*4.15;
@@ -80,16 +80,44 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     if(focusLayout) root.position.copy(focusOffset);
     scene.add(root);
     const edge=(size-1)/2;
-    const geometry=new THREE.BoxGeometry(.92,.92,.92);
+    const bodyGeometry=new THREE.BoxGeometry(.92,.92,.92);
+    const stickerGeometry=new THREE.BoxGeometry(.72,.72,.05);
     const cubies:Cubie[]=[];
-    const material=(color:string)=>new THREE.MeshStandardMaterial({color,roughness:.38,metalness:.02});
+    const materials:THREE.Material[]=[];
+    const material=(color:string,sticker=false)=>{
+      const mat=new THREE.MeshStandardMaterial({
+        color,
+        roughness:sticker ? .28 : .38,
+        metalness:sticker ? .025 : .08,
+        emissive:sticker?color:"#000000",
+        emissiveIntensity:sticker ? .035 : 0
+      });
+      materials.push(mat);
+      return mat;
+    };
+    const bodyMaterial=material(COLORS.I);
+    const addSticker=(group:THREE.Group,color:string,position:[number,number,number],rotation:[number,number,number]=[0,0,0])=>{
+      const sticker=new THREE.Mesh(stickerGeometry,material(color,true));
+      sticker.position.set(...position);
+      sticker.rotation.set(...rotation);
+      group.add(sticker);
+    };
 
     for(let xi=0;xi<size;xi++) for(let yi=0;yi<size;yi++) for(let zi=0;zi<size;zi++) {
       const exterior=xi===0||yi===0||zi===0||xi===size-1||yi===size-1||zi===size-1;
       if(!exterior) continue;
       const x=xi-edge,y=yi-edge,z=zi-edge;
-      const mats=[material(x===edge?COLORS.R:COLORS.I),material(x===-edge?COLORS.L:COLORS.I),material(y===edge?COLORS.U:COLORS.I),material(y===-edge?COLORS.D:COLORS.I),material(z===edge?COLORS.F:COLORS.I),material(z===-edge?COLORS.B:COLORS.I)];
-      const mesh=new THREE.Mesh(geometry,mats); mesh.position.set(x,y,z); root.add(mesh);
+      const mesh=new THREE.Group();
+      mesh.position.set(x,y,z);
+      const body=new THREE.Mesh(bodyGeometry,bodyMaterial);
+      mesh.add(body);
+      if(x===edge) addSticker(mesh,COLORS.R,[.49,0,0],[0,Math.PI/2,0]);
+      if(x===-edge) addSticker(mesh,COLORS.L,[-.49,0,0],[0,Math.PI/2,0]);
+      if(y===edge) addSticker(mesh,COLORS.U,[0,.49,0],[Math.PI/2,0,0]);
+      if(y===-edge) addSticker(mesh,COLORS.D,[0,-.49,0],[Math.PI/2,0,0]);
+      if(z===edge) addSticker(mesh,COLORS.F,[0,0,.49]);
+      if(z===-edge) addSticker(mesh,COLORS.B,[0,0,-.49]);
+      root.add(mesh);
       cubies.push({mesh,grid:new THREE.Vector3(x,y,z),home:new THREE.Vector3(x,y,z)});
     }
 
@@ -104,15 +132,26 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const history:Move[]=[];
     let active=false;
 
+    const glowCubie=(cubie:Cubie,intensity:number)=>{
+      cubie.mesh.traverse(child=>{
+        if(!(child instanceof THREE.Mesh)) return;
+        const mats=Array.isArray(child.material)?child.material:[child.material];
+        mats.forEach(m=>{
+          const mat=m as THREE.MeshStandardMaterial;
+          mat.emissive.set(intensity ? "#4d7cff" : mat.color);
+          mat.emissiveIntensity=intensity;
+        });
+      });
+    };
     const clearHighlight=()=>{
-      highlighted.forEach(c=>{ const mats=Array.isArray(c.mesh.material)?c.mesh.material:[c.mesh.material]; mats.forEach(m=>{ const mat=m as THREE.MeshStandardMaterial; mat.emissive.setHex(0); mat.emissiveIntensity=0; }); });
+      highlighted.forEach(c=>glowCubie(c,0));
       highlighted=[];
       previewGesture=null;
     };
     const highlightLayer=(axis:Axis,layer:number)=>{
       clearHighlight();
       highlighted=cubies.filter(c=>Math.abs(c.grid[axis]-layer)<.01);
-      highlighted.forEach(c=>{ const mats=Array.isArray(c.mesh.material)?c.mesh.material:[c.mesh.material]; mats.forEach(m=>{ const mat=m as THREE.MeshStandardMaterial; mat.emissive.set("#4d7cff"); mat.emissiveIntensity=.32; }); });
+      highlighted.forEach(c=>glowCubie(c,.32));
     };
 
     const runNext=()=>{
@@ -177,9 +216,9 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       if(currentMode==="move"){ pointerStart=null; controls.enabled=true; renderer.domElement.style.cursor="grabbing"; return; }
       if(active||activePointers>1){ pointerStart=null; controls.enabled=true; clearHighlight(); return; }
       setPointerFromEvent(event);
-      const hit=raycaster.intersectObjects(cubies.map(c=>c.mesh),false)[0];
+      const hit=raycaster.intersectObjects(cubies.map(c=>c.mesh),true)[0];
       if(!hit||!hit.face){ controls.enabled=true; return; }
-      const cubie=cubies.find(c=>c.mesh===hit.object); if(!cubie) return;
+      const cubie=cubies.find(c=>c.mesh===hit.object||c.mesh.children.includes(hit.object)); if(!cubie) return;
       const normalMatrix=new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld);
       const normal=hit.face.normal.clone().applyMatrix3(normalMatrix).normalize();
       pointerStart={pointerId:event.pointerId,clientX:event.clientX,clientY:event.clientY,cubie,normal};
@@ -216,8 +255,8 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       cancelAnimationFrame(frame); observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown",onPointerDown,true); renderer.domElement.removeEventListener("pointermove",onPointerMove,true); renderer.domElement.removeEventListener("pointerup",finishPointer,true); renderer.domElement.removeEventListener("pointercancel",finishPointer,true);
       controls.dispose(); actionsRef.current=null;
-      cubies.forEach(c=>(Array.isArray(c.mesh.material)?c.mesh.material:[c.mesh.material]).forEach(m=>m.dispose()));
-      geometry.dispose(); renderer.dispose(); renderer.domElement.remove();
+      materials.forEach(m=>m.dispose());
+      bodyGeometry.dispose(); stickerGeometry.dispose(); renderer.dispose(); renderer.domElement.remove();
     };
   },[size,variant]);
 
