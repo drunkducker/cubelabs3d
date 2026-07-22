@@ -20,7 +20,7 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | 5×5 puzzle and solver | Early | Interim reduced-state solver merged; full deterministic path still WIP on `claude/more-cubelabs-yuom1x` |
 | Pyraminx | Strong | Playable engine and solver with documented interaction and correctness work |
 | Social challenges | Prototype | Branch prototype exists; secure canonical integration is incomplete |
-| Leaderboards and multiplayer | Planned | Architecture recovered; production services are not complete |
+| Leaderboards and multiplayer | Prototype | Mobile `/leaderboard` visual prototype exists; production ranking services are not complete |
 | Admin portal | Planned | Requirements documented; implementation not complete |
 | Ads and affiliates | Planned | Architecture documented; managed production system not complete |
 | Camera scanner | Not started/early | No verified production scanner |

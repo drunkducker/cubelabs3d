@@ -2,6 +2,47 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Leaderboard mobile prototype
+
+**Checked**
+
+- [x] Identified Vercel screenshot branch as `claude/home-page-html-rebuild-q7qomi` (`388fa85`), not `bbuxsbsmd`.
+- [x] Read the deployed branch documentation set before correcting the implementation target.
+- [x] Confirmed docs require mobile-first design, shared components, provider-isolated data, test-data exclusion, and changelog/daily-log updates.
+
+**Completed**
+
+- [x] Added `/leaderboard` mobile visual prototype matching the owner reference.
+- [x] Added shared `AppBottomNav` for Next app routes.
+- [x] Added `leaderboard-preview` data module with explicit preview/test-data markers.
+- [x] Updated roadmap/social/changelog documentation without marking production leaderboards complete.
+
+**In progress**
+
+- [~] Production leaderboards remain architecture/planning work: real `getLeaderboard()` service, database ranking snapshots, assisted/unassisted categories, test-data filtering, suspicious-result review, and admin moderation are still needed.
+
+**Blocked or unverified**
+
+- [ ] Real mobile browser QA is not recorded yet.
+- [ ] Live deployment is not confirmed yet.
+
+**Next priorities**
+
+1. Wire `/leaderboard` from the appropriate app navigation once the owner approves the page direction.
+2. Replace preview data with a service-layer leaderboard backed by solve results and ranking snapshots.
+3. Add admin leaderboard moderation/test-data controls before public rankings are trusted.
+
+**Commits / deployments / rollback notes**
+
+- Branch/worktree: `claude/home-page-html-rebuild-q7qomi` at `388fa85`.
+- Commit: recorded in branch history for this change set.
+- Deployment: local build verified; live Vercel deployment not confirmed yet.
+- Test: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes, 26 app routes.
+- Known issues: preview/test data only; no production ranking service.
+- Rollback: remove `app/leaderboard/`, `components/AppBottomNav.tsx`, `lib/leaderboard-preview.ts`, and this documentation entry.
+
+---
+
 ## 2026-07-22 — Promote to `main` + doc refresh
 
 ### Completed

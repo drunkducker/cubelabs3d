@@ -99,6 +99,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 
 - [x] Permanent social and multiplayer architecture consolidated
 - [~] Cube ID/profile foundation
+- [~] Mobile `/leaderboard` visual prototype on `claude/home-page-html-rebuild-q7qomi` (preview/test data only; production ranking service incomplete)
 - [~] Local social challenge prototype on `feature/social-challenges-foundation`
 - [~] Community, create-challenge, challenge-attempt, rematch, and browser-persistence prototype
 - [ ] Reconcile the prototype branch with current `main`

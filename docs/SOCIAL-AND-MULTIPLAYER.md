@@ -22,6 +22,15 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [ ] Production build and lint verification recorded for the branch.
 - [ ] Safe integration with the canonical homepage and current cube engines.
 
+## Current leaderboard UI prototype
+
+- [~] A mobile-first `/leaderboard` visual prototype exists on `claude/home-page-html-rebuild-q7qomi`.
+- [~] The prototype uses a shared Next app bottom navigation component and a provider-isolated preview data module.
+- [ ] Replace preview/test rows with a production `getLeaderboard()` application service.
+- [ ] Exclude admin/test data from public rankings by default.
+- [ ] Separate assisted and unassisted results before public ranking.
+- [ ] Add suspicious-result review, admin correction, and audit logging before trusting public results.
+
 ## Release 1 — Asynchronous challenges
 
 ### Cube-state integration

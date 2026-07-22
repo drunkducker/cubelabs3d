@@ -2,6 +2,18 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Add mobile leaderboard visual prototype
+
+- Branch: `claude/home-page-html-rebuild-q7qomi` preview/deployment worktree at `388fa85`.
+- Purpose: build the first mobile-first `/leaderboard` page from the owner-provided reference without changing the approved homepage.
+- Added: `app/leaderboard/page.tsx`, reusable `components/AppBottomNav.tsx`, and `lib/leaderboard-preview.ts`.
+- Data status: leaderboard rows are explicitly marked preview/test data. Production ranking still needs a provider-isolated `getLeaderboard()` service, server-side validation, assisted/unassisted flags, suspicious-result review, and test-data exclusion.
+- Documentation: updated roadmap/social planning and daily log to classify this as a prototype only.
+- Testing: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes (26 app routes, including `/leaderboard`).
+- Deployment status: coded and build-verified locally; live Vercel deployment must be confirmed after the branch updates.
+- Known issues: no live Supabase leaderboard service, no admin moderation workflow, no real mobile browser QA recorded.
+- Rollback: remove the three added leaderboard/navigation/data files and revert the documentation entries.
+
 ## 2026-07-22 — Add reachable "Forgot your password?" entry on `/auth`
 
 - Branch: `claude/working-status-mumm9x`.

@@ -34,6 +34,7 @@ Keep this table current. Every active branch must have a purpose and a merge sta
 | --- | --- | --- | --- |
 | `main` | RootA | Canonical / live production | ✅ current |
 | `claude/working-status-mumm9x` | RootA | Working/staging branch (= `main`) | active |
+| `claude/home-page-html-rebuild-q7qomi` | RootA | Deployed preview branch for Learn/home HTML rebuilds plus `/leaderboard` visual prototype | active preview / WIP |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged (tip incomplete) |
 | `drive-homepage-import` | RootB | Interactive hero cube + puzzle hub | 🔀 parked — manual port only |
 | `fix/cube-transform-stability` | RootB | Animated solver playback + transform fixes | 🔀 parked — manual port only |
