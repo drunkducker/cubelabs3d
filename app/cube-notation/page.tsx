@@ -20,19 +20,17 @@ export default function CubeNotationPage() {
           ← Back to solvers
         </Link>
 
-        <section className="mt-5">
+        <NotationCube />
+
+        <section className="mt-4">
           <p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">CUBE NOTATION</p>
-          <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">
-            Explainer
-            <br />
-            <span className="accent-text">Cube</span>
+          <h1 className="mt-2 text-[34px] font-extrabold leading-[1.02] tracking-[-1px]">
+            Explainer <span className="accent-text">Cube</span>
           </h1>
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
-            Spin the labeled cube and tap stickers to identify face positions. The lesson text can plug in below this cube later.
+            Spin the labeled cube, tap stickers to identify face positions, and swipe stickers to test layer notation.
           </p>
         </section>
-
-        <NotationCube />
 
         <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
           <p>
