@@ -151,6 +151,20 @@ export function applyFast(state: Uint8Array, perm: Int32Array): Uint8Array {
   return next;
 }
 
+/** Permutation that applies the given token sequence in order, so a
+ * multi-token move (e.g. an inner slice `Rw R'`) can be probed as one gather.
+ * next[i] = state[perm[i]]. */
+export function sequencePerm(model: FastModel, tokens: string[]): Int32Array {
+  let cur = Int32Array.from({ length: model.faceletCount }, (_, i) => i);
+  for (const token of tokens) {
+    const p = model.movePerm[token];
+    const nextCur = new Int32Array(cur.length);
+    for (let i = 0; i < cur.length; i++) nextCur[i] = cur[p[i]];
+    cur = nextCur;
+  }
+  return cur;
+}
+
 export function applyFastSeq(model: FastModel, state: Uint8Array, tokens: string[]): Uint8Array {
   let s = state;
   for (const t of tokens) s = applyFast(s, model.movePerm[t]);
