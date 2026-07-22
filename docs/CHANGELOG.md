@@ -2,6 +2,15 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Fix password-reset / signup email link origin
+
+- Branch: `claude/working-status-mumm9x`.
+- Bug: `app/auth/actions.ts` pinned Supabase `redirect_to` links (password reset and signup confirmation) to a preview branch URL (`cubelabs3d-git-gpt-cube-id-platform-…vercel.app`) — not production, and about to be deleted with that branch. Reset/confirm links would have pointed at a dead host.
+- Fix: added `getSiteOrigin()` — prefers `NEXT_PUBLIC_SITE_URL`, then the real request origin (`x-forwarded-host`/`host`), then a production fallback. Both `redirect_to` links now use it.
+- Also: `app/auth/reset/page.tsx` now reads `NEXT_PUBLIC_SUPABASE_*` (with fallbacks) instead of hard-coded values; documented `NEXT_PUBLIC_SITE_URL` in `.env.example`.
+- Required config: list each site origin in Supabase Auth → URL Configuration → Redirect URLs. Email delivery (SES/Supabase SMTP) still needs end-to-end verification before password reset is marked `[x]`.
+- Testing: `npm run build` passes (25 routes). Not yet browser-verified end-to-end.
+
 ## 2026-07-22 — Promote merge to `main` and add status-tracking rules
 
 - Branch: `claude/working-status-mumm9x` → `main` by fast-forward (`80037f1..76f244d`, no force, no history rewrite).

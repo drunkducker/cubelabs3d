@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   clearAuthCookies,
@@ -8,7 +9,27 @@ import {
   supabaseRequest,
 } from "@/app/lib/supabase-rest";
 
-const BRANCH_ORIGIN = "https://cubelabs3d-git-gpt-cube-id-platform-agents-of-chaos.vercel.app";
+/*
+ * Origin used for Supabase email links (password reset, signup confirmation).
+ * Prefer NEXT_PUBLIC_SITE_URL, then the real request origin so links always
+ * return to the deployment the user is actually on, then a production
+ * fallback. Never hard-code a single branch preview URL: those links break
+ * the moment that preview is deleted. Each origin used here must also be
+ * listed in Supabase Auth > URL Configuration > Redirect URLs.
+ */
+function getSiteOrigin() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return configured.replace(/\/$/, "");
+
+  const requestHeaders = headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  if (host) {
+    const proto = requestHeaders.get("x-forwarded-proto") ?? "https";
+    return `${proto}://${host}`;
+  }
+
+  return "https://cubelabs3d.vercel.app";
+}
 
 type AuthResponse = {
   access_token?: string;
@@ -85,7 +106,7 @@ export async function signUp(formData: FormData) {
       email,
       password,
       data: { display_name: displayName },
-      redirect_to: `${BRANCH_ORIGIN}/auth/email?mode=login&message=${encodeURIComponent("Email confirmed. Log in to continue.")}`,
+      redirect_to: `${getSiteOrigin()}/auth/email?mode=login&message=${encodeURIComponent("Email confirmed. Log in to continue.")}`,
     }),
     cache: "no-store",
   });
@@ -122,7 +143,7 @@ export async function requestPasswordReset(formData: FormData) {
   const response = await fetch(`${url}/auth/v1/recover`, {
     method: "POST",
     headers: { apikey: key, "Content-Type": "application/json" },
-    body: JSON.stringify({ email, redirect_to: `${BRANCH_ORIGIN}/auth/reset` }),
+    body: JSON.stringify({ email, redirect_to: `${getSiteOrigin()}/auth/reset` }),
     cache: "no-store",
   });
 

@@ -4,8 +4,14 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import PasswordField from "@/components/PasswordField";
 
-const SUPABASE_URL = "https://fvcjufbyjkjyorrmpgrm.supabase.co";
-const SUPABASE_KEY = "sb_publishable_M7xCkwqOO3GxL7VhZcdv7A_cVxbHy9s";
+// Public Supabase config. NEXT_PUBLIC_* vars are inlined at build time and are
+// safe to expose; the fallbacks keep the reset page working if they are unset.
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://fvcjufbyjkjyorrmpgrm.supabase.co";
+const SUPABASE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "sb_publishable_M7xCkwqOO3GxL7VhZcdv7A_cVxbHy9s";
 
 export default function ResetPasswordPage() {
   const [accessToken, setAccessToken] = useState("");
