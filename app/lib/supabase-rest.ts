@@ -1,18 +1,22 @@
 import { cookies } from "next/headers";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+/*
+ * Prefer Vercel environment variables. The branch also accepts the older
+ * NEXT_PUBLIC_SUPABASE_ANON_KEY name so preview deployments do not crash when
+ * they were configured before Supabase introduced publishable keys.
+ */
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  "https://fvcjufbyjkjyorrmpgrm.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "sb_publishable_M7xCkwqOO3GxL7VhZcdv7A_cVxbHy9s";
 
 export const ACCESS_COOKIE = "cubelabs_access_token";
 export const REFRESH_COOKIE = "cubelabs_refresh_token";
 
 export function getSupabaseConfig() {
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-    );
-  }
-
   return {
     url: SUPABASE_URL.replace(/\/$/, ""),
     key: SUPABASE_PUBLISHABLE_KEY,
