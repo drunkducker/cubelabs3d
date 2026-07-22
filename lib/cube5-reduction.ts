@@ -62,10 +62,23 @@ export type SolveSpec = {
   target: number;
   perMoveGain?: number;
   idaMaxDepth?: number;
+  phase: "center" | "edge";
+  constrained?: boolean; // a face is already solved and must be preserved
   setup: string[];  // moves used to position (usually outer)
+  frame: string[];  // moves used to conjugate a fetch (rich for centers)
   fetch: string[];  // moves that relocate pieces across faces (wide / slice)
   core: string[];   // moves used inside wrapped cores (usually outer)
 };
+
+const FACE_INDEX: Record<FaceLetter, number> = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 };
+
+/** Count of a single face's 9 center stickers that already show its colour. */
+function faceCenterCount(state: Uint8Array, faceIdx: number): number {
+  const base = faceIdx * 25;
+  let n = 0;
+  for (let r = 1; r <= 3; r++) for (let c = 1; c <= 3; c++) if (state[base + r * 5 + c] === faceIdx) n++;
+  return n;
+}
 
 // ---- 4x4-style last-edge bank, reused for 5x5 edge triplets ----------
 function lastEdgeAlgorithms(): string[][] {
@@ -109,7 +122,7 @@ function tryConjugate(state: Uint8Array, target: number, spec: SolveSpec, maxSet
       if (d === maxSetupDepth) break;
       const next: { setup: string[]; setupState: Uint8Array }[] = [];
       for (const node of frontier) {
-        for (const move of spec.setup) {
+        for (const move of spec.frame) {
           const last = node.setup[node.setup.length - 1];
           if (last && baseOf(last) === baseOf(move) && last !== move) continue;
           if (baseOf(move) === fetchBase) continue;
@@ -122,6 +135,46 @@ function tryConjugate(state: Uint8Array, target: number, spec: SolveSpec, maxSet
       }
       frontier = next;
     }
+  }
+  return null;
+}
+
+/** [setup][fetch1][fetch2][undo setup] — a two-move fetch so a piece on the
+ * opposite face (two slices away) can still be inserted. A single-fetch
+ * conjugate can't reach across the cube, which is exactly what strands the
+ * last one or two centers of a face on its opposite. */
+function tryDoubleFetchConjugate(state: Uint8Array, target: number, spec: SolveSpec, maxSetupDepth: number): string[] | null {
+  const fetchPairs: [string, string][] = [];
+  for (const a of spec.fetch) for (const b of spec.fetch) {
+    if (baseOf(a) === baseOf(b)) continue;
+    fetchPairs.push([a, b]);
+  }
+  let frontier: { setup: string[]; setupState: Uint8Array }[] = [{ setup: [], setupState: state }];
+  const visited = new Set<string>([""]);
+  for (let d = 0; d <= maxSetupDepth; d++) {
+    for (const node of frontier) {
+      const undo = invSeq(node.setup);
+      for (const [f1, f2] of fetchPairs) {
+        const candidate = applySeqL(node.setupState, [f1, f2, ...undo]);
+        if (spec.progress(candidate) > target && spec.isValid(candidate)) {
+          return [...node.setup, f1, f2, ...undo];
+        }
+      }
+    }
+    if (d === maxSetupDepth) break;
+    const next: { setup: string[]; setupState: Uint8Array }[] = [];
+    for (const node of frontier) {
+      for (const move of spec.frame) {
+        const last = node.setup[node.setup.length - 1];
+        if (last && baseOf(last) === baseOf(move) && last !== move) continue;
+        const setup = [...node.setup, move];
+        const key = setup.join(",");
+        if (visited.has(key)) continue;
+        visited.add(key);
+        next.push({ setup, setupState: apply1(node.setupState, move) });
+      }
+    }
+    frontier = next;
   }
   return null;
 }
@@ -229,21 +282,40 @@ function tryLastEdgeAlgorithm(state: Uint8Array, target: number, spec: SolveSpec
   return null;
 }
 
+/**
+ * Iterative-deepening search for any single-step improvement, with a
+ * transposition table keyed on the full state. Commuting moves make the same
+ * position reachable by many paths; the TT (keep the lowest g seen per state,
+ * per bound) prunes that redundancy, which is what makes depth 6-7 endgame
+ * insertions tractable instead of exponential. A wide frame set is included so
+ * the varied 5-9 move center insertions are all in reach.
+ */
+// Fast FNV-1a hash of a facelet state — the IDA transposition table probes it
+// per node, so a numeric key is far cheaper than the 150-char string key. A
+// rare collision only skips a state, which at worst costs a little search, so
+// it never produces a wrong solution.
+function hashState(s: Uint8Array): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s[i]; h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
 function tryIdaStar(state: Uint8Array, target: number, spec: SolveSpec): string[] | null {
-  const vocab = [...spec.fetch, ...spec.core];
+  const vocab = spec.phase === "center" ? [...spec.fetch, ...OUTER] : [...spec.fetch, ...spec.core];
   const gain = spec.perMoveGain ?? 4;
   const maxDepth = spec.idaMaxDepth ?? 10;
   const hAt = (progress: number) => (progress > target ? 0 : Math.ceil((target + 1 - progress) / gain));
   for (let bound = 1; bound <= maxDepth; bound++) {
     const path: string[] = [];
-    const onPath = new Set<string>();
+    const bestG = new Map<number, number>();
     const dfs = (node: Uint8Array, g: number): string[] | null => {
       const progress = spec.progress(node);
       if (progress > target && spec.isValid(node)) return [...path];
       if (g + hAt(progress) > bound) return null;
-      const key = stateKey(node);
-      if (onPath.has(key)) return null;
-      onPath.add(key);
+      const key = hashState(node);
+      const seen = bestG.get(key);
+      if (seen !== undefined && seen <= g) return null;
+      bestG.set(key, g);
       for (const move of vocab) {
         const last = path[path.length - 1];
         if (last && baseOf(last) === baseOf(move) && last !== move) continue;
@@ -252,7 +324,6 @@ function tryIdaStar(state: Uint8Array, target: number, spec: SolveSpec): string[
         if (result) return result;
         path.pop();
       }
-      onPath.delete(key);
       return null;
     };
     const found = dfs(state, 0);
@@ -265,7 +336,7 @@ function solveByProgress(start: Uint8Array, spec: SolveSpec): { state: Uint8Arra
   let state = start;
   let progress = spec.progress(state);
   const allMoves: string[] = [];
-  const isCenters = spec.target === 54;
+  const isCenters = spec.phase === "center";
   const debug = typeof process !== "undefined" && process.env && process.env.RS_DEBUG;
   while (progress < spec.target) {
     const target = progress;
@@ -273,13 +344,14 @@ function solveByProgress(start: Uint8Array, spec: SolveSpec): { state: Uint8Arra
     let via = "conj2";
     let found = tryConjugate(state, target, spec, 2);
     if (!found) { via = "comm"; found = tryCommutator(state, target, spec); }
-    if (!found && isCenters) { via = "conjComm"; found = tryConjugatedCommutator(state, target, spec, 3); }
-    if (!found) { via = "conjDeep"; found = tryConjugate(state, target, spec, isCenters ? 4 : 3); }
+    if (!found && isCenters) { via = "conjComm"; found = tryConjugatedCommutator(state, target, spec, 2); }
+    if (!found && isCenters) { via = "dblFetch"; found = tryDoubleFetchConjugate(state, target, spec, 2); }
+    if (!found && !isCenters) { via = "conjDeep"; found = tryConjugate(state, target, spec, 3); }
     if (!found) { via = "wrapped"; found = tryWideWrappedCore(state, target, spec, 4); }
-    if (!found && spec.target === 12) { via = "lastEdge"; found = tryLastEdgeAlgorithm(state, target, spec, 2); }
+    if (!found && spec.phase === "edge") { via = "lastEdge"; found = tryLastEdgeAlgorithm(state, target, spec, 2); }
     if (!found) { via = "ida"; found = tryIdaStar(state, target, spec); }
-    if (debug) process.stderr.write(`  ${spec.target === 54 ? "C" : "E"} ${progress}->? via=${via} ms=${Date.now() - t0}\n`);
-    if (!found) throw new Error(`5x5 reduction stuck at ${progress}/${spec.target}`);
+    if (debug) process.stderr.write(`  ${spec.phase === "center" ? "C" : "E"} ${progress}->? via=${via} ms=${Date.now() - t0}\n`);
+    if (!found) throw new Error(`5x5 ${spec.phase} reduction stuck at ${progress}/${spec.target}`);
     state = applySeqL(state, found);
     allMoves.push(...found);
     const newProgress = spec.progress(state);
@@ -291,18 +363,90 @@ function solveByProgress(start: Uint8Array, spec: SolveSpec): { state: Uint8Arra
 
 // ---- public API ------------------------------------------------------
 
+const U = FACE_INDEX.U, D = FACE_INDEX.D;
+const CENTER_FETCH = [...SLICE, ...WIDE];
+const CENTER_FRAME = [...OUTER, ...WIDE, ...SLICE];
+
+function centerSlotsOfFace(faceIdx: number): number[] {
+  const base = faceIdx * 25, out: number[] = [];
+  for (let r = 1; r <= 3; r++) for (let c = 1; c <= 3; c++) out.push(base + r * 5 + c);
+  return out;
+}
+
+/** A move preserves a face's centre count for every state iff its permutation
+ * maps that face's centre slots onto themselves (it only shuffles those pieces
+ * among their own slots, never trading with other slots). Restricting the
+ * constrained stages to preservation-safe moves keeps their search fast: every
+ * candidate is automatically valid, so nothing is wasted exploring moves that
+ * wreck an already-solved face. */
+function movesPreserving(labels: string[], faceIdxs: number[]): string[] {
+  const slotSets = faceIdxs.map((f) => new Set(centerSlotsOfFace(f)));
+  return labels.filter((l) => {
+    const perm = MOVES.get(l)!.perm;
+    return slotSets.every((slots) => Array.from(slots).every((s) => slots.has(perm[s])));
+  });
+}
+
+// Preservation-safe fetches: slice/wide moves that keep U (stage 2) or U and D
+// (stage 3) centres intact. Outer turns preserve every face's centres, so they
+// stay available for positioning in all stages.
+const FETCH_KEEP_U = movesPreserving(CENTER_FETCH, [U]);
+const FETCH_KEEP_UD = movesPreserving(CENTER_FETCH, [U, D]);
+
+/**
+ * Solve the six 3x3 centers in reduction order — first face, then its
+ * opposite while keeping the first solved, then the four-face belt while
+ * keeping both. Staging the problem this way keeps every sub-search well
+ * conditioned (a bounded, preservation-constrained cycle problem, like the
+ * 4x4 edge phase) instead of one 54-piece global search that stalls in local
+ * minima with no bounded escape.
+ */
 export function solveCenters(state: Uint8Array) {
-  const r = solveByProgress(state, {
-    progress: (s) => centerProgressFast(MODEL_5, s),
+  const moves: string[] = [];
+  let cur = state;
+  const dbg = typeof process !== "undefined" && process.env && process.env.RS_DEBUG;
+  const stamp = (label: string, t: number) => { if (dbg) process.stderr.write(`stage ${label} ${Date.now() - t}ms\n`); };
+  let t = Date.now();
+
+  // Stage 1: the U face (no preservation constraint).
+  const s1 = solveByProgress(cur, {
+    progress: (s) => faceCenterCount(s, U),
     isValid: () => true,
+    target: 9,
+    perMoveGain: 4,
+    idaMaxDepth: 7,
+    phase: "center",
+    setup: OUTER, frame: CENTER_FRAME, fetch: CENTER_FETCH, core: OUTER,
+  });
+  cur = s1.state; moves.push(...s1.moves); stamp("1(U)", t); t = Date.now();
+
+  // Stage 2: the D face, keeping U solved.
+  const s2 = solveByProgress(cur, {
+    progress: (s) => faceCenterCount(s, D),
+    isValid: (s) => faceCenterCount(s, U) === 9,
+    target: 9,
+    perMoveGain: 4,
+    idaMaxDepth: 7,
+    phase: "center",
+    constrained: true,
+    setup: OUTER, frame: CENTER_FRAME, fetch: CENTER_FETCH, core: OUTER,
+  });
+  cur = s2.state; moves.push(...s2.moves); stamp("2(D)", t); t = Date.now();
+
+  // Stage 3: the four belt faces together, keeping U and D solved.
+  const s3 = solveByProgress(cur, {
+    progress: (s) => centerProgressFast(MODEL_5, s),
+    isValid: (s) => faceCenterCount(s, U) === 9 && faceCenterCount(s, D) === 9,
     target: 54,
     perMoveGain: 4,
-    idaMaxDepth: 5,
-    setup: OUTER,
-    fetch: [...SLICE, ...WIDE],
-    core: OUTER,
+    idaMaxDepth: 8,
+    phase: "center",
+    constrained: true,
+    setup: OUTER, frame: CENTER_FRAME, fetch: CENTER_FETCH, core: OUTER,
   });
-  return r;
+  cur = s3.state; moves.push(...s3.moves); stamp("3(belt)", t);
+
+  return { state: cur, moves };
 }
 
 export function solveEdgePairs(state: Uint8Array) {
@@ -312,7 +456,9 @@ export function solveEdgePairs(state: Uint8Array) {
     target: 12,
     perMoveGain: 1,
     idaMaxDepth: 10,
+    phase: "edge",
     setup: OUTER,
+    frame: OUTER,
     fetch: WIDE,
     core: OUTER,
   });
