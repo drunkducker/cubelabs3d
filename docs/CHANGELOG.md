@@ -2,6 +2,21 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Branch documentation recovery and project health
+
+- Author: OpenAI GPT working with the project owner
+- Branch: `main`
+- Purpose: recover unique documentation from stale or diverged branches without falsely marking branch-only code as shipped.
+- Added: `SOCIAL-AND-MULTIPLAYER.md`, `CUBE-ENGINE.md`, `PROJECT-HEALTH.md`, and `checkpoints/2026-07-22-password-reset-preview.md`.
+- Consolidated: the two overlapping social/multiplayer checklists from `feature/social-challenges-foundation` into one permanent plan.
+- Recovered: NxN tracked-state design notes from `claude/cube-engine-centering-zb2e9m`; explicitly classified corresponding implementation as branch-only pending verification or selective porting.
+- Preserved: password-reset preview deployment trigger from `gpt/cube-id-platform` as a historical checkpoint.
+- Updated: documentation index, current status, roadmap, and daily check-in log.
+- Testing: verified branch comparisons, source-document reads, and successful GitHub writes; no runtime application code changed.
+- Deployment: documentation-only changes on `main`.
+- Known follow-up: verify solver implementation states, decide whether to port NxN tracked-state code, and reconcile the social prototype only after defining a versioned puzzle-state contract.
+- Rollback: revert these documentation commits; not recommended because the recovered branch knowledge would again be scattered and easy to lose.
+
 ## 2026-07-22 — Current-status and daily check-in system
 
 - Author: OpenAI GPT working with the project owner
