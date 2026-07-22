@@ -267,3 +267,59 @@ resolved move by glowing the affected pieces (`highlightMove`) and updating
 the status line; releasing past 34px commits the move, and releasing short
 of that cancels back to camera-orbit behavior — the same two-threshold
 "preview, then commit" shape `NxNCubeGame.tsx` uses for its own swipes.
+
+## NxN cube: brought up to the same tracked-state shape as the Pyraminx
+
+`app/NxNCubeGame.tsx` (both `/play/10x10` and `/solver/4x4` — one component,
+different `size`/`variant` props) previously tracked only moves and undo.
+The Pyraminx build above added a timer, solved-state detection, and a
+displayed scramble sequence on top of those two; this retrofit brings the
+NxN engine up to the same five concepts, so every puzzle in this repo now
+exposes the same shape of state for the shareable-challenge layer being
+built around them.
+
+**Solved-state detection has no separate logical layer to check, unlike the
+Pyraminx.** `lib/pyraminx-engine.ts` keeps its own abstract `PyraState` that
+`isSolved()` can check directly. The NxN cube has no equivalent — `Cubie.grid`
+*is* the ground truth, updated in place as pieces are reparented through each
+turn's pivot group. So `isSolved()` here checks the physical state itself:
+every cubie's `grid` must match its `home` position AND its `mesh.quaternion`
+must be within a small epsilon of identity. Position alone isn't sufficient —
+a cubie can cycle back through several turns to its own home slot while still
+carrying a net 90°/180° rotation from turns that spun it in place along the
+way, which would show correctly-colored stickers facing the wrong direction.
+`mesh.quaternion` already holds exactly this net rotation for free: `attach()`
+(used to reparent a cubie into and back out of each turn's pivot group)
+preserves world transform across the reparent, so orientation state doesn't
+need any separate bookkeeping — just reading it back out.
+
+**Timer:** identical single-long-lived-`setInterval`-plus-two-refs pattern as
+`app/PyraminxGame.tsx` (see that section above for the full rationale) —
+`startTimer()`/`stopTimer()` called from `runNext()`'s move-completion
+callback based on the freshly computed `isSolved()` result, so elapsed time
+is exactly "time spent between scrambled and solved," freezing the instant
+the last move of a manual solve lands.
+
+**Scramble semantics changed to match the Pyraminx, not just gained a
+timer.** Before this, `scramble()` queued its moves with `record: true` —
+they counted toward the move total and were individually undoable, so a
+player could technically "solve" a scrambled cube by undoing through the
+entire scramble one move at a time rather than actually solving it, and the
+move counter included moves the player never made. `scramble()` now queues
+with `record: false` (identical to `app/PyraminxGame.tsx`'s scramble), clears
+`history` immediately, and stores the generated sequence for display under a
+"SCRAMBLE" section — same rationale as the Pyraminx: the move count and undo
+stack should reflect the player's own solving effort, not the setup. This is
+a deliberate behavior change from the NxN engine's prior semantics, made for
+cross-engine consistency.
+
+**Reset Cube stays a direct transform snap, unlike Pyraminx's animated
+"Reset = Solve".** The Pyraminx's `resetPuzzle()` reuses its verified BFS
+solver to animate back to solved. The NxN engine has no general solver (the
+`/solve` hub is explicit that 4x4+ solving is "still in development"), so
+there's nothing to animate through — `resetCube()` still snaps every cubie's
+`mesh.position`/`quaternion`/`grid` back to `home` directly, instantly. It
+now also resets the timer, scramble-sequence display, and solved-state flag,
+and is guarded (function body and both Reset Cube buttons) against running
+on an already-solved cube, matching the Pyraminx's equivalent guard on
+`resetPuzzle()`.
