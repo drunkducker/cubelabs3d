@@ -1,16 +1,16 @@
 import { cookies } from "next/headers";
 
 /*
- * Prefer Vercel environment variables. The branch also accepts the older
- * NEXT_PUBLIC_SUPABASE_ANON_KEY name so preview deployments do not crash when
- * they were configured before Supabase introduced publishable keys.
+ * Prefer Vercel environment variables. Use logical OR instead of nullish
+ * coalescing because Vercel may expose an unset preview variable as an empty
+ * string, which would otherwise produce relative URLs such as /auth/v1/signup.
  */
 const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ??
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
   "https://fvcjufbyjkjyorrmpgrm.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   "sb_publishable_M7xCkwqOO3GxL7VhZcdv7A_cVxbHy9s";
 
 export const ACCESS_COOKIE = "cubelabs_access_token";
