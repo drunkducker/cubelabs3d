@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   clearAuthCookies,
@@ -23,6 +24,29 @@ function value(formData: FormData, name: string) {
 
 function authErrorUrl(message: string) {
   return `/auth/email?error=${encodeURIComponent(message)}`;
+}
+
+/*
+ * Build an absolute public URL for Supabase confirmation emails.
+ * The incoming Vercel host is preferred so every preview branch returns to
+ * itself. VERCEL_URL is the fallback, followed by the known Cube ID preview.
+ */
+function getPublicOrigin() {
+  const requestHeaders = headers();
+  const forwardedHost = requestHeaders.get("x-forwarded-host");
+  const host = forwardedHost || requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") || "https";
+
+  if (host && !host.startsWith("localhost")) {
+    return `${protocol}://${host}`;
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+  if (vercelUrl) {
+    return `https://${vercelUrl.replace(/^https?:\/\//, "")}`;
+  }
+
+  return "https://cubelabs3d-git-gpt-cube-id-platform-agents-of-chaos.vercel.app";
 }
 
 async function upsertProfile(
@@ -74,17 +98,23 @@ export async function signUp(formData: FormData) {
   const password = value(formData, "password");
   const displayName = value(formData, "display_name");
   const { url, key } = getSupabaseConfig();
+  const confirmationReturnUrl = `${getPublicOrigin()}/auth/email?message=${encodeURIComponent(
+    "Email confirmed. Sign in to open your Cube ID.",
+  )}`;
 
-  const response = await fetch(`${url}/auth/v1/signup`, {
-    method: "POST",
-    headers: { apikey: key, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email,
-      password,
-      data: { display_name: displayName },
-    }),
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${url}/auth/v1/signup?redirect_to=${encodeURIComponent(confirmationReturnUrl)}`,
+    {
+      method: "POST",
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        data: { display_name: displayName },
+      }),
+      cache: "no-store",
+    },
+  );
 
   const result = (await response.json()) as AuthResponse;
   if (!response.ok) {
