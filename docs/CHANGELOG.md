@@ -2,6 +2,20 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Current-status and daily check-in system
+
+- Author: OpenAI GPT working with the project owner
+- Branch: `main`
+- Purpose: replace scattered current-state assumptions with one verified status document, one canonical roadmap, and a repeatable daily check-in process.
+- Added: `CURRENT_STATUS.md`, `ROADMAP.md`, `DAILY-LOG.md`, and `checkpoints/README.md`.
+- Updated: documentation index and required documentation workflow.
+- Checklist policy: roadmap items are checked only when repository evidence and required documentation support completion.
+- Historical policy: old status files are preserved as checkpoints but cannot override current permanent documents.
+- Testing: documentation paths and repository writes were verified through GitHub; no runtime application code changed.
+- Deployment: documentation-only changes on `main`.
+- Known follow-up: inspect current 3×3, 4×4, and 5×5 implementation and tests to replace unverified or partial roadmap statuses with exact evidence-backed results.
+- Rollback: revert the documentation commits; not recommended because the new files resolve missing links and establish the requested daily project control system.
+
 ## 2026-07-22 — Documentation governance foundation
 
 - Author: OpenAI GPT working with the project owner
