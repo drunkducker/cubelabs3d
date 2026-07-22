@@ -232,6 +232,16 @@ export default function NotationCube() {
     let previewGesture: Gesture | null = null;
     let active = false;
 
+    // Tracks the turn animation's own requestAnimationFrame handle, separate
+    // from the render loop's `frame`. Without this, unmounting mid-turn (for
+    // example navigating away while a layer is still animating) left that
+    // rAF chain running after teardown: it kept mutating `pivot`/cubie state
+    // and calling setSelected() on an unmounted component. `disposed` lets
+    // the callback bail out the next time it fires, and the effect cleanup
+    // below cancels the pending frame outright so it never fires again.
+    let turnFrame = 0;
+    let disposed = false;
+
     const glowSticker = (mesh: THREE.Mesh | null, intensity: number) => {
       if (!mesh) return;
       const face = mesh.userData.face as Face | undefined;
@@ -319,12 +329,15 @@ export default function NotationCube() {
 
       const startedAt = performance.now();
       const animateTurn = (now: number) => {
+        // Bail without touching scene state or React setters once the
+        // component has unmounted — see the `disposed` comment above.
+        if (disposed) return;
         const progress = Math.min(1, (now - startedAt) / 260);
         const eased = 1 - Math.pow(1 - progress, 3);
         pivot.rotation[gesture.axis] = gesture.direction * Math.PI * 0.5 * eased;
 
         if (progress < 1) {
-          requestAnimationFrame(animateTurn);
+          turnFrame = requestAnimationFrame(animateTurn);
           return;
         }
 
@@ -341,7 +354,7 @@ export default function NotationCube() {
         controls.enabled = true;
         setSelected(`${gesture.label} complete`);
       };
-      requestAnimationFrame(animateTurn);
+      turnFrame = requestAnimationFrame(animateTurn);
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -471,7 +484,9 @@ export default function NotationCube() {
     render();
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
+      cancelAnimationFrame(turnFrame);
       observer.disconnect();
       window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);

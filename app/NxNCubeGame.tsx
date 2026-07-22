@@ -85,6 +85,14 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const stickerGeometry=new THREE.BoxGeometry(.76,.76,.045);
     const cubies:Cubie[]=[];
     const materials:THREE.Material[]=[];
+    // `disposed` guards the per-move turn animation's own rAF chain (see
+    // `moveFrame` in runNext below). That chain is separate from the render
+    // loop's `frame`, so unmounting mid-turn — e.g. navigating away while a
+    // scramble is still animating — used to leave it running after teardown,
+    // still mutating cube state and calling the React setters below on an
+    // already-unmounted component. Cleanup cancels `moveFrame` outright, and
+    // this flag catches the case where a frame was already in flight the
+    // instant cleanup ran.
     let disposed=false;
     const material=(color:string,sticker=false)=>{
       const mat=new THREE.MeshStandardMaterial({
@@ -186,12 +194,39 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     };
 
     const turn=(move:Move)=>{ queue.push({...move,record:move.record!==false}); runNext(); };
-    const outerMoves:Record<string,Move>={
-      R:{axis:"x",layer:edge,direction:-1,label:"R"}, L:{axis:"x",layer:-edge,direction:1,label:"L"},
-      U:{axis:"y",layer:edge,direction:-1,label:"U"}, D:{axis:"y",layer:-edge,direction:1,label:"D"},
-      F:{axis:"z",layer:edge,direction:-1,label:"F"}, B:{axis:"z",layer:-edge,direction:1,label:"B"},
+    // Scramble picks from EVERY layer along every axis, not just the six
+    // outermost faces (R/L/U/D/F/B). The original version only ever queued
+    // outer-layer turns, so on a 4x4+ cube the inner slices — most of a
+    // large cube's surface — never moved: each face turn just spun its
+    // whole layer as one rigid block, leaving the interior of every face
+    // looking suspiciously tidy after "scrambling". Sampling any axis+layer
+    // pair reuses the same turn/runNext machinery that already drives
+    // arbitrary-layer swipe turns (see resolveGesture/turnLayer above), so
+    // this is exercising an already-correct code path more broadly, not new
+    // untested logic. `layerValues` is every legal layer position for the
+    // current size (e.g. for size=4, edge=1.5: [-1.5,-0.5,0.5,1.5]).
+    const layerValues=Array.from({length:size},(_,k)=>k-edge);
+    const axes:Axis[]=["x","y","z"];
+    const scramble=()=>{
+      if(active) return;
+      let lastAxis:Axis|null=null,lastLayer:number|null=null;
+      const moveCount=Math.max(16,size*4);
+      for(let i=0;i<moveCount;i++){
+        let axis:Axis,layer:number;
+        // Avoid immediately repeating the same axis+layer twice in a row so
+        // consecutive scramble moves can't trivially cancel each other out
+        // (e.g. R followed by R' undoing itself).
+        do{
+          axis=axes[Math.floor(Math.random()*axes.length)];
+          layer=layerValues[Math.floor(Math.random()*layerValues.length)];
+        }while(axis===lastAxis&&layer===lastLayer);
+        lastAxis=axis; lastLayer=layer;
+        const direction=(Math.random()>.5?1:-1) as Direction;
+        queue.push({axis,layer,direction,label:moveLabel(axis,layer,edge,direction),record:true});
+      }
+      setStatus(`Scrambling ${size}×${size}…`);
+      runNext();
     };
-    const scramble=()=>{ if(active) return; const labels=Object.keys(outerMoves); for(let i=0;i<16;i++){ const label=labels[Math.floor(Math.random()*labels.length)]; const base=outerMoves[label]; queue.push({...base,direction:Math.random()>.5?base.direction:(base.direction*-1) as Direction,record:true}); } setStatus(`Scrambling ${size}×${size}…`); runNext(); };
     const undo=()=>{ if(active||queue.length||!history.length) return; const previous=history.pop()!; setCanUndo(history.length>0); setMoves(history.length); queue.push({axis:previous.axis,layer:previous.layer,direction:(previous.direction*-1) as Direction,label:`Undo ${previous.label}`,record:false}); runNext(); };
     const resetCube=()=>{ if(active) return; queue.length=0; history.length=0; clearHighlight(); cubies.forEach(c=>{c.mesh.position.copy(c.home);c.mesh.quaternion.identity();c.grid.copy(c.home);}); setCanUndo(false); setMoves(0); setStatus(`${size}×${size} reset`); };
     const resetView=()=>{ controls.reset(); setStatus("View reset"); };

@@ -2,6 +2,9 @@
 
 Last updated: 2026-07-22, America/New_York
 
+For engine-internals bugs (not visual framing) — animation-frame cleanup,
+scramble behavior — see `CUBE-ENGINE-NOTES.md`.
+
 ## Goal
 
 Future playable cube blocks should open with the same visual feel as the good 3x3 hero cube: a real object sitting in the card, not a flat solver panel and not a giant cropped wall.

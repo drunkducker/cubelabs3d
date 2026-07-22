@@ -24,3 +24,5 @@ npm run build
 - The solution stepper still uses demo moves.
 - Solver input buttons still use placeholders.
 - Do not connect the public domain until the Public Launch Gate is complete.
+- Cube rendering/engine implementation notes live in `CUBE-PERSPECTIVE-NOTES.md`
+  (visual framing) and `CUBE-ENGINE-NOTES.md` (engine internals/bugs).
