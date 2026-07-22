@@ -2,6 +2,33 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Admin portal foundation (first slice)
+
+### Completed
+
+- [x] Built admin security gate, role model, and audit log (see CHANGELOG).
+- [x] `/admin` shell + Dashboard skeleton + live Audit page; build passes (27 routes).
+- [x] ADR 0002; captured owner priority (ads / YouTube / affiliate); preserved mockup checkpoint.
+
+### Status changes logged
+
+- Admin authentication and role enforcement: `[ ]` → `[~]` (server gate + migration merged; needs migration run + verify).
+- Audit-log foundation: new `[~]`.
+
+### Blocked / owner action
+
+- [ ] Run `supabase/migrations/20260722_admin_foundation.sql`.
+- [ ] Set `ADMIN_OWNER_EMAIL=dleshrader@gmail.com` in Vercel env.
+- [ ] Then visit `/admin` to verify the gate and dashboard.
+
+### Next priorities
+
+1. Ads Manager section (owner priority).
+2. YouTube Videos manager (owner priority).
+3. Banners/Carousels + affiliate links.
+
+---
+
 ## 2026-07-22 — Promote to `main` + doc refresh
 
 ### Completed

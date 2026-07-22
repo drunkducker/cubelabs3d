@@ -10,6 +10,7 @@ Checkpoint files preserve what was believed, planned, or completed at a particul
 - `PROJECT_STATUS_2026-07-21_0246.md` — July 21, 2026 at 02:46 checkpoint.
 - `CURRENT-SITE-STATE-2026-07-22.md` — July 22, 2026 branch, auth, and production-baseline checkpoint.
 - `2026-07-22-database-and-admin-design.md` — July 22, 2026 database & admin control-panel design submission; folded into `ARCHITECTURE.md` and `ADMIN-PORTAL.md`.
+- `2026-07-22-admin-portal-mockup.md` — July 22, 2026 approved 9-screen admin portal visual design; reference for the admin build.
 
 When these files are added to the repository, place copies in this directory using clear dated names, for example:
 

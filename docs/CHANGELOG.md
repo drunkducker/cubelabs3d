@@ -2,6 +2,19 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Admin portal foundation (first slice)
+
+- Branch: `claude/working-status-mumm9x`.
+- Built the admin security foundation, following the approved 9-screen design:
+  - DB migration `20260722_admin_foundation.sql`: `role` column on profiles (7 roles), owner bootstrap by email, self-escalation guard trigger, `is_admin()` helper, and the `admin_audit_log` table with admin-only RLS.
+  - `app/lib/admin.ts`: server-side `requireAdmin()` / `getAdminContext()` gate (browser never trusted), `ADMIN_OWNER_EMAIL` owner failsafe, role helpers, and `writeAudit()`.
+  - Protected `/admin` shell with the approved sidebar, Dashboard skeleton (live player count; other metrics marked data-pending, not faked), and a live Audit Log page.
+  - ADR `docs/decisions/0002-admin-portal-foundation.md`.
+- Owner priority captured: managed **ads, YouTube videos, and affiliate links** are first-class portal sections; added a "Videos (YouTube)" managed-content spec to `ADMIN-PORTAL.md`.
+- Required before use: run `20260722_admin_foundation.sql` and set `ADMIN_OWNER_EMAIL=dleshrader@gmail.com` in Vercel.
+- Testing: `npm run build` passes (27 routes). Not yet browser-verified.
+- Preserved the submitted mockup as `checkpoints/2026-07-22-admin-portal-mockup.md`.
+
 ## 2026-07-22 — Reconcile database & admin design submission
 
 - Reviewed the submitted "Database & Admin Control Panel Design" against the permanent docs. It was already covered by (and narrower than) `ADMIN-PORTAL.md` and `ARCHITECTURE.md`; no new admin spec was needed.

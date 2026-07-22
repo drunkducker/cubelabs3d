@@ -6,19 +6,37 @@ The admin portal is the owner-operated control center for site content, advertis
 
 Primary route: `/admin`
 
+An approved 9-screen visual design exists (see
+`checkpoints/2026-07-22-admin-portal-mockup.md`): Dashboard, Ads Manager,
+Banners & Carousels, User Management, Test Lab, Leaderboard Management,
+Challenge Management, Security Center, and Audit Log. The build follows it.
+
+**Owner priority:** monetization content — managed ads, YouTube videos, and
+affiliate links — is a first-class, high-priority part of the portal.
+
 ## First-version pages
 
 1. Overview
 2. Ads and campaigns
 3. Banners and carousels
-4. Users
-5. Test Lab
-6. Leaderboards
-7. Challenges
-8. Content
-9. Security
-10. Audit Log
-11. Settings and migration tools
+4. Videos (YouTube embeds and playlists)
+5. Users
+6. Test Lab
+7. Leaderboards
+8. Challenges
+9. Content
+10. Security
+11. Audit Log
+12. Settings and migration tools
+
+## Managed videos (YouTube)
+
+YouTube videos are managed content, not hard-coded. The owner can add a video
+by URL/ID, set a title, placement (for example `home_featured_video`,
+`learn_tutorial`), display order, active state, and schedule. Pages render
+videos through a shared component from the database by placement — no code
+changes to add or swap a video. Affiliate and sponsor disclosure rules apply
+where a video is sponsored.
 
 ## Owner dashboard
 

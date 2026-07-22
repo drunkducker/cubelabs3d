@@ -119,15 +119,20 @@ These rules keep this list trustworthy. Read them before checking any box.
 ## 6. Admin portal
 
 - [x] Admin portal requirements documented
-- [ ] Admin authentication and role enforcement
-- [ ] User search, suspension, deletion, and audit trail
-- [ ] Test-result override tools for controlled QA
+- [x] Approved 9-screen visual design (checkpoint)
+- [~] Admin authentication and role enforcement — server-side gate + role model merged (`app/lib/admin.ts`, `20260722_admin_foundation.sql`); needs migration run + browser verify
+- [~] Protected `/admin` shell + dashboard skeleton (merged)
+- [~] Audit-log foundation — table, `writeAudit()`, and live Audit page (merged; needs migration)
+- [ ] Ads manager (managed ad slots) — owner priority
+- [ ] YouTube video manager — owner priority
+- [ ] Banner/carousel + affiliate-link manager — owner priority
+- [ ] User search, suspension, deletion, and role management
+- [ ] Test Lab (`is_test = true` generators)
 - [ ] Leaderboard moderation
-- [ ] Banner and carousel manager
-- [ ] Affiliate-link manager
-- [ ] Site configuration controls
-- [ ] Security dashboard and audit logs
-- [ ] Backup/export controls
+- [ ] Challenge management
+- [ ] Content manager
+- [ ] Security center + scan
+- [ ] Site configuration and migration controls
 
 ## 7. Monetization
 
