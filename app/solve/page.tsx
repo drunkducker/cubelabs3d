@@ -7,7 +7,7 @@ const puzzles=[
  {name:"4×4 Revenge Cube",description:"Playable 4×4 with thumb swipes, highlights, scramble, undo, zoom, and move mode. Full arbitrary-state solver is still in development.",status:"BETA",href:"/solver/4x4",accent:"text-[var(--gold)]",badge:"bg-[rgba(245,185,66,.14)] border-[rgba(245,185,66,.35)]"},
  {name:"10×10 Cube Engine Test",description:"Stress-test our own Cube Labs engine at 10×10 before generalizing the smaller NxN cubes.",status:"TEST",href:"/play/10x10",accent:"text-[#70b7ff]",badge:"bg-[rgba(46,166,255,.14)] border-[rgba(46,166,255,.35)]"},
  {name:"Mirror Cube",description:"3×3 shape-mod mode using size and shape instead of sticker colors.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
- {name:"Pyraminx",description:"Fast four-sided twisty-puzzle solving and playback.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
+ {name:"Pyraminx",description:"Playable four-sided twisty puzzle with a verified full solver. Swipe-to-turn is still in development — use the on-screen buttons for now.",status:"BETA",href:"/solver/pyraminx",accent:"text-[var(--gold)]",badge:"bg-[rgba(245,185,66,.14)] border-[rgba(245,185,66,.35)]"},
  {name:"Skewb",description:"Corner-turning puzzle solver and interactive trainer.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
 ];
 
