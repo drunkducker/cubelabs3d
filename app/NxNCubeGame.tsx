@@ -41,8 +41,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
 
     const scene=new THREE.Scene();
     const focusLayout=variant==="focus";
-    const focusZoom=size*4.8;
-    const focusOffset=new THREE.Vector3(-2.5,2,0);
+    const focusZoom=5.02*((size-1)/2+.468);
     scene.background=focusLayout?null:new THREE.Color("#080b14");
     const camera=new THREE.PerspectiveCamera(focusLayout?37:18,1,.1,400);
     const distance=focusLayout?focusZoom:size*4.15;
@@ -77,7 +76,6 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const rim=new THREE.DirectionalLight("#5c7cff",1.4); rim.position.set(-10,3,-8); scene.add(rim);
 
     const root=new THREE.Group();
-    if(focusLayout) root.position.copy(focusOffset);
     scene.add(root);
     const edge=(size-1)/2;
     const bodyGeometry=new THREE.BoxGeometry(.9,.9,.9);

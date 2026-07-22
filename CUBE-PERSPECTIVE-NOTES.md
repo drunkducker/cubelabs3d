@@ -12,13 +12,16 @@ The best-looking reference is the view where the cube's lower point sits near th
 
 Use this as the baseline when recreating the current 4x4 perspective:
 
-- Start zoomed out enough that the full cube is visible.
-- Use the focus camera distance around `size * 4.8`.
-- Offset the cube so the lower point lands near the lower-center anchor.
-- The latest tuned 4x4 offset is approximately:
-  - `x: -2.5`
-  - `y: 2`
-  - `z: 0`
+- Keep the cube at the scene origin and keep the orbit target at the origin,
+  the same as the hero/3x3/2x2 cubes. Do not translate the cube's root group
+  away from `(0,0,0)` to fake an off-center composition — that decouples the
+  visual position from the orbit pivot, so the cube swings away from camera
+  center as soon as it's rotated, and any camera-distance error gets read as
+  "stuck in a corner" instead of "too small/too far".
+- Pick the camera distance from the cube's actual half-extent so it fills the
+  frame at the same ratio as the hero cube: `distance = 5.02 * (edge + 0.468)`
+  where `edge = (size - 1) / 2`. A flat `size * constant` multiplier drifts
+  out of proportion as `size` changes.
 - Keep the canvas transparent so the cube card background does the visual framing.
 - Do not add a platform ring or decorative circle under the cube.
 
