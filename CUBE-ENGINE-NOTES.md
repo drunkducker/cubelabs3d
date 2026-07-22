@@ -1,6 +1,7 @@
 # Cube Engine Notes
 
-Last updated: 2026-07-22, America/New_York
+Last updated: 2026-07-22, America/New_York (added mobile-first
+timer/undo/scramble-history/swipe-to-turn section)
 
 This file tracks internals of the hand-rolled three.js cube engines —
 `app/NxNCubeGame.tsx` (the playable NxN engine behind `/play/10x10` and
@@ -178,3 +179,91 @@ each nearby slot) instead of `edgeGroups[slot]`, using the state as of
 *before* the move being applied. Verified with 3000+ scramble/solve round
 trips at the logic layer (`lib/pyraminx-engine.ts`) and repeated
 scramble→solve→visually-check-solved cycles in the browser after the fix.
+
+## Pyraminx: mobile-first interaction — timer, undo, scramble history, swipe-to-turn
+
+Once the Pyraminx rendered and turned correctly, it was brought up to parity
+with the concepts a "shareable challenge" needs to eventually track across
+every puzzle in this repo: how many moves a solve took, how long it took,
+whether it's been solved, what scramble produced the current state, and the
+ability to undo a mistake. `app/PyraminxGame.tsx` tracks all five today;
+`app/NxNCubeGame.tsx` currently only tracks moves and undo (no timer,
+solved-state check, or recorded scramble sequence) — worth revisiting for
+parity if the challenge layer needs the same shape of data from every engine.
+
+**Timer — single long-lived interval plus two refs, not effect-driven
+restarts.** A naive React timer (`useEffect` that starts/stops a
+`setInterval` based on some "is running" state) tends to fight itself: every
+state change that should merely *display* differently ends up re-running the
+effect, which resets timing precision and adds churn. Instead there's one
+`setInterval` created once in an effect with an empty dependency array and
+never torn down until unmount; it ticks every 100ms but only pushes a new
+`elapsedMs` when `segmentStartRef.current` is non-null. `startTimer`/
+`stopTimer`/`resetTimer` are plain functions that mutate `accumulatedMsRef`
+(total time banked from finished segments) and `segmentStartRef` (when the
+*current* running segment began, or `null` if paused) — no state, no effect
+dependencies, so calling them from deep inside the turn-queue's completion
+callback (`runNext`, well outside React's render cycle) needs no special
+handling. A turn's completion callback calls `stopTimer()` the instant
+`pyraIsSolved()` is true and `startTimer()` otherwise, so the displayed time
+is exactly "time spent between scrambled and solved," freezing the instant
+the last move of a solve lands.
+
+**Undo and move-count — mirrors `NxNCubeGame.tsx`'s history-length model.**
+A `history` array (not React state — a queue-scoped array, same as
+`NxNCubeGame.tsx`'s) collects every move that completes with `record !== false`.
+`moves` displayed to the player is just `history.length`; `undo()` pops the
+last entry, computes its inverse (`direction` flipped, same `vertex`/`depth`),
+and queues that inverse move with `record: false` so undoing doesn't itself
+count as a move or become re-undoable in the wrong direction. Scramble setup
+and "Reset Puzzle" (which is implemented as "solve, but discard the
+attempt" — see below) both queue their moves with `record: false` and clear
+`history` immediately, since neither represents the player's own solving
+effort.
+
+**Scramble history display.** `randomScramble(9)` already returns a
+human-readable notation string (the same one `queueSequence` consumes after
+splitting on spaces); `scramble()` just also stashes that string in
+`scrambleSequence` state and renders it under a "SCRAMBLE" heading. This
+gives a player (or, eventually, a shared-challenge link) the exact sequence
+that produced the current puzzle state, not just a "scrambled" flag.
+
+**"Reset Puzzle" reuses the solver instead of snapping transforms.**
+Rather than a second, untested code path that resets each piece group's
+transform directly, `resetPuzzle()` calls `pyraSolve(logicalState)` — the
+same verified BFS solver `solveNow()` uses — and queues its moves with
+`record: false`, animating back to solved through the exact same turn
+machinery as every other move. One fewer thing to get subtly wrong, at the
+cost of reset taking a few animated turns instead of being instant; judged
+worth it given how much scrutiny bug 4 above needed to get turning correct
+in the first place.
+
+**Swipe-to-turn — a screen-space tangent-projection generalization of
+`NxNCubeGame.tsx`'s `resolveGesture`.** `NxNCubeGame.tsx` only ever turns
+around world-aligned x/y/z axes, so it can score "which axis does this drag
+mean" against a small fixed table of screen-projected axis directions. A
+Pyraminx turn axis passes through one of 4 *vertices* of a tetrahedron —
+there's no fixed table, since the axis depends on which vertex the player
+actually touched. The general form both cases are really doing: for a
+candidate axis, the instantaneous world-space direction a point at the
+touched location would move under a small *positive* rotation about that
+axis is the cross product `axis × hitPoint` (the standard rotational-velocity
+formula — since every Pyraminx axis passes through the origin, the touched
+point's own position vector doubles as its offset from the axis). Projecting
+that tangent direction into screen space and taking its dot product with the
+actual on-screen drag vector scores how well each candidate axis explains
+the drag the player made; the highest-magnitude score wins, and its sign
+gives the turn direction. A tip sticker has exactly one candidate vertex
+(itself, per `Pick.kind === "tip"`); an edge sticker straddles two
+(`EDGE_PAIRS[edge]`, since an edge sticker's drag could plausibly mean either
+of its two endpoint vertices) — mirroring how `NxNCubeGame.tsx`'s
+`resolveGesture` picks among a small set of candidate axes rather than
+assuming just one. Implemented via `resolveGesture`, `projectedScreenDirection`,
+and `setPointerFromEvent` in `app/PyraminxGame.tsx`, using the Pointer
+Events API (`pointerdown`/`pointermove`/`pointerup`/`pointercancel`, with
+`touchAction:"none"` on the canvas) so mouse and touch share one code path.
+A short drag (under 16px) does nothing yet; past that it live-previews the
+resolved move by glowing the affected pieces (`highlightMove`) and updating
+the status line; releasing past 34px commits the move, and releasing short
+of that cancels back to camera-orbit behavior — the same two-threshold
+"preview, then commit" shape `NxNCubeGame.tsx` uses for its own swipes.

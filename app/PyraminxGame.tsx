@@ -26,12 +26,27 @@ import SiteHeader from "@/components/SiteHeader";
 import {
   VERTICES, FACE_VERTICES, FACE_COLORS, EDGE_PAIRS, EDGES_AT_VERTEX,
   solved as pyraSolved, applyMove as pyraApplyMove, isSolved as pyraIsSolved,
-  randomScramble, solve as pyraSolve, parseMove,
+  randomScramble, solve as pyraSolve, parseMove, moveLabel,
   type PyraState, type PyraMove,
 } from "@/lib/pyraminx-engine";
 
 const toVec3 = (v: readonly [number, number, number]) => new THREE.Vector3(v[0], v[1], v[2]);
 const TWO_PI_3 = (2 * Math.PI) / 3;
+// `record` is a UI-only bookkeeping flag for undo (mirrors NxNCubeGame's
+// `Move.record`) — kept as a local extension rather than added to the
+// shared, pure `PyraMove` type in lib/pyraminx-engine.ts.
+type QueuedMove = PyraMove & { record?: boolean };
+type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number };
+type PointerStart = { pointerId: number; clientX: number; clientY: number; hitPoint: THREE.Vector3; pick: Pick };
+type Gesture = { vertex: 0 | 1 | 2 | 3; direction: 1 | -1 };
+
+function formatElapsed(ms: number) {
+  const totalTenths = Math.floor(ms / 100);
+  const minutes = Math.floor(totalTenths / 600);
+  const seconds = Math.floor((totalTenths % 600) / 10);
+  const tenths = totalTenths % 10;
+  return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
+}
 
 /**
  * Splits triangular face `faceIndex` into its 9 standard cells (a Pyraminx
@@ -142,12 +157,39 @@ function triangleGeometry(corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]
 export default function PyraminxGame({ variant = "full" }: { variant?: "full" | "focus" }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<{
-    scramble: () => void; solveNow: () => void; resetPuzzle: () => void; resetView: () => void; turnLabel: (label: string) => void;
+    scramble: () => void; solveNow: () => void; resetPuzzle: () => void; resetView: () => void; undo: () => void; turnLabel: (label: string) => void;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Pyraminx ready");
   const [moves, setMoves] = useState(0);
   const [isSolvedNow, setIsSolvedNow] = useState(true);
+  const [canUndo, setCanUndo] = useState(false);
+  const [scrambleSequence, setScrambleSequence] = useState("");
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  // A single long-lived interval drives the live timer display. It ticks
+  // for the component's whole lifetime but only produces a visible update
+  // while `segmentStartRef` is non-null (i.e. a timed attempt is actually
+  // running) — this sidesteps the usual "setInterval closing over stale
+  // state" and "effect restarts every tick" pitfalls of timer state in
+  // React, since start/stop/reset are plain functions over refs, not
+  // effect dependencies.
+  const accumulatedMsRef = useRef(0);
+  const segmentStartRef = useRef<number | null>(null);
+  const startTimer = () => { if (segmentStartRef.current === null) segmentStartRef.current = performance.now(); };
+  const stopTimer = () => {
+    if (segmentStartRef.current === null) return;
+    accumulatedMsRef.current += performance.now() - segmentStartRef.current;
+    segmentStartRef.current = null;
+    setElapsedMs(accumulatedMsRef.current);
+  };
+  const resetTimer = () => { accumulatedMsRef.current = 0; segmentStartRef.current = null; setElapsedMs(0); };
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (segmentStartRef.current !== null) setElapsedMs(accumulatedMsRef.current + (performance.now() - segmentStartRef.current));
+    }, 100);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -157,7 +199,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const focusLayout = variant === "focus";
     scene.background = focusLayout ? null : new THREE.Color("#080b14");
     const camera = new THREE.PerspectiveCamera(focusLayout ? 37 : 34, 1, 0.1, 100);
-    const distance = 6.4;
+    const distance = 6.4 / 1.5; // ~1.5x larger on first paint than the original framing
     camera.position.set(distance * 0.82, distance * 0.68, distance);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -201,6 +243,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const geometries: THREE.BufferGeometry[] = [];
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#111318", roughness: 0.4, metalness: 0.06 });
     materials.push(bodyMaterial);
+    const pickables: THREE.Mesh[] = [];
 
     for (let face = 0; face < 4; face++) {
       for (const cell of faceCells(face)) {
@@ -223,6 +266,11 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         materials.push(stickerMat);
         const sticker = new THREE.Mesh(stickerGeo, stickerMat);
         const backing = new THREE.Mesh(backingGeo, bodyMaterial);
+        sticker.userData.isSticker = true;
+        // Only tip/edge stickers are grabbable — centers never turn, so
+        // tapping one should fall through to camera orbit like empty space.
+        if (cell.target.kind === "tip") { sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick; pickables.push(sticker); }
+        else if (cell.target.kind === "edge") { sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick; pickables.push(sticker); }
 
         const group = cell.target.kind === "tip" ? tipGroups[cell.target.vertex]
           : cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
@@ -238,7 +286,8 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     let disposed = false;
     let moveFrame = 0;
     let active = false;
-    const queue: PyraMove[] = [];
+    const queue: QueuedMove[] = [];
+    const history: QueuedMove[] = [];
 
     // `edgeGroups[p]` is indexed by piece IDENTITY (its home slot at
     // construction), not by current position — a piece's colored stickers
@@ -262,6 +311,22 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       return groups;
     };
 
+    let highlighted: THREE.Group[] = [];
+    const glowPiece = (group: THREE.Group, intensity: number) => {
+      group.traverse(child => {
+        if (!(child instanceof THREE.Mesh) || !child.userData.isSticker) return;
+        const mat = child.material as THREE.MeshStandardMaterial;
+        mat.emissive.set(intensity ? "#ffffff" : mat.color);
+        mat.emissiveIntensity = intensity || 0.035;
+      });
+    };
+    const clearHighlight = () => { highlighted.forEach(g => glowPiece(g, 0)); highlighted = []; };
+    const highlightMove = (gesture: Gesture) => {
+      clearHighlight();
+      highlighted = groupsForMove({ vertex: gesture.vertex, direction: gesture.direction, depth: "deep" });
+      highlighted.forEach(g => glowPiece(g, 0.32));
+    };
+
     const runNext = () => {
       if (active || !queue.length) return;
       active = true; setBusy(true);
@@ -283,22 +348,34 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         root.remove(pivot);
         logicalState = pyraApplyMove(logicalState, move);
         const solvedNow = pyraIsSolved(logicalState);
-        setMoves(m => m + 1);
+        // Scramble setup and reset cleanup are queued with record:false —
+        // excluded from the move count and the undo stack, since neither
+        // represents the player's own solving effort. Everything else
+        // (manual turns, swipe turns, and the auto-solver's moves) counts,
+        // matching NxNCubeGame's history-length-is-the-move-count model.
+        if (move.record !== false) history.push(move);
+        setCanUndo(history.length > 0);
+        setMoves(history.length);
         setIsSolvedNow(solvedNow);
         setStatus(solvedNow ? "Solved!" : "Pyraminx ready");
+        if (solvedNow) stopTimer(); else startTimer();
+        clearHighlight();
         active = false; setBusy(queue.length > 0); runNext();
       };
       moveFrame = requestAnimationFrame(animate);
     };
 
-    const queueLabel = (label: string) => { queue.push(parseMove(label)); runNext(); };
-    const queueSequence = (labels: string[]) => { labels.forEach(l => queue.push(parseMove(l))); runNext(); };
+    const queueLabel = (label: string, record = true) => { queue.push({ ...parseMove(label), record }); runNext(); };
+    const queueSequence = (labels: string[], record = true) => { labels.forEach(l => queue.push({ ...parseMove(l), record })); runNext(); };
 
     const scramble = () => {
       if (active) return;
       const seq = randomScramble(9);
+      setScrambleSequence(seq);
       setStatus("Scrambling…");
-      queueSequence(seq.split(" "));
+      history.length = 0; setCanUndo(false); setMoves(0);
+      resetTimer(); startTimer();
+      queueSequence(seq.split(" "), false);
     };
     const solveNow = () => {
       if (active) return;
@@ -312,14 +389,121 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       // "Reset" is just "solve" — both mean "animate back to the solved
       // state" — so this reuses the same verified solver and turn queue
       // rather than snapping transforms directly through a second,
-      // untested code path.
+      // untested code path. Queued with record:false and the trackers are
+      // cleared immediately: reset abandons the current attempt rather than
+      // completing it, so it shouldn't count toward moves/time/undo.
       queue.length = 0;
+      history.length = 0; setCanUndo(false); setMoves(0);
+      setScrambleSequence(""); stopTimer(); resetTimer();
       setStatus("Resetting…");
-      queueSequence(pyraSolve(logicalState));
+      queueSequence(pyraSolve(logicalState), false);
     };
     const resetView = () => { controls.reset(); setStatus("View reset"); };
+    const undo = () => {
+      if (active || queue.length || !history.length) return;
+      const previous = history.pop()!;
+      setCanUndo(history.length > 0);
+      setMoves(history.length);
+      const inverse: QueuedMove = { vertex: previous.vertex, direction: previous.direction === 1 ? -1 : 1, depth: previous.depth, record: false };
+      queue.push(inverse);
+      runNext();
+    };
 
-    actionsRef.current = { scramble, solveNow, resetPuzzle, resetView, turnLabel: queueLabel };
+    actionsRef.current = { scramble, solveNow, resetPuzzle, resetView, undo, turnLabel: queueLabel };
+
+    // ---- Swipe-to-turn: mobile-first primary interaction. Tap+drag a tip
+    // or edge sticker to turn it; drag empty space (or a center sticker,
+    // which is never pickable) to orbit the camera instead.
+    //
+    // A Pyraminx turn axis passes through a VERTEX, not a world axis, so
+    // resolving "which way did the user drag" can't reuse a fixed
+    // axis-to-screen-direction table the way a cube's face turns can. For a
+    // candidate vertex, the instantaneous screen-space direction a point at
+    // the touched location would move under a small POSITIVE rotation is
+    // `axis × hitPoint` (standard rotational-velocity formula; the axis
+    // passes through the origin, so the touched point's position vector IS
+    // its offset from the axis). Projecting that to screen space and taking
+    // its dot product with the actual drag vector scores how well each
+    // candidate vertex explains the drag; the best-scoring vertex wins, and
+    // the sign of that dot product gives the turn direction. A tip sticker
+    // only has one candidate vertex (itself); an edge sticker has two (its
+    // two endpoints), exactly mirroring how NxNCubeGame's resolveGesture
+    // picks among candidate axes for a cube layer swipe.
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let pointerStart: PointerStart | null = null;
+    let previewGesture: Gesture | null = null;
+    let activePointers = 0;
+
+    const setPointerFromEvent = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+    };
+    const projectedScreenDirection = (worldDirection: THREE.Vector3, origin: THREE.Vector3) => {
+      const originProjected = origin.clone().project(camera);
+      const endpointProjected = origin.clone().add(worldDirection).project(camera);
+      return new THREE.Vector2(endpointProjected.x - originProjected.x, -(endpointProjected.y - originProjected.y)).normalize();
+    };
+    const resolveGesture = (start: PointerStart, dx: number, dy: number): Gesture => {
+      const candidates = start.pick.kind === "tip" ? [start.pick.vertex] : EDGE_PAIRS[start.pick.edge];
+      const drag = new THREE.Vector2(dx, dy).normalize();
+      let bestVertex = candidates[0], bestScore = 0;
+      for (const vertex of candidates) {
+        const axis = toVec3(VERTICES[vertex]).normalize();
+        const tangent = axis.clone().cross(start.hitPoint);
+        if (tangent.lengthSq() < 1e-8) continue;
+        const score = drag.dot(projectedScreenDirection(tangent.normalize(), start.hitPoint));
+        if (Math.abs(score) > Math.abs(bestScore)) { bestVertex = vertex; bestScore = score; }
+      }
+      return { vertex: bestVertex as Gesture["vertex"], direction: (bestScore >= 0 ? 1 : -1) as 1 | -1 };
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      activePointers += 1;
+      previewGesture = null;
+      if (active || activePointers > 1) { pointerStart = null; controls.enabled = true; clearHighlight(); return; }
+      setPointerFromEvent(event);
+      const hit = raycaster.intersectObjects(pickables, true)[0];
+      if (!hit) { controls.enabled = true; return; }
+      const pick = hit.object.userData.pick as Pick | undefined;
+      if (!pick) { controls.enabled = true; return; }
+      pointerStart = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, hitPoint: hit.point.clone(), pick };
+      event.preventDefault();
+      controls.enabled = false;
+      renderer.domElement.setPointerCapture(event.pointerId);
+      setStatus("Swipe to turn");
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId || activePointers > 1) return;
+      event.preventDefault();
+      const dx = event.clientX - pointerStart.clientX, dy = event.clientY - pointerStart.clientY;
+      if (Math.hypot(dx, dy) < 16) return;
+      const gesture = resolveGesture(pointerStart, dx, dy);
+      previewGesture = gesture;
+      highlightMove(gesture);
+      setStatus(`Selected ${moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: "deep" })}`);
+    };
+    const finishPointer = (event: PointerEvent) => {
+      activePointers = Math.max(0, activePointers - 1);
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId) { if (activePointers === 0) controls.enabled = true; return; }
+      const start = pointerStart; pointerStart = null;
+      const dx = event.clientX - start.clientX, dy = event.clientY - start.clientY;
+      if (Math.hypot(dx, dy) >= 34 && !active) {
+        const gesture = previewGesture ?? resolveGesture(start, dx, dy);
+        queueLabel(moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: "deep" }));
+      } else {
+        clearHighlight();
+        setStatus(pyraIsSolved(logicalState) ? "Solved!" : "Pyraminx ready");
+      }
+      controls.enabled = activePointers === 0;
+    };
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown, true);
+    renderer.domElement.addEventListener("pointermove", onPointerMove, true);
+    renderer.domElement.addEventListener("pointerup", finishPointer, true);
+    renderer.domElement.addEventListener("pointercancel", finishPointer, true);
 
     const resize = () => {
       const w = Math.max(1, mount.clientWidth), h = Math.max(1, mount.clientHeight);
@@ -340,6 +524,10 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       disposed = true;
       cancelAnimationFrame(frame); cancelAnimationFrame(moveFrame); observer.disconnect();
       window.removeEventListener("resize", resize);
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
+      renderer.domElement.removeEventListener("pointerup", finishPointer, true);
+      renderer.domElement.removeEventListener("pointercancel", finishPointer, true);
       controls.dispose(); actionsRef.current = null;
       materials.forEach(m => m.dispose());
       geometries.forEach(g => g.dispose());
@@ -350,7 +538,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
   const deepMoves = ["U", "L", "R", "B"];
   const tipMoves = ["u", "l", "r", "b"];
 
-  const description = "Turn with the buttons below, scramble, or let the verified solver play back the full solution.";
+  const description = "Swipe a sticker to turn it. Scramble to start a timed attempt, or let the verified solver play back the full solution.";
 
   return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
     <div className="orb orb-a" /><div className="orb orb-b" />
@@ -364,29 +552,42 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       </section>
 
       <section className="glass mt-3 overflow-hidden rounded-[22px]">
-        <div className="flex justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><strong className="text-[var(--text)]">{moves} moves</strong></div>
-        <div ref={mountRef} className="h-[390px] w-full touch-none sm:h-[440px]" />
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
+          <span>{status}</span>
+          <span className="flex items-center gap-3">
+            <span className="tabular-nums text-[var(--text)]">{formatElapsed(elapsedMs)}</span>
+            <strong className="text-[var(--text)]">{moves} moves</strong>
+          </span>
+        </div>
+        <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
+        <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Swipe a sticker to turn • Drag empty space to rotate</div>
       </section>
 
-      <div className="mt-3 grid grid-cols-4 gap-2">{deepMoves.map(label => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turnLabel(label)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
-      <div className="mt-2 grid grid-cols-4 gap-2">{deepMoves.map(label => <button key={`${label}'`} disabled={busy} onClick={() => actionsRef.current?.turnLabel(`${label}'`)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}&apos;</button>)}</div>
-      <details className="glass mt-2 rounded-[18px] p-3">
-        <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Tip twists</summary>
-        <div className="mt-3 grid grid-cols-4 gap-2">{tipMoves.map(label => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turnLabel(label)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
-        <div className="mt-2 grid grid-cols-4 gap-2">{tipMoves.map(label => <button key={`${label}'`} disabled={busy} onClick={() => actionsRef.current?.turnLabel(`${label}'`)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}&apos;</button>)}</div>
-      </details>
+      <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleSequence || "Tap Scramble to start a timed attempt."}</p></section>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
+        <button disabled={busy || !canUndo} onClick={() => actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button>
         <button disabled={busy || isSolvedNow} onClick={() => actionsRef.current?.solveNow()} className="cta-green min-h-12 rounded-xl font-extrabold disabled:opacity-40">Solve</button>
-        <button onClick={() => actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button>
       </div>
-      <button disabled={busy || isSolvedNow} onClick={() => actionsRef.current?.resetPuzzle()} className="glass mt-2 min-h-12 w-full rounded-xl font-extrabold disabled:opacity-40">Reset Puzzle</button>
 
-      <section className="glass mt-4 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p><strong className="text-[var(--text)]">U/L/R/B:</strong> deep turn — spins a vertex tip plus its 3 adjacent edges together.</p>
-        <p><strong className="text-[var(--text)]">u/l/r/b:</strong> tip twist — spins only the small trivial corner piece.</p>
-        <p><strong className="text-[var(--text)]">Drag the puzzle</strong> to rotate the camera and inspect all four faces.</p>
+      <details className="glass mt-3 rounded-[18px] p-3">
+        <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Controls if needed</summary>
+        <div className="mt-3 grid grid-cols-4 gap-2">{deepMoves.map(label => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turnLabel(label)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+        <div className="mt-2 grid grid-cols-4 gap-2">{deepMoves.map(label => <button key={`${label}'`} disabled={busy} onClick={() => actionsRef.current?.turnLabel(`${label}'`)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}&apos;</button>)}</div>
+        <p className="mt-3 text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">TIP TWISTS</p>
+        <div className="mt-2 grid grid-cols-4 gap-2">{tipMoves.map(label => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turnLabel(label)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+        <div className="mt-2 grid grid-cols-4 gap-2">{tipMoves.map(label => <button key={`${label}'`} disabled={busy} onClick={() => actionsRef.current?.turnLabel(`${label}'`)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}&apos;</button>)}</div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={() => actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button>
+          <button disabled={busy || isSolvedNow} onClick={() => actionsRef.current?.resetPuzzle()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">Reset Puzzle</button>
+        </div>
+      </details>
+
+      <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
+        <p><strong className="text-[var(--text)]">Swipe a sticker:</strong> drag across a tip or edge sticker to turn that vertex — the puzzle picks the layer and direction from the drag.</p>
+        <p><strong className="text-[var(--text)]">Drag empty space:</strong> rotate the camera to inspect all four faces.</p>
+        <p><strong className="text-[var(--text)]">Timer:</strong> starts on Scramble, stops the moment the puzzle is solved.</p>
       </section>
     </div>
   </main>;
