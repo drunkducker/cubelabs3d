@@ -80,7 +80,8 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] 3×3 manual color entry with invalid-entry freeze fix (merged; `components/ManualSolver.tsx`; correctness fixtures pending)
 - [x] NxN timer, solved-state detection, and scramble history (merged; `app/NxNCubeGame.tsx`)
 - [~] 4×4 playable engine (merged)
-- [~] Arbitrary-state 4×4 reduction/edge-pairing solver (merged; `lib/cube4-solver.ts`; fixtures pending)
+- [~] Arbitrary-state 4×4 reduction/edge-pairing solver (merged; `lib/cube4-solver.ts`) — **verified correct but slow: ~20s desktop / can exceed the mobile timeout, 116–160-move solutions.** Timeout raised to 120s + live counter added as a stopgap.
+- [ ] **4×4 reduction performance** — cut solve time and move count (the reason the 4×4 "seems broken" on phones). Same slowness affects 5×5.
 - [~] Interim reduced-state 5×5 solver (merged; `lib/cube5-*.ts`; full deterministic path still WIP on `claude/more-cubelabs-yuom1x`)
 - [ ] Complete and verify deterministic 5×5 solver (finish `claude/more-cubelabs-yuom1x`)
 - [ ] 5×5 arbitrary-state manual input parity with the 3×3 workflow

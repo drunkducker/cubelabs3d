@@ -32,7 +32,11 @@ const SPEEDS = [
   { label: "1.5×", duration: 300 },
   { label: "2×", duration: 220 },
 ];
-const SOLVE_TIMEOUT_MS = 60000;
+// The reduction search is CPU-intensive: ~20s on a fast machine, longer on
+// phones. Give it real headroom so a slow-but-correct solve completes instead
+// of showing a false "timed out". A live elapsed counter keeps it from feeling
+// frozen. (A faster reduction is tracked separately.)
+const SOLVE_TIMEOUT_MS = 120000;
 
 type Mode = "scramble" | "manual";
 
@@ -61,6 +65,7 @@ export default function FourSolver() {
   const [solving, setSolving] = useState(false);
   const [ready, setReady] = useState(false);
   const [time, setTime] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [speedIndex, setSpeedIndex] = useState(1);
@@ -69,7 +74,12 @@ export default function FourSolver() {
   const requestId = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const solveStart = useRef(0);
+  const elapsedTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoplay = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopElapsed = useCallback(() => {
+    if (elapsedTimer.current) { clearInterval(elapsedTimer.current); elapsedTimer.current = null; }
+  }, []);
   const onAnimating = useCallback((value: boolean) => setAnimating(value), []);
 
   const spawnWorker = useCallback(() => {
@@ -78,6 +88,7 @@ export default function FourSolver() {
       const data = event.data as { id: number; ok: boolean; solution?: string[]; verified?: boolean; error?: string };
       if (data.id !== requestId.current) return;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      stopElapsed();
       setSolving(false);
       setTime(Math.round(performance.now() - solveStart.current));
       if (data.ok) {
@@ -90,14 +101,14 @@ export default function FourSolver() {
       }
     };
     worker.current = w;
-  }, []);
+  }, [stopElapsed]);
 
   useEffect(() => {
     spawnWorker();
     setReady(true);
     setStatus("Tap Random Scramble to create a 4×4 to solve.");
-    return () => { worker.current?.terminate(); if (timeoutRef.current) clearTimeout(timeoutRef.current); };
-  }, [spawnWorker]);
+    return () => { worker.current?.terminate(); if (timeoutRef.current) clearTimeout(timeoutRef.current); stopElapsed(); };
+  }, [spawnWorker, stopElapsed]);
 
   useEffect(() => {
     if (autoplay.current) clearTimeout(autoplay.current);
@@ -149,10 +160,14 @@ export default function FourSolver() {
     setSolving(true);
     setStatus("Solving 4×4… reducing centers and pairing edges");
     solveStart.current = performance.now();
+    setElapsed(0);
+    stopElapsed();
+    elapsedTimer.current = setInterval(() => setElapsed(Math.round((performance.now() - solveStart.current) / 1000)), 250);
     const id = ++requestId.current;
     timeoutRef.current = setTimeout(() => {
       worker.current?.terminate();
       spawnWorker();
+      stopElapsed();
       setSolving(false);
       setStatus("Solve timed out — try again, or re-check a hard-to-read sticker.");
     }, SOLVE_TIMEOUT_MS);
@@ -215,7 +230,8 @@ export default function FourSolver() {
 
     <section className="glass rounded-[22px] p-4">
       <div className="flex items-center justify-between"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">VERIFIED SOLUTION</p><span className="text-xs text-[var(--muted)]">{time ? `${time} ms` : ""}</span></div>
-      <p className="mt-2 min-h-12 text-lg font-bold leading-8 tracking-wide break-words">{solving ? "Searching for a verified reduction…" : solution.join(" ") || "—"}</p>
+      <p className="mt-2 min-h-12 text-lg font-bold leading-8 tracking-wide break-words">{solving ? `Searching for a verified reduction… ${elapsed}s` : solution.join(" ") || "—"}</p>
+      {solving && <p className="text-xs text-[var(--faint)]">4×4 solving is intensive and can take up to a minute on a phone — it&apos;s working, not stuck.</p>}
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{solution.map((move, i) => <button key={`${move}-${i}`} disabled={animating} onClick={() => { setPlaying(false); setStep(i + 1); }} className={`min-w-11 rounded-xl border p-3 font-extrabold disabled:opacity-50 ${i === step - 1 ? "border-[var(--green)] bg-[rgba(52,208,88,.14)]" : "border-[var(--border)] bg-black/20"}`}>{move}</button>)}</div>
       <div className="mt-4"><div className="mb-2 flex justify-between text-xs font-bold text-[var(--muted)]"><span>Progress</span><span>{step} / {solution.length}</span></div><input aria-label="Solution progress" type="range" min={0} max={Math.max(solution.length, 1)} value={step} disabled={!solution.length || animating} onChange={(e) => { setPlaying(false); setStep(Number(e.target.value)); }} className="w-full accent-[var(--green)] disabled:opacity-40" /></div>
       <div className="mt-4 grid grid-cols-3 gap-2"><button disabled={step === 0 || animating} onClick={previous} className="glass rounded-xl p-3 font-bold disabled:opacity-40">Previous</button><button disabled={!solution.length || animating} onClick={togglePlay} className="cta-green rounded-xl p-3 font-extrabold disabled:opacity-40">{playing ? "Pause" : "Play"}</button><button disabled={step >= solution.length || animating} onClick={next} className="glass rounded-xl p-3 font-bold disabled:opacity-40">Next</button></div>

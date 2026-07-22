@@ -2,6 +2,15 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Diagnose 4×4 solver + wire managed layout into solver pages
+
+- Branch: `claude/working-status-mumm9x`.
+- **4×4 solver diagnosis** (via a temporary server route running 5 random solves): the solver is **correct** (every solve verified) but **slow** — ~20–24s on a fast CPU, 116–160-move solutions. On phones this exceeds the old 60s worker timeout, which is why it "seemed broken." Confirmed the 4×4 code is identical on `main` and `claude/more-cubelabs-yuom1x` (that branch only changed the 5×5 solver), so there is no better 4×4 elsewhere.
+- **Stopgap fix** (`components/FourSolver.tsx`): raised the solve timeout to 120s and added a live elapsed-seconds counter plus honest "this is intensive, up to a minute on a phone — it's working, not stuck" copy, so a slow-but-correct solve completes instead of showing a false timeout.
+- **Real fix tracked** in ROADMAP §3: reduce 4×4 (and 5×5) reduction time and move count.
+- **Managed layout on solver pages**: `/solver/3x3` and `/solver/4x4` now render `AdSlot` (partner banner), `PromoCarousel` (recommended gear), and `FeaturedVideos` (tutorials) — matching the approved Solvers mockup. All render nothing until content is published, so nothing breaks.
+- Testing: `npm run build` passes (31 routes).
+
 ## 2026-07-22 — Monetization: Videos, Banners/Carousels, and public render layer
 
 - Branch: `claude/working-status-mumm9x`. Three slices (all owner-priority):

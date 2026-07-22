@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import FourSolver from "@/components/FourSolver";
+import AdSlot from "@/components/AdSlot";
+import PromoCarousel from "@/components/PromoCarousel";
+import FeaturedVideos from "@/components/FeaturedVideos";
 
 export const metadata: Metadata = {
   title: "4×4 Solver | Cube Lab 3D",
@@ -22,8 +25,22 @@ export default function FourByFourSolverPage() {
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Solve any 4×4 by reduction — centers, edge pairing, and parity — then verify the full solution on the real cube. <Link href="/play/4x4" className="font-bold text-[var(--green)]">Just want to play? Open the 4×4 →</Link></p>
         </section>
         <div className="mt-5">
+          <AdSlot placement="solver_top" />
+        </div>
+
+        <div className="mt-5">
           <FourSolver />
         </div>
+
+        <section className="mt-8 grid gap-3">
+          <h2 className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">RECOMMENDED GEAR</h2>
+          <PromoCarousel carouselKey="solver_gear" />
+        </section>
+
+        <section className="mt-6 grid gap-3">
+          <h2 className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">LEARN THE 4×4</h2>
+          <FeaturedVideos placement="solver_4x4" />
+        </section>
       </div>
     </main>
   );
