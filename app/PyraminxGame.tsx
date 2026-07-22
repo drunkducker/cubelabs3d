@@ -38,7 +38,7 @@ const TWO_PI_3 = (2 * Math.PI) / 3;
 type QueuedMove = PyraMove & { record?: boolean };
 type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; hitPoint: THREE.Vector3; pick: Pick };
-type Gesture = { vertex: 0 | 1 | 2 | 3; direction: 1 | -1 };
+type Gesture = { vertex: 0 | 1 | 2 | 3; direction: 1 | -1; depth: "shallow" | "deep" };
 
 function formatElapsed(ms: number) {
   const totalTenths = Math.floor(ms / 100);
@@ -323,7 +323,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const clearHighlight = () => { highlighted.forEach(g => glowPiece(g, 0)); highlighted = []; };
     const highlightMove = (gesture: Gesture) => {
       clearHighlight();
-      highlighted = groupsForMove({ vertex: gesture.vertex, direction: gesture.direction, depth: "deep" });
+      highlighted = groupsForMove({ vertex: gesture.vertex, direction: gesture.direction, depth: gesture.depth });
       highlighted.forEach(g => glowPiece(g, 0.32));
     };
 
@@ -429,6 +429,10 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     // only has one candidate vertex (itself); an edge sticker has two (its
     // two endpoints), exactly mirroring how NxNCubeGame's resolveGesture
     // picks among candidate axes for a cube layer swipe.
+    //
+    // Depth (shallow tip-only twist vs. deep full-layer turn) is decided by
+    // WHAT was touched, not the drag itself — see the comment on
+    // resolveGesture below.
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerStart: PointerStart | null = null;
@@ -446,6 +450,18 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       const endpointProjected = origin.clone().add(worldDirection).project(camera);
       return new THREE.Vector2(endpointProjected.x - originProjected.x, -(endpointProjected.y - originProjected.y)).normalize();
     };
+    // A swipe's DEPTH is decided by what the player actually put their
+    // finger on, not derived from the drag itself: touching a tip sticker
+    // grabs only that corner piece (a "shallow" twist — mirrors the
+    // lowercase u/l/r/b buttons), while touching an edge sticker grabs the
+    // whole vertex layer including its 3 neighboring edges (a "deep" turn —
+    // mirrors the uppercase U/L/R/B buttons). This matches how a physical
+    // Pyraminx works: you can pinch just the small tip and twist it
+    // independently of the layer beneath it, or grab further down to turn
+    // the full layer. Before this, every swipe forced "deep" regardless of
+    // which piece was touched, so a tip sticker's swipe always dragged its
+    // neighboring edges along with it — there was no way to isolate a
+    // tip-only twist by touch, only via the on-screen tip-twist buttons.
     const resolveGesture = (start: PointerStart, dx: number, dy: number): Gesture => {
       const candidates = start.pick.kind === "tip" ? [start.pick.vertex] : EDGE_PAIRS[start.pick.edge];
       const drag = new THREE.Vector2(dx, dy).normalize();
@@ -457,7 +473,8 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         const score = drag.dot(projectedScreenDirection(tangent.normalize(), start.hitPoint));
         if (Math.abs(score) > Math.abs(bestScore)) { bestVertex = vertex; bestScore = score; }
       }
-      return { vertex: bestVertex as Gesture["vertex"], direction: (bestScore >= 0 ? 1 : -1) as 1 | -1 };
+      const depth: Gesture["depth"] = start.pick.kind === "tip" ? "shallow" : "deep";
+      return { vertex: bestVertex as Gesture["vertex"], direction: (bestScore >= 0 ? 1 : -1) as 1 | -1, depth };
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -483,7 +500,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       const gesture = resolveGesture(pointerStart, dx, dy);
       previewGesture = gesture;
       highlightMove(gesture);
-      setStatus(`Selected ${moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: "deep" })}`);
+      setStatus(`Selected ${moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: gesture.depth })}`);
     };
     const finishPointer = (event: PointerEvent) => {
       activePointers = Math.max(0, activePointers - 1);
@@ -492,7 +509,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       const dx = event.clientX - start.clientX, dy = event.clientY - start.clientY;
       if (Math.hypot(dx, dy) >= 34 && !active) {
         const gesture = previewGesture ?? resolveGesture(start, dx, dy);
-        queueLabel(moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: "deep" }));
+        queueLabel(moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: gesture.depth }));
       } else {
         clearHighlight();
         setStatus(pyraIsSolved(logicalState) ? "Solved!" : "Pyraminx ready");
