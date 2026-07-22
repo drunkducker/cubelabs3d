@@ -452,17 +452,18 @@ export default function NotationCube() {
     renderer.domElement.addEventListener("pointercancel", onPointerCancel, true);
     renderer.domElement.addEventListener("pointerleave", onPointerLeave, true);
 
-    const resize = () => {
-      const width = Math.max(1, mount.clientWidth);
-      const height = Math.max(1, mount.clientHeight);
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
+    const alignToViewportAnchor = () => {
       camera.updateProjectionMatrix();
       controls.update();
 
       const rect = renderer.domElement.getBoundingClientRect();
-      const targetClientX = window.innerWidth * NOTATION_ANCHOR_VIEWPORT.x;
-      const targetClientY = window.innerHeight * NOTATION_ANCHOR_VIEWPORT.y;
+      const viewport = window.visualViewport;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const targetClientX = viewportLeft + viewportWidth * NOTATION_ANCHOR_VIEWPORT.x;
+      const targetClientY = viewportTop + viewportHeight * NOTATION_ANCHOR_VIEWPORT.y;
       const targetNdc = new THREE.Vector2(
         ((targetClientX - rect.left) / rect.width) * 2 - 1,
         -(((targetClientY - rect.top) / rect.height) * 2 - 1),
@@ -472,8 +473,20 @@ export default function NotationCube() {
       camera.projectionMatrix.elements[9] += currentNdc.y - targetNdc.y;
       camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     };
+
+    const resize = () => {
+      const width = Math.max(1, mount.clientWidth);
+      const height = Math.max(1, mount.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      alignToViewportAnchor();
+    };
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
+    window.addEventListener("scroll", alignToViewportAnchor, { passive: true });
+    window.addEventListener("resize", alignToViewportAnchor);
+    window.visualViewport?.addEventListener("scroll", alignToViewportAnchor, { passive: true });
+    window.visualViewport?.addEventListener("resize", alignToViewportAnchor);
     resize();
 
     let frame = 0;
@@ -487,6 +500,10 @@ export default function NotationCube() {
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener("scroll", alignToViewportAnchor);
+      window.removeEventListener("resize", alignToViewportAnchor);
+      window.visualViewport?.removeEventListener("scroll", alignToViewportAnchor);
+      window.visualViewport?.removeEventListener("resize", alignToViewportAnchor);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);
       renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
       renderer.domElement.removeEventListener("pointerup", onPointerUp, true);
