@@ -23,6 +23,13 @@ const moveLabel = (axis:Axis,layer:number,edge:number,direction:Direction) => {
   const side=layer>0?(axis==="x"?"R":axis==="y"?"U":"F"):(axis==="x"?"L":axis==="y"?"D":"B");
   return `${depth>1?depth:""}${side}${direction<0?"′":""}`;
 };
+function formatElapsed(ms: number) {
+  const totalTenths = Math.floor(ms / 100);
+  const minutes = Math.floor(totalTenths / 600);
+  const seconds = Math.floor((totalTenths % 600) / 10);
+  const tenths = totalTenths % 10;
+  return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
+}
 
 export default function NxNCubeGame({ size=10, variant="full" }: { size?:number; variant?: "full" | "focus" }) {
   const mountRef=useRef<HTMLDivElement>(null);
@@ -34,6 +41,31 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
   const [moves,setMoves]=useState(0);
   const [canUndo,setCanUndo]=useState(false);
   const [viewMode,setViewMode]=useState<ViewMode>("turn");
+  const [isSolvedNow,setIsSolvedNow]=useState(true);
+  const [scrambleSequence,setScrambleSequence]=useState("");
+  const [elapsedMs,setElapsedMs]=useState(0);
+
+  // Same single-long-lived-interval-plus-refs timer as app/PyraminxGame.tsx
+  // (see CUBE-ENGINE-NOTES.md) — start/stop/reset are plain functions over
+  // refs, not effect state, so they can be called from deep inside the turn
+  // queue's completion callback (runNext, below) without re-running this
+  // effect or fighting React's render cycle.
+  const accumulatedMsRef=useRef(0);
+  const segmentStartRef=useRef<number|null>(null);
+  const startTimer=()=>{ if(segmentStartRef.current===null) segmentStartRef.current=performance.now(); };
+  const stopTimer=()=>{
+    if(segmentStartRef.current===null) return;
+    accumulatedMsRef.current+=performance.now()-segmentStartRef.current;
+    segmentStartRef.current=null;
+    setElapsedMs(accumulatedMsRef.current);
+  };
+  const resetTimer=()=>{ accumulatedMsRef.current=0; segmentStartRef.current=null; setElapsedMs(0); };
+  useEffect(()=>{
+    const id=setInterval(()=>{
+      if(segmentStartRef.current!==null) setElapsedMs(accumulatedMsRef.current+(performance.now()-segmentStartRef.current));
+    },100);
+    return()=>clearInterval(id);
+  },[]);
 
   useEffect(()=>{
     const mount=mountRef.current;
@@ -134,6 +166,18 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       cubies.push(cubie);
     }
     const cubieMeshes=cubies.map(c=>c.mesh);
+    // A cubie is "home" when both its current grid slot matches where it
+    // started AND its accumulated rotation (mesh.quaternion, which `attach`
+    // keeps in sync with the cubie's real orientation as it's reparented
+    // through each turn's pivot group) is back to identity — position alone
+    // isn't enough, since a cubie can cycle back to its own home slot with
+    // its stickers still rotated 90°/180° out of alignment. The cube overall
+    // is solved exactly when every cubie is home in both senses at once.
+    const identityQuaternion=new THREE.Quaternion();
+    const isSolved=()=>cubies.every(c=>
+      Math.abs(c.grid.x-c.home.x)<.01 && Math.abs(c.grid.y-c.home.y)<.01 && Math.abs(c.grid.z-c.home.z)<.01 &&
+      c.mesh.quaternion.angleTo(identityQuaternion)<.01
+    );
 
     const raycaster=new THREE.Raycaster();
     const pointer=new THREE.Vector2();
@@ -186,8 +230,16 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         const rotation=new THREE.Matrix4().makeRotationAxis(axisVector(move.axis),move.direction*Math.PI*.5);
         selected.forEach(c=>{ root.attach(c.mesh); c.mesh.position.set(snap(c.mesh.position.x,size),snap(c.mesh.position.y,size),snap(c.mesh.position.z,size)); c.grid.applyMatrix4(rotation).set(snap(c.grid.x,size),snap(c.grid.y,size),snap(c.grid.z,size)); });
         root.remove(pivot);
+        // Scramble setup is queued with record:false — excluded from the
+        // move count and undo stack, since it isn't the player's own
+        // solving effort (mirrors app/PyraminxGame.tsx's scramble/undo
+        // model; see CUBE-ENGINE-NOTES.md).
         if(move.record!==false) history.push({...move,record:true});
-        setCanUndo(history.length>0); setMoves(history.length); setStatus(`${move.label} complete`);
+        setCanUndo(history.length>0); setMoves(history.length);
+        const solvedNow=isSolved();
+        setIsSolvedNow(solvedNow);
+        setStatus(solvedNow?"Solved!":`${move.label} complete`);
+        if(solvedNow) stopTimer(); else startTimer();
         active=false; setBusy(queue.length>0); runNext();
       };
       moveFrame=requestAnimationFrame(animate);
@@ -211,6 +263,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       if(active) return;
       let lastAxis:Axis|null=null,lastLayer:number|null=null;
       const moveCount=Math.max(16,size*4);
+      const labels:string[]=[];
       for(let i=0;i<moveCount;i++){
         let axis:Axis,layer:number;
         // Avoid immediately repeating the same axis+layer twice in a row so
@@ -222,13 +275,29 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         }while(axis===lastAxis&&layer===lastLayer);
         lastAxis=axis; lastLayer=layer;
         const direction=(Math.random()>.5?1:-1) as Direction;
-        queue.push({axis,layer,direction,label:moveLabel(axis,layer,edge,direction),record:true});
+        const label=moveLabel(axis,layer,edge,direction);
+        labels.push(label);
+        // record:false — matches app/PyraminxGame.tsx: scramble moves don't
+        // count toward the player's move total and aren't individually
+        // undoable, so undo can't be used to unscramble one move at a time.
+        queue.push({axis,layer,direction,label,record:false});
       }
+      setScrambleSequence(labels.join(" "));
       setStatus(`Scrambling ${size}×${size}…`);
+      history.length=0; setCanUndo(false); setMoves(0);
+      resetTimer(); startTimer();
       runNext();
     };
     const undo=()=>{ if(active||queue.length||!history.length) return; const previous=history.pop()!; setCanUndo(history.length>0); setMoves(history.length); queue.push({axis:previous.axis,layer:previous.layer,direction:(previous.direction*-1) as Direction,label:`Undo ${previous.label}`,record:false}); runNext(); };
-    const resetCube=()=>{ if(active) return; queue.length=0; history.length=0; clearHighlight(); cubies.forEach(c=>{c.mesh.position.copy(c.home);c.mesh.quaternion.identity();c.grid.copy(c.home);}); setCanUndo(false); setMoves(0); setStatus(`${size}×${size} reset`); };
+    const resetCube=()=>{
+      if(active||isSolved()) return;
+      queue.length=0; history.length=0; clearHighlight();
+      cubies.forEach(c=>{c.mesh.position.copy(c.home);c.mesh.quaternion.identity();c.grid.copy(c.home);});
+      setCanUndo(false); setMoves(0); setScrambleSequence("");
+      stopTimer(); resetTimer();
+      setIsSolvedNow(true);
+      setStatus(`${size}×${size} reset`);
+    };
     const resetView=()=>{ controls.reset(); setStatus("View reset"); };
     const setMode=(mode:ViewMode)=>{
       currentMode=mode;
@@ -282,7 +351,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       const start=pointerStart; pointerStart=null;
       const dx=event.clientX-start.clientX,dy=event.clientY-start.clientY;
       if(Math.hypot(dx,dy)>=34&&!active){ const g=previewGesture??resolveGesture(start,dx,dy); turn({...g,label:moveLabel(g.axis,g.layer,edge,g.direction)}); }
-      else { clearHighlight(); setStatus(`${size}×${size} ready`); }
+      else { clearHighlight(); setStatus(isSolved()?"Solved!":`${size}×${size} ready`); }
       controls.enabled=activePointers===0;
     };
 
@@ -324,12 +393,15 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     <div className="relative z-[1]">
       <div className="flex items-center justify-between">
         <Link href="/solve" className="rounded-full border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--muted)]">← Solvers</Link>
-        <div className="rounded-full border border-[rgba(46,166,255,.28)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--blue)]">{moves} moves</div>
+        <div className="flex items-center gap-2">
+          <div className="rounded-full border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-extrabold tabular-nums text-[var(--muted)]">{formatElapsed(elapsedMs)}</div>
+          <div className="rounded-full border border-[rgba(46,166,255,.28)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--blue)]">{moves} moves</div>
+        </div>
       </div>
 
       <section className="cube-card relative mt-3 overflow-hidden rounded-[22px]">
         <div className="absolute left-3 top-3 z-[4] rounded-[11px] border border-[var(--border)] bg-black/35 px-3 py-1.5 text-xs font-bold text-[var(--muted)]">PLAYABLE {size}×{size} CUBE</div>
-        <button type="button" aria-label="Reset cube" disabled={busy} onClick={()=>actionsRef.current?.resetCube()} className="absolute right-3 top-3 z-[4] grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] bg-black/35 text-lg font-extrabold disabled:opacity-40">↻</button>
+        <button type="button" aria-label="Reset cube" disabled={busy||isSolvedNow} onClick={()=>actionsRef.current?.resetCube()} className="absolute right-3 top-3 z-[4] grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)] bg-black/35 text-lg font-extrabold disabled:opacity-40">↻</button>
         <div ref={mountRef} className={`${focusStageClass} w-full touch-none`}/>
         <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{status}</div>
       </section>
@@ -342,6 +414,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2"><button disabled={busy} onClick={()=>actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button><button disabled={busy||!canUndo} onClick={()=>actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button><button onClick={()=>actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button></div>
         <div className="mt-2 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+        {scrambleSequence && <p className="mt-3 break-words text-xs leading-5 text-[var(--muted)]"><strong className="text-[var(--text)]">Scramble:</strong> {scrambleSequence}</p>}
       </details>
     </div>
   </main>;
@@ -354,9 +427,17 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       <section className="mt-5"><p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">{eyebrow}</p><h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play the<br/><span className="accent-text">{size}×{size} Cube</span></h1><p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">{description}</p></section>
 
       <section className="glass mt-3 overflow-hidden rounded-[22px]">
-        <div className="flex justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><strong className="text-[var(--text)]">{moves} moves</strong></div>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
+          <span>{status}</span>
+          <span className="flex items-center gap-3">
+            <span className="tabular-nums text-[var(--text)]">{formatElapsed(elapsedMs)}</span>
+            <strong className="text-[var(--text)]">{moves} moves</strong>
+          </span>
+        </div>
         <div ref={mountRef} className={`${stageClass} w-full touch-none`}/>
       </section>
+
+      <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleSequence || "Tap Scramble to start a timed attempt."}</p></section>
 
       {isPlayableCore ? <details className="glass mt-3 rounded-[18px] p-3">
         <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Face buttons</summary>
@@ -367,7 +448,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Move Cube</button>
       </div>
       <div className="mt-2 grid grid-cols-3 gap-2"><button disabled={busy} onClick={()=>actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button><button disabled={busy||!canUndo} onClick={()=>actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button><button onClick={()=>actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button></div>
-      <button disabled={busy} onClick={()=>actionsRef.current?.resetCube()} className="glass mt-2 min-h-12 w-full rounded-xl font-extrabold disabled:opacity-40">Reset Cube</button>
+      <button disabled={busy||isSolvedNow} onClick={()=>actionsRef.current?.resetCube()} className="glass mt-2 min-h-12 w-full rounded-xl font-extrabold disabled:opacity-40">Reset Cube</button>
 
       <section className="glass mt-4 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
         <p><strong className="text-[var(--text)]">Turn Cube:</strong> sticker swipes keep the current highlight and long-dwell layer mechanics.</p>
