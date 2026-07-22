@@ -19,6 +19,29 @@ another engineer or AI can continue without re-deriving everything.
   **deterministic commutator method** (explicit piece tracking + known
   insertion algorithms), for both centers and edge triplets. Details below.
 
+## What ships NOW (interim): reduced-state + manual 5×5
+
+Because the full arbitrary 5×5 solver isn't dependable yet (see below), the
+**shipped** 5×5 experience is an honest **reduced-state solver with manual
+entry**, built on the verified engine — the exact slice the original review
+handoff recommended starting with.
+
+`components/FiveSolver.tsx` + `app/solver/5x5/page.tsx`:
+- **Reduced scramble** demo: outer-move-only scrambles stay reduced (centers
+  54/54, edges 12/12), so they solve fully via the 3×3 handoff and play back
+  verified. This is a real 5×5 solve.
+- **Full scramble** / **manual entry**: the net accepts any 5×5 state; the app
+  scores reduction (centers X/54, edge bars Y/12). If the state is reduced it
+  solves + verifies; if not, it says so honestly ("full center/edge reduction
+  is in development") rather than pretending. Manual entry validates 25 stickers
+  per color and runs the same reduced→cubejs→verify path.
+- Runs on the main thread (the reduced solve is just a fast 3×3 `cubejs` call —
+  no heavy search, no worker). Uses `NxNSolverCube3D size={5}` for playback.
+- Hub status is **"REDUCED READY"**, not "READY", to stay honest.
+
+The full-solver work below (`cube5-reduction.ts` / `cube5-solver.ts`) remains in
+the tree, unwired, for whoever picks up the deterministic rewrite.
+
 ## Commit map (branch `claude/new-session-euaf6s`)
 
 - `0a97c36` — 4×4 full solver (complete, verified).
