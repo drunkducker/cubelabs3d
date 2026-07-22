@@ -129,7 +129,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Audit-log foundation — table, `writeAudit()`, and live Audit page (merged; needs migration)
 - [~] Ads manager (managed ad slots) — CRUD + status/CTR + audit merged (`app/admin/ads`, `20260722_ads_manager.sql`); needs migration + public AdSlot render layer + click/impression tracking
 - [~] YouTube video manager — CRUD + publish/hide + thumbnails + audit (merged; `app/admin/videos`, `20260722_videos_manager.sql`); needs migration + public render
-- [ ] Banner/carousel + affiliate-link manager — owner priority
+- [~] Banner/carousel + affiliate-link manager — CRUD grouped by carousel, images, affiliate URLs, audit (merged; `app/admin/banners`, `20260722_promo_slides.sql`); needs migration + public render
 - [ ] User search, suspension, deletion, and role management
 - [ ] Test Lab (`is_test = true` generators)
 - [ ] Leaderboard moderation

@@ -80,6 +80,40 @@ export type VideoInput = {
   created_by: string;
 };
 
+export type PromoSlideRecord = {
+  id: string;
+  carousel_key: string;
+  title: string;
+  subtitle: string | null;
+  link_url: string | null;
+  image_mobile_url: string | null;
+  image_desktop_url: string | null;
+  advertiser: string | null;
+  disclosure: string | null;
+  priority: number;
+  is_active: boolean;
+  is_test: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+};
+
+export type PromoSlideInput = {
+  carousel_key: string;
+  title: string;
+  subtitle: string | null;
+  link_url: string | null;
+  image_mobile_url: string | null;
+  image_desktop_url: string | null;
+  advertiser: string | null;
+  disclosure: string | null;
+  priority: number;
+  is_active: boolean;
+  is_test: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_by: string;
+};
+
 export type AuditRecord = {
   id: string;
   actor_id: string | null;
@@ -154,6 +188,15 @@ export interface CubeLabsData {
     remove(ctx: AccessContext, id: string): Promise<void>;
     /** Public: live videos for a placement. */
     liveByPlacement(placement: string): Promise<VideoRecord[]>;
+  };
+
+  promoSlides: {
+    list(ctx: AccessContext): Promise<PromoSlideRecord[]>;
+    create(ctx: AccessContext, input: PromoSlideInput): Promise<{ id: string }>;
+    setActive(ctx: AccessContext, id: string, active: boolean): Promise<void>;
+    remove(ctx: AccessContext, id: string): Promise<void>;
+    /** Public: live slides for a carousel. */
+    liveByCarousel(carouselKey: string): Promise<PromoSlideRecord[]>;
   };
 
   audit: {

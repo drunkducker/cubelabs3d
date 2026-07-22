@@ -9,6 +9,8 @@ import type {
   AuthUser,
   CubeLabsData,
   DashboardMetrics,
+  PromoSlideInput,
+  PromoSlideRecord,
   VideoInput,
   VideoRecord,
 } from "../types";
@@ -137,6 +139,45 @@ export const supabaseProvider: CubeLabsData = {
     async liveByPlacement(placement): Promise<VideoRecord[]> {
       return supabaseRequest<VideoRecord[]>(
         `/rest/v1/videos?select=*&placement=eq.${encodeURIComponent(placement)}&order=priority.desc`,
+        {},
+        null,
+      );
+    },
+  },
+
+  promoSlides: {
+    async list(ctx): Promise<PromoSlideRecord[]> {
+      return supabaseRequest<PromoSlideRecord[]>(
+        "/rest/v1/promo_slides?select=*&order=carousel_key.asc,priority.desc,created_at.desc",
+        {},
+        token(ctx),
+      );
+    },
+    async create(ctx, input: PromoSlideInput): Promise<{ id: string }> {
+      const rows = await supabaseRequest<{ id: string }[]>(
+        "/rest/v1/promo_slides",
+        { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(input) },
+        token(ctx),
+      );
+      return { id: rows?.[0]?.id };
+    },
+    async setActive(ctx, id, active): Promise<void> {
+      await supabaseRequest(
+        `/rest/v1/promo_slides?id=eq.${encodeURIComponent(id)}`,
+        { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ is_active: active, updated_at: new Date().toISOString() }) },
+        token(ctx),
+      );
+    },
+    async remove(ctx, id): Promise<void> {
+      await supabaseRequest(
+        `/rest/v1/promo_slides?id=eq.${encodeURIComponent(id)}`,
+        { method: "DELETE", headers: { Prefer: "return=minimal" } },
+        token(ctx),
+      );
+    },
+    async liveByCarousel(carouselKey): Promise<PromoSlideRecord[]> {
+      return supabaseRequest<PromoSlideRecord[]>(
+        `/rest/v1/promo_slides?select=*&carousel_key=eq.${encodeURIComponent(carouselKey)}&order=priority.desc`,
         {},
         null,
       );

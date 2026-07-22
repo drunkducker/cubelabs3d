@@ -17,7 +17,7 @@ export type AdminNavItem = {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", ready: true },
   { href: "/admin/ads", label: "Ads", ready: true, roles: ["owner", "admin", "editor"], note: "Managed ad slots" },
-  { href: "/admin/banners", label: "Banners & Carousels", ready: false, note: "Affiliate + promo slides" },
+  { href: "/admin/banners", label: "Banners & Carousels", ready: true, roles: ["owner", "admin", "editor"], note: "Affiliate + promo slides" },
   { href: "/admin/videos", label: "Videos", ready: true, roles: ["owner", "admin", "editor"], note: "YouTube embeds" },
   { href: "/admin/users", label: "Users", ready: false },
   { href: "/admin/test-lab", label: "Test Lab", ready: false, roles: ["owner", "admin"] },
