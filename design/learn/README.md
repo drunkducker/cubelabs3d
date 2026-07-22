@@ -10,9 +10,13 @@ port — so it can later be moved into the Next.js app (`app/learn/`) 1:1.
   tutorials, popular algorithms, progress/affiliate/premium sidebar, bottom nav).
 - `styles.css` — all styling. Brand tokens mirror `app/globals.css` so the port
   reads from the same palette.
-- `script.js` — generates every cube visual as inline SVG (isometric topic/hero
+- `script.js` — generates every cube visual as inline SVG (isometric topic
   cubes, tutorial thumbnails, product cube) plus the flat OLL/PLL face grids, so
   the page ships with **zero image assets**.
+
+The hero cube is a pure-CSS 3D Rubik's cube (six `.cube-face` panels on a
+`preserve-3d` stage) that tumbles continuously behind the headline via the
+`spin3d` keyframes; a left-to-right scrim keeps the copy readable over it.
 - `preview.png` — rendered reference screenshot.
 
 ## Preview locally
