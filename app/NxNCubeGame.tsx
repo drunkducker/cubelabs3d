@@ -52,6 +52,9 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     renderer.outputColorSpace=THREE.SRGBColorSpace;
     if(focusLayout) renderer.setClearAlpha(0);
     renderer.domElement.style.touchAction="none";
+    renderer.domElement.style.display="block";
+    renderer.domElement.style.width="100%";
+    renderer.domElement.style.height="100%";
     mount.appendChild(renderer.domElement);
 
     const controls=new OrbitControls(camera,renderer.domElement);
