@@ -510,7 +510,7 @@ export default function NotationCube() {
       >
         <RefreshIcon className="h-[19px] w-[19px]" />
       </button>
-      <div ref={mountRef} className="h-[min(62dvh,520px)] min-h-[420px] w-full touch-none" />
+      <div ref={mountRef} className="h-[72dvh] min-h-[520px] max-h-[1100px] w-full touch-none" />
       <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">
         {selected}
       </div>
