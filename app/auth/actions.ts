@@ -137,7 +137,7 @@ export async function signUp(formData: FormData) {
 
 export async function requestPasswordReset(formData: FormData) {
   const email = value(formData, "email");
-  if (!email) redirect("/auth/email?error=Enter%20your%20email%20before%20requesting%20a%20reset.");
+  if (!email) redirect("/auth?error=Enter%20your%20email%20before%20requesting%20a%20reset.");
 
   const { url, key } = getSupabaseConfig();
   const response = await fetch(`${url}/auth/v1/recover`, {
@@ -149,10 +149,10 @@ export async function requestPasswordReset(formData: FormData) {
 
   if (!response.ok) {
     const result = (await response.json()) as AuthResponse;
-    redirect(authErrorUrl(result.error_description ?? result.msg ?? result.error ?? "Unable to send reset email."));
+    redirect(`/auth?error=${encodeURIComponent(result.error_description ?? result.msg ?? result.error ?? "Unable to send reset email.")}`);
   }
 
-  redirect("/auth/email?mode=login&message=Password%20reset%20email%20sent.%20Check%20your%20inbox.");
+  redirect("/auth?message=Password%20reset%20email%20sent.%20Check%20your%20inbox.");
 }
 
 export async function signOut() {

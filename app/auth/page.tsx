@@ -1,6 +1,6 @@
 import Link from "next/link";
 import AccountHeader from "@/components/AccountHeader";
-import { signIn, signUp } from "./actions";
+import { requestPasswordReset, signIn, signUp } from "./actions";
 
 type AuthPageProps = {
   searchParams?: { error?: string; message?: string };
@@ -76,6 +76,24 @@ export default function AuthPage({ searchParams = {} }: AuthPageProps) {
               Sign In
             </button>
           </form>
+
+          <details className="mt-4 border-t border-[var(--border)] pt-4">
+            <summary className="cursor-pointer list-none text-sm font-bold text-[var(--blue)]">
+              Forgot your password?
+            </summary>
+            <form action={requestPasswordReset} className="mt-3 grid gap-3">
+              <p className="text-xs leading-5 text-[var(--muted)]">
+                Enter your account email and we&apos;ll send a secure reset link.
+              </p>
+              <label className="grid gap-2 text-sm font-bold">
+                Account email
+                <input className={inputClass} name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+              </label>
+              <button className="rounded-[13px] border border-[var(--border-2)] bg-[var(--surface-2)] px-5 py-[12px] text-sm font-extrabold text-[var(--blue)]" type="submit">
+                Send reset link
+              </button>
+            </form>
+          </details>
         </section>
 
         <div className="my-5 flex items-center gap-3 text-[11px] font-bold tracking-[1.5px] text-[var(--faint)]">
