@@ -104,6 +104,21 @@ export const supabaseProvider: CubeLabsData = {
         null,
       );
     },
+    async publicById(id): Promise<AdRecord | null> {
+      const rows = await supabaseRequest<AdRecord[]>(
+        `/rest/v1/ads?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
+        {},
+        null,
+      );
+      return rows?.[0] ?? null;
+    },
+    async trackEvent(id, event): Promise<void> {
+      await supabaseRequest(
+        "/rest/v1/rpc/track_ad_event",
+        { method: "POST", body: JSON.stringify({ ad: id, event }) },
+        null,
+      );
+    },
   },
 
   videos: {

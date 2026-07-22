@@ -127,7 +127,8 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Admin authentication and role enforcement — server-side gate + role model merged (`app/lib/admin.ts`, `20260722_admin_foundation.sql`); needs migration run + browser verify
 - [~] Protected `/admin` shell + dashboard with live metrics (merged; players, solves, solve rate, active ads, ad clicks/impressions via security-definer RPC)
 - [~] Audit-log foundation — table, `writeAudit()`, and live Audit page (merged; needs migration)
-- [~] Ads manager (managed ad slots) — CRUD + status/CTR + audit merged (`app/admin/ads`, `20260722_ads_manager.sql`); needs migration + public AdSlot render layer + click/impression tracking
+- [~] Ads manager (managed ad slots) — CRUD + status/CTR + audit (merged; `app/admin/ads`, `20260722_ads_manager.sql`); needs migration
+- [~] Public render layer — `AdSlot`, `PromoCarousel`, `FeaturedVideos` components + `/partners` page + click tracking (`/api/ads/[id]/click`, `20260722_ad_tracking.sql`); impression tracking still to add
 - [~] YouTube video manager — CRUD + publish/hide + thumbnails + audit (merged; `app/admin/videos`, `20260722_videos_manager.sql`); needs migration + public render
 - [~] Banner/carousel + affiliate-link manager — CRUD grouped by carousel, images, affiliate URLs, audit (merged; `app/admin/banners`, `20260722_promo_slides.sql`); needs migration + public render
 - [ ] User search, suspension, deletion, and role management

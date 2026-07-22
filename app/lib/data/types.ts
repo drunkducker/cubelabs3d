@@ -22,7 +22,13 @@ export type AdRecord = {
   advertiser: string | null;
   ad_type: string;
   placement: string;
+  headline: string | null;
+  body: string | null;
+  button_text: string | null;
   destination_url: string | null;
+  image_mobile_url: string | null;
+  image_desktop_url: string | null;
+  disclosure: string | null;
   priority: number;
   is_active: boolean;
   is_test: boolean;
@@ -179,6 +185,10 @@ export interface CubeLabsData {
     remove(ctx: AccessContext, id: string): Promise<void>;
     /** Public: live ads for a placement (no auth token needed). */
     liveByPlacement(placement: string): Promise<AdRecord[]>;
+    /** Public: a single live ad by id, or null. */
+    publicById(id: string): Promise<AdRecord | null>;
+    /** Public: increment a click or impression counter. */
+    trackEvent(id: string, event: "click" | "impression"): Promise<void>;
   };
 
   videos: {

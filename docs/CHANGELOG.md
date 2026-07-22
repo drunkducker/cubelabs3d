@@ -2,6 +2,17 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Monetization: Videos, Banners/Carousels, and public render layer
+
+- Branch: `claude/working-status-mumm9x`. Three slices (all owner-priority):
+- **Videos manager** (`/admin/videos`, `20260722_videos_manager.sql`): add YouTube by URL or ID (auto-parsed), thumbnail preview, publish/hide/delete, role-gated + audited.
+- **Banners & Carousels** (`/admin/banners`, `20260722_promo_slides.sql`): affiliate/promo slides grouped by carousel, images, affiliate link URLs, priority ordering, activate/pause/delete, audited.
+- **Public render layer**: reusable server components `AdSlot`, `PromoCarousel`, `FeaturedVideos` that render live managed content by placement (public-read RLS, no auth needed); a net-new `/partners` showcase page (no approved page touched); and click tracking via `/api/ads/[id]/click` (increments through the security-definer `track_ad_event` RPC and redirects to the ad's own destination — no open-redirect). Migration `20260722_ad_tracking.sql`.
+- Data layer extended (still provider-neutral): `videos`, `promoSlides` groups, and public `liveByPlacement` / `liveByCarousel` / `publicById` / `trackEvent`.
+- Deferred: impression tracking, per-item edit forms.
+- Requires running the videos, promo_slides, and ad_tracking migrations.
+- Testing: `npm run build` passes (31 routes).
+
 ## 2026-07-22 — Live admin dashboard metrics + homepage color alignment
 
 - Branch: `claude/working-status-mumm9x`.
