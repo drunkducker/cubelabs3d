@@ -46,11 +46,6 @@ const FACE_MOVE: Record<Face, { axis: Axis; layerSign: Direction; clockwise: Dir
   L: { axis: "x", layerSign: -1, clockwise: 1 },
 };
 
-const NOTATION_ANCHOR_VIEWPORT = {
-  x: 349 / 709,
-  y: 597 / 1536,
-};
-
 const axisVector = (axis: Axis) =>
   axis === "x" ? new THREE.Vector3(1, 0, 0) : axis === "y" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
 
@@ -153,7 +148,6 @@ export default function NotationCube() {
     const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 240);
     const distance = size * 4.8;
     const cubeAnchor = new THREE.Vector3(0, 0, 0);
-    const uCenterStickerAnchor = new THREE.Vector3(0, edge + 0.468, 0);
     camera.position.set(cubeAnchor.x + distance * 0.82, cubeAnchor.y + distance * 0.68, cubeAnchor.z + distance);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -452,41 +446,17 @@ export default function NotationCube() {
     renderer.domElement.addEventListener("pointercancel", onPointerCancel, true);
     renderer.domElement.addEventListener("pointerleave", onPointerLeave, true);
 
-    const alignToViewportAnchor = () => {
-      camera.updateProjectionMatrix();
-      controls.update();
-
-      const rect = renderer.domElement.getBoundingClientRect();
-      const viewport = window.visualViewport;
-      const viewportLeft = viewport?.offsetLeft ?? 0;
-      const viewportTop = viewport?.offsetTop ?? 0;
-      const viewportWidth = viewport?.width ?? window.innerWidth;
-      const viewportHeight = viewport?.height ?? window.innerHeight;
-      const targetClientX = viewportLeft + viewportWidth * NOTATION_ANCHOR_VIEWPORT.x;
-      const targetClientY = viewportTop + viewportHeight * NOTATION_ANCHOR_VIEWPORT.y;
-      const targetNdc = new THREE.Vector2(
-        ((targetClientX - rect.left) / rect.width) * 2 - 1,
-        -(((targetClientY - rect.top) / rect.height) * 2 - 1),
-      );
-      const currentNdc = uCenterStickerAnchor.clone().project(camera);
-      camera.projectionMatrix.elements[8] += currentNdc.x - targetNdc.x;
-      camera.projectionMatrix.elements[9] += currentNdc.y - targetNdc.y;
-      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-    };
-
     const resize = () => {
       const width = Math.max(1, mount.clientWidth);
       const height = Math.max(1, mount.clientHeight);
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
-      alignToViewportAnchor();
+      camera.updateProjectionMatrix();
+      controls.update();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
-    window.addEventListener("scroll", alignToViewportAnchor, { passive: true });
-    window.addEventListener("resize", alignToViewportAnchor);
-    window.visualViewport?.addEventListener("scroll", alignToViewportAnchor, { passive: true });
-    window.visualViewport?.addEventListener("resize", alignToViewportAnchor);
+    window.addEventListener("resize", resize);
     resize();
 
     let frame = 0;
@@ -500,10 +470,7 @@ export default function NotationCube() {
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("scroll", alignToViewportAnchor);
-      window.removeEventListener("resize", alignToViewportAnchor);
-      window.visualViewport?.removeEventListener("scroll", alignToViewportAnchor);
-      window.visualViewport?.removeEventListener("resize", alignToViewportAnchor);
+      window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);
       renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
       renderer.domElement.removeEventListener("pointerup", onPointerUp, true);
@@ -543,7 +510,7 @@ export default function NotationCube() {
       >
         <RefreshIcon className="h-[19px] w-[19px]" />
       </button>
-      <div ref={mountRef} className="h-[min(58dvh,500px)] min-h-[390px] w-full touch-none" />
+      <div ref={mountRef} className="h-[min(62dvh,520px)] min-h-[420px] w-full touch-none" />
       <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">
         {selected}
       </div>
