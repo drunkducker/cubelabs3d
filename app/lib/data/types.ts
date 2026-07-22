@@ -77,6 +77,15 @@ export type AuditInput = {
   success?: boolean;
 };
 
+export type DashboardMetrics = {
+  players: number;
+  solves: number;
+  solves_solved: number;
+  ads_active: number;
+  ad_clicks: number;
+  ad_impressions: number;
+};
+
 export type EmailMessage = {
   to: string;
   subject: string;
@@ -111,6 +120,10 @@ export interface CubeLabsData {
   audit: {
     recent(ctx: AccessContext, limit: number): Promise<AuditRecord[]>;
     write(ctx: AccessContext, entry: AuditInput): Promise<boolean>;
+  };
+
+  metrics: {
+    dashboard(ctx: AccessContext): Promise<DashboardMetrics | null>;
   };
 
   /** Optional email transport. Present only if the provider ships one. */

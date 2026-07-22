@@ -8,6 +8,7 @@ import type {
   AuditRecord,
   AuthUser,
   CubeLabsData,
+  DashboardMetrics,
 } from "../types";
 
 /*
@@ -126,6 +127,21 @@ export const supabaseProvider: CubeLabsData = {
       } catch (error) {
         console.error("supabase audit write failed", error);
         return false;
+      }
+    },
+  },
+
+  metrics: {
+    async dashboard(ctx): Promise<DashboardMetrics | null> {
+      try {
+        // Security-definer RPC; self-authorizes via is_admin().
+        return await supabaseRequest<DashboardMetrics>(
+          "/rest/v1/rpc/admin_dashboard_metrics",
+          { method: "POST", body: "{}" },
+          token(ctx),
+        );
+      } catch {
+        return null;
       }
     },
   },

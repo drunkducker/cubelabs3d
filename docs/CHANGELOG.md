@@ -2,6 +2,16 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Live admin dashboard metrics + homepage color alignment
+
+- Branch: `claude/working-status-mumm9x`.
+- Dashboard now shows real numbers (players, solves, solve rate, active ads, ad clicks, ad impressions) via `20260722_admin_metrics.sql` — a **security-definer** `admin_dashboard_metrics()` function that self-authorizes with `is_admin()` (least privilege; no `service_role` key in the app). Exposed to `authenticated` only, revoked from `anon`.
+- Added a `metrics.dashboard()` method to the data-layer contract + Supabase adapter (calls the RPC), so metrics stay provider-neutral.
+- If the migration hasn't run, the dashboard shows a clear notice instead of faking numbers.
+- Color alignment: applied the homepage's `.accent-text` (blue→cyan gradient) to the dashboard heading; confirmed the admin portal already uses the homepage tokens (`--bg`, `--blue`, `.glass`, `.cube-card`, `.cta-blue`).
+- Context: owner shared Leaderboards / Learn / Solvers page mockups establishing the public visual language (purple→blue gradient, affiliate pills) — recorded for upcoming public pages.
+- Testing: `npm run build` passes (28 routes).
+
 ## 2026-07-22 — Provider abstraction to reduce Supabase lock-in
 
 - Branch: `claude/working-status-mumm9x`.

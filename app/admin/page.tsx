@@ -7,30 +7,38 @@ type SearchParams = { searchParams?: { error?: string } };
 
 export default async function AdminDashboard({ searchParams = {} }: SearchParams) {
   const { role, token } = await requireAdmin();
-  const players = await getData().profiles.countAll({ accessToken: token });
+  const m = await getData().metrics.dashboard({ accessToken: token });
 
-  // Tiles marked live:false need a data pipeline (service-role reads or
-  // security-definer aggregates) that arrives with their sections. Shown as
-  // planned rather than faked.
+  const fmt = (n: number | undefined) => (n == null ? "—" : n.toLocaleString());
+  const solveRate = m && m.solves > 0 ? `${Math.round((m.solves_solved / m.solves) * 100)}%` : "—";
+
+  // All values come from the security-definer admin_dashboard_metrics() RPC.
   const tiles: { label: string; value: string; live: boolean }[] = [
-    { label: "Players", value: players == null ? "—" : players.toLocaleString(), live: true },
-    { label: "Solves", value: "—", live: false },
-    { label: "Challenges", value: "—", live: false },
-    { label: "Ad clicks", value: "—", live: false },
-    { label: "Affiliate clicks", value: "—", live: false },
-    { label: "Revenue", value: "—", live: false },
+    { label: "Players", value: fmt(m?.players), live: true },
+    { label: "Solves", value: fmt(m?.solves), live: true },
+    { label: "Solve rate", value: solveRate, live: true },
+    { label: "Active ads", value: fmt(m?.ads_active), live: true },
+    { label: "Ad clicks", value: fmt(m?.ad_clicks), live: true },
+    { label: "Ad impressions", value: fmt(m?.ad_impressions), live: true },
   ];
+  const metricsUnavailable = m == null;
 
   return (
     <div className="grid gap-5">
       <header>
-        <h1 className="text-2xl font-black tracking-[-0.02em]">Dashboard Overview</h1>
+        <h1 className="accent-text text-2xl font-black tracking-[-0.02em]">Dashboard Overview</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">Owner-operated control center. You are signed in as <span className="font-bold text-[var(--blue)]">{role}</span>.</p>
       </header>
 
       {searchParams.error && (
         <div role="status" className="rounded-2xl border border-red-400/30 bg-red-500/10 p-4 text-sm font-semibold text-red-200">
           {searchParams.error}
+        </div>
+      )}
+
+      {metricsUnavailable && (
+        <div className="rounded-2xl border border-yellow-400/30 bg-yellow-500/10 p-4 text-sm font-semibold text-yellow-100">
+          Live metrics are unavailable. Confirm <code>20260722_admin_metrics.sql</code> (plus the foundation and ads migrations) have been run.
         </div>
       )}
 
@@ -66,7 +74,7 @@ export default async function AdminDashboard({ searchParams = {} }: SearchParams
       </section>
 
       <p className="text-xs leading-5 text-[var(--faint)]">
-        Priority build order per the owner: managed ads, YouTube videos, and affiliate links, then user and test-lab tools. Global metrics beyond player count activate as each section&apos;s data pipeline lands.
+        Metrics are read live via the security-definer <code>admin_dashboard_metrics()</code> function (admin-only, no service key). Priority build order: managed ads, YouTube videos, and affiliate links, then user and test-lab tools.
       </p>
     </div>
   );

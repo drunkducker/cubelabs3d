@@ -125,7 +125,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [x] Admin portal requirements documented
 - [x] Approved 9-screen visual design (checkpoint)
 - [~] Admin authentication and role enforcement — server-side gate + role model merged (`app/lib/admin.ts`, `20260722_admin_foundation.sql`); needs migration run + browser verify
-- [~] Protected `/admin` shell + dashboard skeleton (merged)
+- [~] Protected `/admin` shell + dashboard with live metrics (merged; players, solves, solve rate, active ads, ad clicks/impressions via security-definer RPC)
 - [~] Audit-log foundation — table, `writeAudit()`, and live Audit page (merged; needs migration)
 - [~] Ads manager (managed ad slots) — CRUD + status/CTR + audit merged (`app/admin/ads`, `20260722_ads_manager.sql`); needs migration + public AdSlot render layer + click/impression tracking
 - [ ] YouTube video manager — owner priority
