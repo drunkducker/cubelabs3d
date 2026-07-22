@@ -38,6 +38,52 @@ function inverseSequence(sequence: string) {
   return sequence.trim().split(/\s+/).filter(Boolean).reverse().map((move) => move.endsWith("2") ? move : move.endsWith("'") ? move[0] : `${move}'`).join(" ");
 }
 
+// Parity of a permutation array via cycle decomposition: sum of (cycle
+// length - 1) over all cycles, mod 2. Two swapped elements = one 2-cycle =
+// odd; three elements rotated = one 3-cycle = even; etc.
+function permutationParity(perm: number[]) {
+  const visited = Array(perm.length).fill(false);
+  let parity = 0;
+  for (let i = 0; i < perm.length; i++) {
+    if (visited[i]) continue;
+    let length = 0, j = i;
+    while (!visited[j]) { visited[j] = true; j = perm[j]; length++; }
+    parity += length - 1;
+  }
+  return parity % 2;
+}
+
+/**
+ * cubejs's Cube.fromString() reads sticker colors positionally with no
+ * validity check at all — it just matches each corner/edge's observed
+ * colors against known piece color-triples/pairs. A single misread sticker
+ * (an easy, likely mistake when a person is typing in their own physical
+ * cube) produces an impossible permutation that still parses "successfully"
+ * into defined cp/co/ep/eo arrays. Calling solve() on that isn't a fast
+ * failure — cubejs's iterative-deepening search has no way to recognize
+ * "this coset is empty," so it explores every depth up to its bound
+ * (22) synchronously on the main thread, which in practice means the page
+ * freezes for a long time (confirmed: 15+ seconds and counting on a single
+ * two-sticker swap) rather than erroring out.
+ *
+ * The three checks below are the standard, complete solvability conditions
+ * for a Rubik's cube (not a heuristic — any state failing one of these is
+ * mathematically unreachable from solved, and any state passing all three
+ * is guaranteed reachable): corner and edge permutations must each be a
+ * genuine bijection over their 8/12 pieces, total corner twist must be
+ * divisible by 3, total edge flip must be divisible by 2, and the two
+ * permutations' parities must match. Checking this is O(20) array work —
+ * always fast — so it runs before solve() ever gets a chance to hang.
+ */
+function isLegalCubeState(cube: Cube) {
+  const isPermutation = (perm: number[], size: number) =>
+    perm.length === size && new Set(perm).size === size && perm.every((v) => Number.isInteger(v) && v >= 0 && v < size);
+  if (!isPermutation(cube.cp, 8) || !isPermutation(cube.ep, 12)) return false;
+  if (!cube.co.every((v) => Number.isInteger(v) && v >= 0 && v <= 2) || cube.co.reduce((a, b) => a + b, 0) % 3 !== 0) return false;
+  if (!cube.eo.every((v) => Number.isInteger(v) && v >= 0 && v <= 1) || cube.eo.reduce((a, b) => a + b, 0) % 2 !== 0) return false;
+  return permutationParity(cube.cp) === permutationParity(cube.ep);
+}
+
 // 54 slots, same U/R/F/D/L/B-block-of-9 ordering as lib/cube-engine.ts's
 // toFacelets(). -1 means "not entered yet"; centers are pre-filled and
 // never editable, since a real cube's center pieces never move — they're
@@ -155,29 +201,32 @@ export default function ManualSolver() {
 
   const solveManualCube = () => {
     if (!ready || !manualComplete) return;
+    const parsed = Cube.fromString(manualFaceletString);
+    // Must run before solve() ever gets called — see isLegalCubeState's
+    // comment above for why an illegal state isn't just "wrong," it's a
+    // frozen page.
+    if (!isLegalCubeState(parsed)) {
+      setPlaying(false); setSolution([]); setStep(0); setTime(0);
+      setStatus("These colors don't form a real cube — check for a misread or swapped sticker");
+      return;
+    }
     // Same already-solved short-circuit as solveCube() above — a player
     // legitimately might enter a cube that's already solved (testing the
     // tool, or it really is solved), and cubejs's solve() doesn't handle
     // that input cleanly on its own.
-    if (Cube.fromString(manualFaceletString).isSolved()) { setPlaying(false); setSolution([]); setStep(0); setTime(0); setStatus("Already solved"); return; }
+    if (parsed.isSolved()) { setPlaying(false); setSolution([]); setStep(0); setTime(0); setStatus("Already solved"); return; }
     const start = performance.now();
     try {
-      const text = Cube.fromString(manualFaceletString).solve().trim();
+      const text = parsed.solve().trim();
       const moves = text ? text.split(/\s+/) : [];
-      // cubejs's fromString() reads colors positionally with no validity
-      // check — an impossible physical state (a color used the wrong
-      // number of times, a single flipped edge, etc.) can still parse into
-      // something solve() runs against. Re-parsing and replaying the moves
-      // to check isSolved() catches that instead of showing a "solution"
-      // that wouldn't actually solve the player's real cube.
-      const verified = Cube.fromString(manualFaceletString).move(text).isSolved();
+      const verified = parsed.move(text).isSolved();
       setPlaying(false);
       setSolution(moves);
       setStep(0);
       setTime(Math.round(performance.now() - start));
-      setStatus(verified ? `Verified solution — ${moves.length} moves` : "Colors don't match a real cube — check each color appears 9 times");
+      setStatus(verified ? `Verified solution — ${moves.length} moves` : "Solution verification failed");
     } catch {
-      setStatus("Colors don't match a real cube — check each color appears 9 times");
+      setStatus("This cube state could not be solved");
     }
   };
 
