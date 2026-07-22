@@ -1,473 +1,647 @@
 /**
- * 5x5 reduction search on the fast facelet model.
+ * Deterministic 5x5 solver core: no blind search.
  *
- * Solve the six 3x3 centers, then pair the 12 edge triplets, after which the
- * cube behaves as a 3x3 under outer turns and can be handed to cubejs.
+ * The old reduction searched for improving move sequences and had an unbounded
+ * worst case (>90s on every full scramble sampled). This replaces it with a
+ * deterministic three-stage direct solve:
  *
- * Unlike the 4x4, the 5x5 center search needs finer control than 2-layer wide
- * turns give: it also uses inner-slice moves (the single layer next to a face,
- * e.g. `Rw R'`). Those are kept as search primitives with a precomposed
- * permutation, but expand back to ordinary outer/wide tokens in the emitted
- * solution, so playback and verification never see a non-standard move.
+ *  1. Centers — a precomputed bank of slice x outer commutator 3-cycles
+ *     (plus setup conjugates). Each step picks a cycle that places one
+ *     unsolved center without breaking a solved one, so progress is strictly
+ *     monotonic and bounded by the piece count.
+ *  2. Corners + midges — with centers solved, the 5x5's corners and middle
+ *     edge pieces always form a LEGAL 3x3 (corner and midge permutation
+ *     parities flip together under every outer/wide turn, midge orientation
+ *     sum stays even, slices touch neither), so a single cubejs solve applied
+ *     as outer turns places them all while preserving centers.
+ *  3. Wings — 3-cycles built as [slice, outer-sequence] commutators. The
+ *     commutator structure makes them exactly identity on corners and midges
+ *     (the slice never touches those, so the outer part cancels with itself),
+ *     and they are filtered to keep every center on its own face. Wing
+ *     permutation parity is measured up front by reconstructing the wing
+ *     permutation from sticker colors; an odd permutation is fixed by one
+ *     slice quarter turn followed by a cheap center re-solve (commutators are
+ *     even, a slice quarter turn is odd on wings), so no external parity
+ *     algorithm is ever needed.
+ *
+ * After stage 3 the cube is fully solved — there is no separate 3x3 phase on
+ * a "reduced" cube and no OLL/PLL parity handling at all.
  */
 import {
   buildFastModel,
   applyFast,
   centerProgressFast,
-  edgeProgressFast,
   sequencePerm,
-  stateKey,
 } from "./nxn-fast";
+import { faceGridCoordinate, FACES as GEO_FACES, type Face } from "./nxn-cube";
 
 const SIZE = 5;
 export const MODEL_5 = buildFastModel(SIZE);
 const FACES = ["U", "R", "F", "D", "L", "B"] as const;
 type FaceLetter = (typeof FACES)[number];
-const FACE_AXIS: Record<FaceLetter, "x" | "y" | "z"> = { U: "y", D: "y", R: "x", L: "x", F: "z", B: "z" };
+
+// ---- move labels ------------------------------------------------------
+// Search/emit vocabulary: outer, wide and inner-slice turns in quarter and
+// half amounts. Inner slices (`Rs` = Rw R') are first-class labels with a
+// precomposed permutation but expand back to standard tokens for the emitted
+// solution, so playback and verification never see a non-standard move.
 
 type MoveDef = { label: string; perm: Int32Array; expand: string[]; base: string; inv: string };
 const MOVES = new Map<string, MoveDef>();
 const define = (d: MoveDef) => MOVES.set(d.label, d);
 
-// outer single quarter turns
 for (const f of FACES) {
   define({ label: f, perm: MODEL_5.movePerm[f], expand: [f], base: f, inv: `${f}'` });
   define({ label: `${f}'`, perm: MODEL_5.movePerm[`${f}'`], expand: [`${f}'`], base: f, inv: f });
-}
-// 2-layer wide quarter turns
-for (const f of FACES) {
+  define({ label: `${f}2`, perm: MODEL_5.movePerm[`${f}2`], expand: [`${f}2`], base: f, inv: `${f}2` });
   define({ label: `${f}w`, perm: MODEL_5.movePerm[`${f}w`], expand: [`${f}w`], base: `${f}w`, inv: `${f}w'` });
   define({ label: `${f}w'`, perm: MODEL_5.movePerm[`${f}w'`], expand: [`${f}w'`], base: `${f}w`, inv: `${f}w` });
-}
-// inner-slice quarter turns: the single layer next to the face (Fw F')
-for (const f of FACES) {
+  define({ label: `${f}w2`, perm: MODEL_5.movePerm[`${f}w2`], expand: [`${f}w2`], base: `${f}w`, inv: `${f}w2` });
   define({ label: `${f}s`, perm: sequencePerm(MODEL_5, [`${f}w`, `${f}'`]), expand: [`${f}w`, `${f}'`], base: `${f}s`, inv: `${f}s'` });
   define({ label: `${f}s'`, perm: sequencePerm(MODEL_5, [`${f}w'`, f]), expand: [`${f}w'`, f], base: `${f}s`, inv: `${f}s` });
+  define({ label: `${f}s2`, perm: sequencePerm(MODEL_5, [`${f}w2`, `${f}2`]), expand: [`${f}w2`, `${f}2`], base: `${f}s`, inv: `${f}s2` });
 }
 
-const OUTER = FACES.flatMap((f) => [f as string, `${f}'`]);
-const WIDE = FACES.flatMap((f) => [`${f}w`, `${f}w'`]);
-const SLICE = FACES.flatMap((f) => [`${f}s`, `${f}s'`]);
+const ALL_LABELS = Array.from(MOVES.keys());
+const OUTER_LABELS = FACES.flatMap((f) => [f as string, `${f}'`, `${f}2`]);
+const SLICE_LABELS = FACES.flatMap((f) => [`${f}s`, `${f}s'`, `${f}s2`]);
 
-const apply1 = (state: Uint8Array, label: string) => applyFast(state, MOVES.get(label)!.perm);
-const applySeqL = (state: Uint8Array, labels: string[]) => labels.reduce((s, l) => apply1(s, l), state);
 const inv = (label: string) => MOVES.get(label)!.inv;
 const invSeq = (labels: string[]) => [...labels].reverse().map(inv);
 const baseOf = (label: string) => MOVES.get(label)!.base;
 export const expandLabels = (labels: string[]) => labels.flatMap((l) => MOVES.get(l)!.expand);
+const applyLabels = (state: Uint8Array, labels: string[]) =>
+  labels.reduce((s, l) => applyFast(s, MOVES.get(l)!.perm), state);
 
-export type SolveSpec = {
-  progress: (state: Uint8Array) => number;
-  isValid: (state: Uint8Array) => boolean;
-  target: number;
-  perMoveGain?: number;
-  idaMaxDepth?: number;
-  phase: "center" | "edge";
-  constrained?: boolean; // a face is already solved and must be preserved
-  setup: string[];  // moves used to position (usually outer)
-  frame: string[];  // moves used to conjugate a fetch (rich for centers)
-  fetch: string[];  // moves that relocate pieces across faces (wide / slice)
-  core: string[];   // moves used inside wrapped cores (usually outer)
+// ---- slot geometry ----------------------------------------------------
+// Classify every facelet by the cubie it sits on, via the geometric engine's
+// coordinates: corners have three max coordinates, midges two max + one zero,
+// wings two max + one +/-1, centers one max coordinate.
+
+const N2 = SIZE * SIZE;
+const FACELETS = 6 * N2;
+const faceOf = (slot: number) => Math.floor(slot / N2);
+const EXPECTED = new Uint8Array(FACELETS);
+for (let i = 0; i < FACELETS; i++) EXPECTED[i] = faceOf(i);
+
+type SlotKind = "corner" | "midge" | "wing" | "center";
+const slotKind: SlotKind[] = [];
+const slotGrid: string[] = [];
+for (let f = 0; f < 6; f++) {
+  const face = GEO_FACES[f] as Face;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const g = faceGridCoordinate(SIZE, face, r, c);
+      const maxes = g.filter((v) => Math.abs(v) === 2).length;
+      const zeros = g.filter((v) => v === 0).length;
+      const kind: SlotKind =
+        maxes === 3 ? "corner" : maxes === 2 && zeros === 1 ? "midge" : maxes === 2 ? "wing" : "center";
+      slotKind.push(kind);
+      slotGrid.push(g.join(","));
+    }
+  }
+}
+
+const CENTER_FACELETS: number[] = [];
+const CM_FACELETS: number[] = []; // corners + midges
+const WING_FACELETS: number[] = [];
+for (let i = 0; i < FACELETS; i++) {
+  if (slotKind[i] === "center") CENTER_FACELETS.push(i);
+  else if (slotKind[i] === "wing") WING_FACELETS.push(i);
+  else CM_FACELETS.push(i);
+}
+
+// Wing pieces: two wing facelets on the same cubie (same grid coordinate).
+const wingByGrid = new Map<string, number[]>();
+for (const i of WING_FACELETS) {
+  const g = slotGrid[i];
+  if (!wingByGrid.has(g)) wingByGrid.set(g, []);
+  wingByGrid.get(g)!.push(i);
+}
+/** 24 wing slots, each an ordered pair of facelet indices. */
+const WING_SLOTS: [number, number][] = Array.from(wingByGrid.values())
+  .map((pair) => [Math.min(pair[0], pair[1]), Math.max(pair[0], pair[1])] as [number, number])
+  .sort((a, b) => a[0] - b[0]);
+const WING_SLOT_OF_FACELET = new Int32Array(FACELETS).fill(-1);
+WING_SLOTS.forEach(([a, b], idx) => { WING_SLOT_OF_FACELET[a] = idx; WING_SLOT_OF_FACELET[b] = idx; });
+
+// Center orbits: "+" centers (adjacent to the fixed center) and "x" centers
+// (diagonal). Orbit membership is by (row, col) shape; cycles from real move
+// sequences can never mix the two.
+const centerOrbit = new Int8Array(FACELETS).fill(-1);
+for (const i of CENTER_FACELETS) {
+  const r = Math.floor((i % N2) / SIZE), c = i % SIZE;
+  if (r === 2 && c === 2) centerOrbit[i] = 2; // fixed, never moves under outer/wide turns
+  else centerOrbit[i] = (r === 2 || c === 2) ? 0 : 1;
+}
+
+// ---- restricted permutations -----------------------------------------
+// All bank math runs on permutations restricted to a slot subset (every move
+// maps centers to centers, wings to wings, corners+midges to corners+midges).
+
+function restrictedPerm(slots: number[], fullPerm: Int32Array): Int32Array {
+  const pos = new Map<number, number>();
+  slots.forEach((s, i) => pos.set(s, i));
+  const out = new Int32Array(slots.length);
+  for (let i = 0; i < slots.length; i++) out[i] = pos.get(fullPerm[slots[i]])!;
+  return out;
+}
+
+function makeRestrictedTable(slots: number[]): Map<string, Int32Array> {
+  const table = new Map<string, Int32Array>();
+  for (const label of ALL_LABELS) table.set(label, restrictedPerm(slots, MOVES.get(label)!.perm));
+  return table;
+}
+
+/** Compose labels into one restricted perm: next[i] = prev[perm[i]]. */
+function composeRestricted(table: Map<string, Int32Array>, labels: string[]): Int32Array {
+  const n = table.get(labels[0])!.length;
+  let cur = Int32Array.from({ length: n }, (_, i) => i);
+  for (const label of labels) {
+    const p = table.get(label)!;
+    const next = new Int32Array(n);
+    for (let i = 0; i < n; i++) next[i] = cur[p[i]];
+    cur = next;
+  }
+  return cur;
+}
+
+/** Conjugate q = setup . p . setup^-1 on restricted perms. */
+function conjugateRestricted(p: Int32Array, setup: Int32Array, setupInv: Int32Array): Int32Array {
+  const n = p.length;
+  const out = new Int32Array(n);
+  // applying [S, P, S'] with next[i] = prev[perm[i]] composition:
+  // total[i] = S[P[S'[i]]]
+  for (let i = 0; i < n; i++) out[i] = setup[p[setupInv[i]]];
+  return out;
+}
+
+const CENTER_TABLE = makeRestrictedTable(CENTER_FACELETS);
+const WING_TABLE = makeRestrictedTable(WING_FACELETS);
+const CM_TABLE = makeRestrictedTable(CM_FACELETS);
+
+// ---- cycle bank -------------------------------------------------------
+
+type CycleEntry = {
+  labels: string[];
+  /** state'[dst[k]] = state[src[k]] over the entry's support (global facelets). */
+  dst: Int32Array;
+  src: Int32Array;
 };
 
-const FACE_INDEX: Record<FaceLetter, number> = { U: 0, R: 1, F: 2, D: 3, L: 4, B: 5 };
-
-/** Count of a single face's 9 center stickers that already show its colour. */
-function faceCenterCount(state: Uint8Array, faceIdx: number): number {
-  const base = faceIdx * 25;
-  let n = 0;
-  for (let r = 1; r <= 3; r++) for (let c = 1; c <= 3; c++) if (state[base + r * 5 + c] === faceIdx) n++;
-  return n;
+function entryFromRestricted(slots: number[], perm: Int32Array, labels: string[]): CycleEntry | null {
+  const dst: number[] = [], src: number[] = [];
+  for (let i = 0; i < perm.length; i++) {
+    if (perm[i] !== i) { dst.push(slots[i]); src.push(slots[perm[i]]); }
+  }
+  if (dst.length === 0) return null;
+  return { labels, dst: Int32Array.from(dst), src: Int32Array.from(src) };
 }
 
-// ---- 4x4-style last-edge bank, reused for 5x5 edge triplets ----------
-function lastEdgeAlgorithms(): string[][] {
-  const out: string[][] = [];
-  for (const wideFace of FACES) {
-    for (const a of FACES) {
-      if (FACE_AXIS[a] === FACE_AXIS[wideFace]) continue;
-      for (const c of FACES) {
-        if (FACE_AXIS[c] === FACE_AXIS[wideFace] || FACE_AXIS[c] === FACE_AXIS[a]) continue;
-        for (const primeWide of [false, true]) {
-          const w = primeWide ? `${wideFace}w'` : `${wideFace}w`;
-          const wInv = primeWide ? `${wideFace}w` : `${wideFace}w'`;
-          const alg = [w, a, wideFace, `${a}'`, c, `${a}'`, `${c}'`, a, wInv];
-          out.push(alg);
-          out.push(invSeq(alg));
+const identityOn = (perm: Int32Array) => perm.every((v, i) => v === i);
+
+/** Setups used to conjugate base cycles into full coverage. */
+const SETUP_LABELS = ALL_LABELS;
+
+type Bank = {
+  /** entries indexed by target slot id (center facelet, or wing slot index). */
+  byTarget: Map<number, CycleEntry[]>;
+};
+
+// ---- center bank ------------------------------------------------------
+
+function centerCycleSlots(perm: Int32Array): number[] | null {
+  const support: number[] = [];
+  for (let i = 0; i < perm.length; i++) if (perm[i] !== i) support.push(i);
+  return support.length === 3 ? support : null;
+}
+
+function buildCenterBank(): Bank {
+  const byTarget = new Map<number, CycleEntry[]>();
+  // coverage[s*54+t] = distinct third slots seen, capped
+  const coverage = new Map<number, Set<number>>();
+  const CAP = 6;
+
+  const record = (perm: Int32Array, labels: string[]) => {
+    const support = centerCycleSlots(perm);
+    if (!support) return false;
+    let added = false;
+    for (const d of support) {
+      const s = perm[d];
+      const third = support.find((x) => x !== d && x !== s)!;
+      const key = s * 64 + d;
+      let seen = coverage.get(key);
+      if (!seen) { seen = new Set(); coverage.set(key, seen); }
+      if (seen.size >= CAP || seen.has(third)) continue;
+      seen.add(third);
+      added = true;
+    }
+    if (!added) return false;
+    const entry = entryFromRestricted(CENTER_FACELETS, perm, labels)!;
+    for (const d of support) {
+      const t = CENTER_FACELETS[d];
+      if (!byTarget.has(t)) byTarget.set(t, []);
+      byTarget.get(t)!.push(entry);
+    }
+    return true;
+  };
+
+  // Base commutators [A, B]: A an inner slice, B a single move or a
+  // conjugated single (s m s'). A plain [slice, outer] commutator moves the
+  // whole 3-piece column, never 3 pieces — the clean center 3-cycles are the
+  // conjugated forms (e.g. Rs · U Ls' U' · Rs' · U Ls U').
+  const bSeqs: string[][] = ALL_LABELS.map((b) => [b]);
+  for (const s of ALL_LABELS) {
+    for (const m of ALL_LABELS) {
+      if (baseOf(s) === baseOf(m)) continue;
+      bSeqs.push([s, m, inv(s)]);
+    }
+  }
+  const bases: { perm: Int32Array; labels: string[] }[] = [];
+  const seenSig = new Map<string, number>();
+  for (const a of SLICE_LABELS) {
+    for (const bSeq of bSeqs) {
+      const seq = [a, ...bSeq, inv(a), ...invSeq(bSeq)];
+      const perm = composeRestricted(CENTER_TABLE, seq);
+      const support = centerCycleSlots(perm);
+      if (!support) continue;
+      const sig = support.map((d) => `${perm[d]}>${d}`).sort().join(",");
+      const prior = seenSig.get(sig);
+      if (prior !== undefined && prior <= seq.length) continue;
+      seenSig.set(sig, seq.length);
+      bases.push({ perm, labels: seq });
+    }
+  }
+  for (const b of bases) record(b.perm, b.labels);
+
+  // Full ordered in-orbit (source, target) coverage is required; conjugate
+  // tiers fill whatever the bases missed, stopping as soon as it's complete.
+  const movable: number[] = [];
+  for (let i = 0; i < CENTER_FACELETS.length; i++) {
+    if (centerOrbit[CENTER_FACELETS[i]] !== 2) movable.push(i);
+  }
+  const sameOrbit = (i: number, j: number) =>
+    centerOrbit[CENTER_FACELETS[i]] === centerOrbit[CENTER_FACELETS[j]];
+  const needMore = () => {
+    for (const s of movable) for (const t of movable) {
+      if (s !== t && sameOrbit(s, t) && !coverage.get(s * 64 + t)?.size) return true;
+    }
+    return false;
+  };
+
+  if (needMore()) {
+    for (const s of SETUP_LABELS) {
+      const sp = CENTER_TABLE.get(s)!, spi = CENTER_TABLE.get(inv(s))!;
+      for (const b of bases) {
+        record(conjugateRestricted(b.perm, sp, spi), [s, ...b.labels, inv(s)]);
+      }
+      if (!needMore()) break;
+    }
+  }
+  if (needMore()) {
+    outer: for (const s1 of SETUP_LABELS) {
+      for (const s2 of SETUP_LABELS) {
+        if (baseOf(s1) === baseOf(s2)) continue;
+        const sp = composeRestricted(CENTER_TABLE, [s1, s2]);
+        const spi = composeRestricted(CENTER_TABLE, [inv(s2), inv(s1)]);
+        for (const b of bases) {
+          record(conjugateRestricted(b.perm, sp, spi), [s1, s2, ...b.labels, inv(s2), inv(s1)]);
         }
+        if (!needMore()) break outer;
       }
     }
   }
-  return out;
+  if (needMore()) throw new Error("5x5 center bank: coverage incomplete");
+  return { byTarget };
 }
-const LAST_EDGE_ALGORITHMS = lastEdgeAlgorithms();
 
-// ---- search tiers ----------------------------------------------------
+// ---- wing bank --------------------------------------------------------
 
-/** [setup][one fetch move][undo setup], BFS over setups up to maxSetupDepth.
- * The fetch move relocates a piece across faces; the setup positions it. */
-function tryConjugate(state: Uint8Array, target: number, spec: SolveSpec, maxSetupDepth: number): string[] | null {
-  for (const fetch of spec.fetch) {
-    const fetchBase = baseOf(fetch);
-    let frontier: { setup: string[]; setupState: Uint8Array }[] = [{ setup: [], setupState: state }];
-    const visited = new Set<string>([""]);
-    for (let d = 0; d <= maxSetupDepth; d++) {
-      for (const node of frontier) {
-        const afterFetch = apply1(node.setupState, fetch);
-        const candidate = applySeqL(afterFetch, invSeq(node.setup));
-        if (spec.progress(candidate) > target && spec.isValid(candidate)) {
-          return [...node.setup, fetch, ...invSeq(node.setup)];
-        }
-      }
-      if (d === maxSetupDepth) break;
-      const next: { setup: string[]; setupState: Uint8Array }[] = [];
-      for (const node of frontier) {
-        for (const move of spec.frame) {
-          const last = node.setup[node.setup.length - 1];
-          if (last && baseOf(last) === baseOf(move) && last !== move) continue;
-          if (baseOf(move) === fetchBase) continue;
-          const setup = [...node.setup, move];
-          const key = setup.join(",");
-          if (visited.has(key)) continue;
-          visited.add(key);
-          next.push({ setup, setupState: apply1(node.setupState, move) });
-        }
-      }
-      frontier = next;
-    }
+/** A wing-restricted perm is a clean 3-cycle of wing pieces if its support is
+ * exactly 6 facelets forming 3 whole wing slots. */
+function wingCycleSlots(perm: Int32Array): number[] | null {
+  const support: number[] = [];
+  for (let i = 0; i < perm.length; i++) if (perm[i] !== i) support.push(i);
+  if (support.length !== 6) return null;
+  const slots = new Set<number>();
+  for (const i of support) slots.add(WING_SLOT_OF_FACELET[WING_FACELETS[i]]);
+  return slots.size === 3 ? Array.from(slots) : null;
+}
+
+/** Centers must stay on their own face (color-invisible once centers are
+ * solved). This is checked per entry because conjugation by slice-bearing
+ * setups does not preserve the property automatically. */
+function centerFacePreserving(perm: Int32Array): boolean {
+  for (let i = 0; i < perm.length; i++) {
+    if (faceOf(CENTER_FACELETS[perm[i]]) !== faceOf(CENTER_FACELETS[i])) return false;
   }
-  return null;
+  return true;
 }
 
-/** [setup][fetch1][fetch2][undo setup] — a two-move fetch so a piece on the
- * opposite face (two slices away) can still be inserted. A single-fetch
- * conjugate can't reach across the cube, which is exactly what strands the
- * last one or two centers of a face on its opposite. */
-function tryDoubleFetchConjugate(state: Uint8Array, target: number, spec: SolveSpec, maxSetupDepth: number): string[] | null {
-  const fetchPairs: [string, string][] = [];
-  for (const a of spec.fetch) for (const b of spec.fetch) {
+function buildWingBank(): Bank {
+  const byTarget = new Map<number, CycleEntry[]>();
+  const coverage = new Map<number, Set<number>>();
+  const CAP = 6;
+
+  const wingSlotOfLocal = (local: number) => WING_SLOT_OF_FACELET[WING_FACELETS[local]];
+
+  const record = (perm: Int32Array, labels: string[]) => {
+    const slots = wingCycleSlots(perm);
+    if (!slots) return false;
+    // piece-level mapping: slot t receives from slot s
+    let added = false;
+    const pairs: [number, number][] = [];
+    for (const t of slots) {
+      const [f1] = WING_SLOTS[t];
+      const localT = WING_FACELETS.indexOf(f1); // small array, fine at build time
+      const s = wingSlotOfLocal(perm[localT]);
+      pairs.push([s, t]);
+    }
+    for (const [s, t] of pairs) {
+      const third = slots.find((x) => x !== s && x !== t)!;
+      const key = s * 32 + t;
+      let seen = coverage.get(key);
+      if (!seen) { seen = new Set(); coverage.set(key, seen); }
+      if (seen.size >= CAP || seen.has(third)) continue;
+      seen.add(third);
+      added = true;
+    }
+    if (!added) return false;
+    const entry = entryFromRestricted(WING_FACELETS, perm, labels)!;
+    for (const t of slots) {
+      if (!byTarget.has(t)) byTarget.set(t, []);
+      byTarget.get(t)!.push(entry);
+    }
+    return true;
+  };
+
+  // base commutators [slice A, outer sequence B] (and reversed), B length 1..3.
+  const outerSeqs: string[][] = [];
+  for (const a of OUTER_LABELS) outerSeqs.push([a]);
+  for (const a of OUTER_LABELS) for (const b of OUTER_LABELS) {
     if (baseOf(a) === baseOf(b)) continue;
-    fetchPairs.push([a, b]);
+    outerSeqs.push([a, b]);
   }
-  let frontier: { setup: string[]; setupState: Uint8Array }[] = [{ setup: [], setupState: state }];
-  const visited = new Set<string>([""]);
-  for (let d = 0; d <= maxSetupDepth; d++) {
-    for (const node of frontier) {
-      const undo = invSeq(node.setup);
-      for (const [f1, f2] of fetchPairs) {
-        const candidate = applySeqL(node.setupState, [f1, f2, ...undo]);
-        if (spec.progress(candidate) > target && spec.isValid(candidate)) {
-          return [...node.setup, f1, f2, ...undo];
+  for (const a of OUTER_LABELS) for (const b of OUTER_LABELS) for (const c of OUTER_LABELS) {
+    if (baseOf(a) === baseOf(b) || baseOf(b) === baseOf(c)) continue;
+    outerSeqs.push([a, b, c]);
+  }
+
+  const bases: { perm: Int32Array; labels: string[] }[] = [];
+  for (const a of SLICE_LABELS) {
+    for (const bSeq of outerSeqs) {
+      const seq = [a, ...bSeq, inv(a), ...invSeq(bSeq)];
+      const wperm = composeRestricted(WING_TABLE, seq);
+      if (!wingCycleSlots(wperm)) continue;
+      if (!centerFacePreserving(composeRestricted(CENTER_TABLE, seq))) continue;
+      bases.push({ perm: wperm, labels: seq });
+    }
+  }
+  // safety: the commutator structure guarantees identity on corners+midges;
+  // assert it on a sample so a regression cannot slip through silently.
+  for (const b of bases.slice(0, 8)) {
+    if (!identityOn(composeRestricted(CM_TABLE, b.labels))) {
+      throw new Error("wing base cycle moved a corner or midge");
+    }
+  }
+  for (const b of bases) record(b.perm, b.labels);
+
+  // conjugates: single setups, then pairs, re-checking center face-preservation
+  const needMore = () => {
+    for (let s = 0; s < 24; s++) for (let t = 0; t < 24; t++) {
+      if (s !== t && !(coverage.get(s * 32 + t)?.size)) return true;
+    }
+    return false;
+  };
+  for (const s of SETUP_LABELS) {
+    const sp = WING_TABLE.get(s)!, spi = WING_TABLE.get(inv(s))!;
+    const cp = CENTER_TABLE.get(s)!, cpi = CENTER_TABLE.get(inv(s))!;
+    for (const b of bases) {
+      const labels = [s, ...b.labels, inv(s)];
+      const cq = conjugateRestricted(composeRestricted(CENTER_TABLE, b.labels), cp, cpi);
+      if (!centerFacePreserving(cq)) continue;
+      record(conjugateRestricted(b.perm, sp, spi), labels);
+    }
+  }
+  if (needMore()) {
+    outer: for (const s1 of SETUP_LABELS) {
+      for (const s2 of SETUP_LABELS) {
+        if (baseOf(s1) === baseOf(s2)) continue;
+        const sp = composeRestricted(WING_TABLE, [s1, s2]);
+        const spi = composeRestricted(WING_TABLE, [inv(s2), inv(s1)]);
+        const cp = composeRestricted(CENTER_TABLE, [s1, s2]);
+        const cpi = composeRestricted(CENTER_TABLE, [inv(s2), inv(s1)]);
+        for (const b of bases) {
+          const cq = conjugateRestricted(composeRestricted(CENTER_TABLE, b.labels), cp, cpi);
+          if (!centerFacePreserving(cq)) continue;
+          record(conjugateRestricted(b.perm, sp, spi), [s1, s2, ...b.labels, inv(s2), inv(s1)]);
         }
+        if (!needMore()) break outer;
       }
-    }
-    if (d === maxSetupDepth) break;
-    const next: { setup: string[]; setupState: Uint8Array }[] = [];
-    for (const node of frontier) {
-      for (const move of spec.frame) {
-        const last = node.setup[node.setup.length - 1];
-        if (last && baseOf(last) === baseOf(move) && last !== move) continue;
-        const setup = [...node.setup, move];
-        const key = setup.join(",");
-        if (visited.has(key)) continue;
-        visited.add(key);
-        next.push({ setup, setupState: apply1(node.setupState, move) });
-      }
-    }
-    frontier = next;
-  }
-  return null;
-}
-
-/** A B A' B' commutators. B ranges over both fetch moves and outer face turns:
- * the canonical center 3-cycle is a slice against an outer face turn (r U r'
- * U'), which a fetch-only pairing never tries — and that shape is exactly what
- * the last dozen centers need, so without it they fall through to the far
- * more expensive wrapped-core sweep. */
-function tryCommutator(state: Uint8Array, target: number, spec: SolveSpec): string[] | null {
-  const bMoves = [...spec.fetch, ...spec.setup];
-  for (const a of spec.fetch) for (const b of bMoves) {
-    if (baseOf(a) === baseOf(b)) continue;
-    const seq = [a, b, inv(a), inv(b)];
-    const candidate = applySeqL(state, seq);
-    if (spec.progress(candidate) > target && spec.isValid(candidate)) return seq;
-  }
-  return null;
-}
-
-/** A short outer-move setup wrapped around a slice/outer commutator (both
- * directions) — catches endgame centers, including the last-two-centers case,
- * that a bare commutator can't reach. This is the reliable center-3-cycle
- * finder that keeps the search off the far slower wrapped-core/IDA tiers. */
-function tryConjugatedCommutator(state: Uint8Array, target: number, spec: SolveSpec, maxSetupDepth: number): string[] | null {
-  const bMoves = [...spec.fetch, ...spec.setup];
-  let frontier: { setup: string[]; state: Uint8Array }[] = [{ setup: [], state }];
-  for (let d = 0; d <= maxSetupDepth; d++) {
-    for (const node of frontier) {
-      const undo = invSeq(node.setup);
-      for (const a of spec.fetch) for (const b of bMoves) {
-        if (baseOf(a) === baseOf(b)) continue;
-        for (const comm of [[a, b, inv(a), inv(b)], [inv(a), inv(b), a, b]]) {
-          const candidate = applySeqL(node.state, [...comm, ...undo]);
-          if (spec.progress(candidate) > target && spec.isValid(candidate)) {
-            return [...node.setup, ...comm, ...undo];
-          }
-        }
-      }
-    }
-    if (d === maxSetupDepth) break;
-    const next: { setup: string[]; state: Uint8Array }[] = [];
-    for (const node of frontier) {
-      for (const move of spec.setup) {
-        const last = node.setup[node.setup.length - 1];
-        if (last && baseOf(last) === baseOf(move) && last !== move) continue;
-        next.push({ setup: [...node.setup, move], state: apply1(node.state, move) });
-      }
-    }
-    frontier = next;
-  }
-  return null;
-}
-
-/** [wide][core of outer moves][wide inverse] — preserves whatever the wide
- * displaced while the core rearranges pieces. */
-function tryWideWrappedCore(state: Uint8Array, target: number, spec: SolveSpec, maxCoreDepth: number): string[] | null {
-  for (const wide of WIDE) {
-    const wideInverse = inv(wide);
-    const afterWide = apply1(state, wide);
-    let frontier: { core: string[]; state: Uint8Array }[] = [{ core: [], state: afterWide }];
-    const visited = new Set<string>([""]);
-    for (let d = 0; d < maxCoreDepth; d++) {
-      const next: { core: string[]; state: Uint8Array }[] = [];
-      for (const node of frontier) {
-        for (const move of spec.core) {
-          const last = node.core[node.core.length - 1];
-          if (last && baseOf(last) === baseOf(move) && last !== move) continue;
-          const newState = apply1(node.state, move);
-          const closed = apply1(newState, wideInverse);
-          if (spec.progress(closed) > target && spec.isValid(closed)) return [wide, ...node.core, move, wideInverse];
-          const key = stateKey(newState);
-          if (visited.has(key)) continue;
-          visited.add(key);
-          next.push({ core: [...node.core, move], state: newState });
-        }
-      }
-      frontier = next;
     }
   }
-  return null;
+  return { byTarget };
 }
 
-function tryLastEdgeAlgorithm(state: Uint8Array, target: number, spec: SolveSpec, maxSetupDepth: number): string[] | null {
-  let frontier: { setup: string[]; state: Uint8Array }[] = [{ setup: [], state }];
-  for (let d = 0; d <= maxSetupDepth; d++) {
-    for (const node of frontier) {
-      const undoSetup = invSeq(node.setup);
-      for (const alg of LAST_EDGE_ALGORITHMS) {
-        const candidate = applySeqL(node.state, [...alg, ...undoSetup]);
-        if (spec.progress(candidate) > target && spec.isValid(candidate)) return [...node.setup, ...alg, ...undoSetup];
-      }
-    }
-    if (d === maxSetupDepth) break;
-    const next: { setup: string[]; state: Uint8Array }[] = [];
-    for (const node of frontier) {
-      for (const move of spec.core) {
-        const last = node.setup[node.setup.length - 1];
-        if (last && baseOf(last) === baseOf(move) && last !== move) continue;
-        next.push({ setup: [...node.setup, move], state: apply1(node.state, move) });
-      }
-    }
-    frontier = next;
-  }
-  return null;
+let centerBank: Bank | null = null;
+let wingBank: Bank | null = null;
+function banks(): { centers: Bank; wings: Bank } {
+  if (!centerBank) centerBank = buildCenterBank();
+  if (!wingBank) wingBank = buildWingBank();
+  return { centers: centerBank, wings: wingBank };
 }
 
-/**
- * Iterative-deepening search for any single-step improvement, with a
- * transposition table keyed on the full state. Commuting moves make the same
- * position reachable by many paths; the TT (keep the lowest g seen per state,
- * per bound) prunes that redundancy, which is what makes depth 6-7 endgame
- * insertions tractable instead of exponential. A wide frame set is included so
- * the varied 5-9 move center insertions are all in reach.
- */
-// Fast FNV-1a hash of a facelet state — the IDA transposition table probes it
-// per node, so a numeric key is far cheaper than the 150-char string key. A
-// rare collision only skips a state, which at worst costs a little search, so
-// it never produces a wrong solution.
-function hashState(s: Uint8Array): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s[i]; h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
+// ---- generic group solver --------------------------------------------
 
-function tryIdaStar(state: Uint8Array, target: number, spec: SolveSpec): string[] | null {
-  const vocab = spec.phase === "center" ? [...spec.fetch, ...OUTER] : [...spec.fetch, ...spec.core];
-  const gain = spec.perMoveGain ?? 4;
-  const maxDepth = spec.idaMaxDepth ?? 10;
-  const hAt = (progress: number) => (progress > target ? 0 : Math.ceil((target + 1 - progress) / gain));
-  for (let bound = 1; bound <= maxDepth; bound++) {
-    const path: string[] = [];
-    const bestG = new Map<number, number>();
-    const dfs = (node: Uint8Array, g: number): string[] | null => {
-      const progress = spec.progress(node);
-      if (progress > target && spec.isValid(node)) return [...path];
-      if (g + hAt(progress) > bound) return null;
-      const key = hashState(node);
-      const seen = bestG.get(key);
-      if (seen !== undefined && seen <= g) return null;
-      bestG.set(key, g);
-      for (const move of vocab) {
-        const last = path[path.length - 1];
-        if (last && baseOf(last) === baseOf(move) && last !== move) continue;
-        path.push(move);
-        const result = dfs(apply1(node, move), g + 1);
-        if (result) return result;
-        path.pop();
-      }
-      return null;
-    };
-    const found = dfs(state, 0);
-    if (found) return found;
-  }
-  return null;
-}
+type Group = { id: number; facelets: number[] };
 
-function solveByProgress(start: Uint8Array, spec: SolveSpec): { state: Uint8Array; moves: string[] } {
+function solveGroupsWithBank(
+  start: Uint8Array,
+  groups: Group[],
+  entriesForTarget: (state: Uint8Array, group: Group) => CycleEntry[],
+  groupOfFacelet: (facelet: number) => number,
+): { state: Uint8Array; moves: string[] } {
   let state = start;
-  let progress = spec.progress(state);
-  const allMoves: string[] = [];
-  const isCenters = spec.phase === "center";
-  const debug = typeof process !== "undefined" && process.env && process.env.RS_DEBUG;
-  while (progress < spec.target) {
-    const target = progress;
-    const t0 = Date.now();
-    let via = "conj2";
-    let found = tryConjugate(state, target, spec, 2);
-    if (!found) { via = "comm"; found = tryCommutator(state, target, spec); }
-    if (!found && isCenters) { via = "conjComm"; found = tryConjugatedCommutator(state, target, spec, 2); }
-    if (!found && isCenters) { via = "dblFetch"; found = tryDoubleFetchConjugate(state, target, spec, 2); }
-    if (!found && !isCenters) { via = "conjDeep"; found = tryConjugate(state, target, spec, 3); }
-    if (!found) { via = "wrapped"; found = tryWideWrappedCore(state, target, spec, 4); }
-    if (!found && spec.phase === "edge") { via = "lastEdge"; found = tryLastEdgeAlgorithm(state, target, spec, 2); }
-    if (!found) { via = "ida"; found = tryIdaStar(state, target, spec); }
-    if (debug) process.stderr.write(`  ${spec.phase === "center" ? "C" : "E"} ${progress}->? via=${via} ms=${Date.now() - t0}\n`);
-    if (!found) throw new Error(`5x5 ${spec.phase} reduction stuck at ${progress}/${spec.target}`);
-    state = applySeqL(state, found);
-    allMoves.push(...found);
-    const newProgress = spec.progress(state);
-    if (newProgress <= progress) throw new Error(`5x5 reduction non-improving step: ${progress} -> ${newProgress}`);
-    progress = newProgress;
-  }
-  return { state, moves: allMoves };
-}
-
-// ---- public API ------------------------------------------------------
-
-const U = FACE_INDEX.U, D = FACE_INDEX.D;
-const CENTER_FETCH = [...SLICE, ...WIDE];
-const CENTER_FRAME = [...OUTER, ...WIDE, ...SLICE];
-
-function centerSlotsOfFace(faceIdx: number): number[] {
-  const base = faceIdx * 25, out: number[] = [];
-  for (let r = 1; r <= 3; r++) for (let c = 1; c <= 3; c++) out.push(base + r * 5 + c);
-  return out;
-}
-
-/** A move preserves a face's centre count for every state iff its permutation
- * maps that face's centre slots onto themselves (it only shuffles those pieces
- * among their own slots, never trading with other slots). Restricting the
- * constrained stages to preservation-safe moves keeps their search fast: every
- * candidate is automatically valid, so nothing is wasted exploring moves that
- * wreck an already-solved face. */
-function movesPreserving(labels: string[], faceIdxs: number[]): string[] {
-  const slotSets = faceIdxs.map((f) => new Set(centerSlotsOfFace(f)));
-  return labels.filter((l) => {
-    const perm = MOVES.get(l)!.perm;
-    return slotSets.every((slots) => Array.from(slots).every((s) => slots.has(perm[s])));
-  });
-}
-
-// Preservation-safe fetches: slice/wide moves that keep U (stage 2) or U and D
-// (stage 3) centres intact. Outer turns preserve every face's centres, so they
-// stay available for positioning in all stages.
-const FETCH_KEEP_U = movesPreserving(CENTER_FETCH, [U]);
-const FETCH_KEEP_UD = movesPreserving(CENTER_FETCH, [U, D]);
-
-/**
- * Solve the six 3x3 centers in reduction order — first face, then its
- * opposite while keeping the first solved, then the four-face belt while
- * keeping both. Staging the problem this way keeps every sub-search well
- * conditioned (a bounded, preservation-constrained cycle problem, like the
- * 4x4 edge phase) instead of one 54-piece global search that stalls in local
- * minima with no bounded escape.
- */
-export function solveCenters(state: Uint8Array) {
   const moves: string[] = [];
-  let cur = state;
-  const dbg = typeof process !== "undefined" && process.env && process.env.RS_DEBUG;
-  const stamp = (label: string, t: number) => { if (dbg) process.stderr.write(`stage ${label} ${Date.now() - t}ms\n`); };
-  let t = Date.now();
+  const isGroupSolved = (st: Uint8Array, g: Group) => g.facelets.every((f) => st[f] === EXPECTED[f]);
 
-  // Stage 1: the U face (no preservation constraint).
-  const s1 = solveByProgress(cur, {
-    progress: (s) => faceCenterCount(s, U),
-    isValid: () => true,
-    target: 9,
-    perMoveGain: 4,
-    idaMaxDepth: 7,
-    phase: "center",
-    setup: OUTER, frame: CENTER_FRAME, fetch: CENTER_FETCH, core: OUTER,
-  });
-  cur = s1.state; moves.push(...s1.moves); stamp("1(U)", t); t = Date.now();
+  const solvedCount = (st: Uint8Array) => groups.reduce((n, g) => n + (isGroupSolved(st, g) ? 1 : 0), 0);
 
-  // Stage 2: the D face, keeping U solved.
-  const s2 = solveByProgress(cur, {
-    progress: (s) => faceCenterCount(s, D),
-    isValid: (s) => faceCenterCount(s, U) === 9,
-    target: 9,
-    perMoveGain: 4,
-    idaMaxDepth: 7,
-    phase: "center",
-    constrained: true,
-    setup: OUTER, frame: CENTER_FRAME, fetch: CENTER_FETCH, core: OUTER,
-  });
-  cur = s2.state; moves.push(...s2.moves); stamp("2(D)", t); t = Date.now();
+  let guard = groups.length * 3 + 8;
+  for (;;) {
+    if (guard-- <= 0) throw new Error("5x5 group solver exceeded its move budget");
+    const unsolved = groups.filter((g) => !isGroupSolved(state, g));
+    if (unsolved.length === 0) break;
+    const before = solvedCount(state);
 
-  // Stage 3: the four belt faces together, keeping U and D solved.
-  const s3 = solveByProgress(cur, {
-    progress: (s) => centerProgressFast(MODEL_5, s),
-    isValid: (s) => faceCenterCount(s, U) === 9 && faceCenterCount(s, D) === 9,
-    target: 54,
-    perMoveGain: 4,
-    idaMaxDepth: 8,
-    phase: "center",
-    constrained: true,
-    setup: OUTER, frame: CENTER_FRAME, fetch: CENTER_FETCH, core: OUTER,
-  });
-  cur = s3.state; moves.push(...s3.moves); stamp("3(belt)", t);
-
-  return { state: cur, moves };
+    let best: { entry: CycleEntry; score: number } | null = null;
+    for (const g of unsolved) {
+      for (const entry of entriesForTarget(state, g)) {
+        // simulate on the entry's support
+        const touched = new Set<number>();
+        for (let k = 0; k < entry.dst.length; k++) {
+          touched.add(groupOfFacelet(entry.dst[k]));
+          touched.add(groupOfFacelet(entry.src[k]));
+        }
+        const newVal = new Map<number, number>();
+        for (let k = 0; k < entry.dst.length; k++) newVal.set(entry.dst[k], state[entry.src[k]]);
+        const at = (f: number) => (newVal.has(f) ? newVal.get(f)! : state[f]);
+        const solvedAfter = (gid: number) => {
+          const grp = groups[gid];
+          return grp.facelets.every((f) => at(f) === EXPECTED[f]);
+        };
+        if (!solvedAfter(g.id)) continue;
+        let delta = 0, broke = false;
+        for (const gid of Array.from(touched)) {
+          const wasSolved = isGroupSolved(state, groups[gid]);
+          const nowSolved = solvedAfter(gid);
+          if (wasSolved && !nowSolved) { broke = true; break; }
+          if (!wasSolved && nowSolved) delta++;
+        }
+        if (broke || delta === 0) continue;
+        const score = delta * 1000 - entry.labels.length;
+        if (!best || score > best.score) best = { entry, score };
+      }
+      if (best) break; // solve groups in order; first solvable target wins
+    }
+    if (!best) throw new Error("5x5 deterministic solver: no applicable cycle (bank coverage gap)");
+    state = applyLabels(state, best.entry.labels);
+    moves.push(...best.entry.labels);
+    if (solvedCount(state) <= before) throw new Error("5x5 deterministic solver: non-improving step");
+  }
+  return { state, moves };
 }
 
-export function solveEdgePairs(state: Uint8Array) {
-  return solveByProgress(state, {
-    progress: (s) => edgeProgressFast(MODEL_5, s),
-    isValid: (s) => centerProgressFast(MODEL_5, s) === 54,
-    target: 12,
-    perMoveGain: 1,
-    idaMaxDepth: 10,
-    phase: "edge",
-    setup: OUTER,
-    frame: OUTER,
-    fetch: WIDE,
-    core: OUTER,
-  });
+// ---- stage 1: centers -------------------------------------------------
+
+export function solveCenters(start: Uint8Array): { state: Uint8Array; moves: string[] } {
+  const { centers } = banks();
+  const movable = CENTER_FACELETS.filter((f) => centerOrbit[f] !== 2);
+  const groups: Group[] = movable.map((f, i) => ({ id: i, facelets: [f] }));
+  const groupOf = new Map<number, number>();
+  groups.forEach((g) => groupOf.set(g.facelets[0], g.id));
+  return solveGroupsWithBank(
+    start,
+    groups,
+    (state, g) => centers.byTarget.get(g.facelets[0]) ?? [],
+    (f) => groupOf.get(f)!,
+  );
 }
 
-/** Reduce an arbitrary 5x5 (fast state) to centers-solved, edges-paired. The
- * returned moves are ordinary outer/wide tokens (inner slices expanded). */
-export function reduce5(state: Uint8Array): { state: Uint8Array; moves: string[] } {
-  const centers = solveCenters(state);
-  const edges = solveEdgePairs(centers.state);
-  return { state: edges.state, moves: expandLabels([...centers.moves, ...edges.moves]) };
+// ---- wing permutation parity -----------------------------------------
+// Wings cannot flip in place: (slot, shown color order) determines the piece.
+// The orientation table is built empirically from random move-sequence
+// permutations, whose sources are exact piece movements; the build asserts
+// path-independence, which is precisely the no-flip fact.
+
+let wingOrientTable: Int8Array | null = null; // [slot*24+homeSlot] -> 0/1/-1
+function buildWingOrientTable(): Int8Array {
+  const table = new Int8Array(24 * 24).fill(-1);
+  const slotOfFacelet = WING_SLOT_OF_FACELET;
+  let filled = 0;
+  let perm = Int32Array.from({ length: FACELETS }, (_, i) => i);
+  let steps = 0;
+  while (filled < 24 * 24 && steps < 20000) {
+    steps++;
+    const label = ALL_LABELS[Math.floor(Math.random() * ALL_LABELS.length)];
+    const p = MOVES.get(label)!.perm;
+    const next = new Int32Array(FACELETS);
+    for (let i = 0; i < FACELETS; i++) next[i] = perm[p[i]];
+    perm = next;
+    for (let slot = 0; slot < 24; slot++) {
+      const [f1] = WING_SLOTS[slot];
+      const srcFacelet = perm[f1];
+      const home = slotOfFacelet[srcFacelet];
+      const bit = srcFacelet === WING_SLOTS[home][0] ? 0 : 1;
+      const key = slot * 24 + home;
+      if (table[key] === -1) { table[key] = bit; filled++; }
+      else if (table[key] !== bit) throw new Error("wing orientation is not path-independent");
+    }
+  }
+  if (filled < 24 * 24) throw new Error("wing orientation table incomplete");
+  return table;
+}
+
+/** Reconstruct which wing piece sits in each slot, or null if the sticker
+ * colors do not describe a valid wing arrangement. */
+export function wingPermutation(state: Uint8Array): number[] | null {
+  if (!wingOrientTable) wingOrientTable = buildWingOrientTable();
+  const table = wingOrientTable;
+  // class lookup: expected ordered color pair per slot
+  const perm: number[] = [];
+  const used = new Set<number>();
+  for (let slot = 0; slot < 24; slot++) {
+    const [f1, f2] = WING_SLOTS[slot];
+    const c1 = state[f1], c2 = state[f2];
+    let found = -1;
+    for (let home = 0; home < 24; home++) {
+      const [h1, h2] = WING_SLOTS[home];
+      const e1 = EXPECTED[h1], e2 = EXPECTED[h2];
+      const bit = table[slot * 24 + home];
+      const shown1 = bit === 0 ? e1 : e2;
+      const shown2 = bit === 0 ? e2 : e1;
+      if (shown1 === c1 && shown2 === c2) {
+        if (found !== -1) return null; // ambiguous: invalid state
+        found = home;
+      }
+    }
+    if (found === -1 || used.has(found)) return null;
+    used.add(found);
+    perm.push(found);
+  }
+  return perm;
+}
+
+function permutationParity(perm: number[]): number {
+  const seen = new Array(perm.length).fill(false);
+  let parity = 0;
+  for (let i = 0; i < perm.length; i++) {
+    if (seen[i]) continue;
+    let j = i, len = 0;
+    while (!seen[j]) { seen[j] = true; j = perm[j]; len++; }
+    parity += len - 1;
+  }
+  return parity % 2;
+}
+
+export function wingParityOdd(state: Uint8Array): boolean {
+  const perm = wingPermutation(state);
+  if (!perm) throw new Error("Invalid wing arrangement");
+  return permutationParity(perm) === 1;
+}
+
+// ---- stage 3: wings ---------------------------------------------------
+
+export function solveWings(start: Uint8Array): { state: Uint8Array; moves: string[] } {
+  const { wings } = banks();
+  const groups: Group[] = WING_SLOTS.map((pair, i) => ({ id: i, facelets: [pair[0], pair[1]] }));
+  return solveGroupsWithBank(
+    start,
+    groups,
+    (state, g) => wings.byTarget.get(g.id) ?? [],
+    (f) => WING_SLOT_OF_FACELET[f],
+  );
+}
+
+// ---- validation -------------------------------------------------------
+
+/** Sticker-count and arrangement checks that give clear errors for manual
+ * entry. Corner/midge legality is left to cubejs, which rejects illegal 3x3
+ * states when the pipeline hands the corners+midges substate over. */
+export function validateCenterAndWingState(state: Uint8Array): string | null {
+  for (let f = 0; f < 6; f++) {
+    const fixedSlot = f * N2 + 2 * SIZE + 2;
+    if (state[fixedSlot] !== f) return "Fixed face centers do not match the standard color scheme";
+  }
+  for (const orbit of [0, 1]) {
+    const counts = new Array(6).fill(0);
+    for (const i of CENTER_FACELETS) if (centerOrbit[i] === orbit) counts[state[i]]++;
+    if (counts.some((n) => n !== 4)) return "Center stickers are not a valid arrangement";
+  }
+  if (!wingPermutation(state)) return "Edge wing stickers are not a valid arrangement";
+  return null;
+}
+
+export function centersSolved(state: Uint8Array): boolean {
+  return centerProgressFast(MODEL_5, state) === 54;
 }

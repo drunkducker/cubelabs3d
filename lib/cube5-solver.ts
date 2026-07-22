@@ -1,49 +1,38 @@
 /**
- * Full arbitrary-state 5x5 solver.
+ * Full arbitrary-state 5x5 solver (deterministic).
  *
- * Pipeline mirrors the 4x4: reduce (solve the 3x3 centers, pair the edge
- * triplets) → fix any 5x5 edge parity so the reduced state is a legal 3x3 →
- * hand off to cubejs → concatenate and verify the whole solution on the real
- * 5x5 before returning it.
+ * Pipeline: solve centers (commutator bank) → if the wing permutation is odd,
+ * apply one slice quarter turn and re-solve centers (a slice turn is odd on
+ * wings, every bank cycle is even, so this is the entire parity story) →
+ * solve corners+midges with a single cubejs call applied as outer turns →
+ * solve wings (clean 3-cycle bank) → verify the concatenated solution on the
+ * real cube before returning it.
  */
 import Cube from "cubejs";
-import { MODEL_5, reduce5 } from "./cube5-reduction";
+import {
+  MODEL_5,
+  expandLabels,
+  solveCenters,
+  solveWings,
+  wingParityOdd,
+  validateCenterAndWingState,
+} from "./cube5-reduction";
 import {
   applyFastSeq,
-  centerProgressFast,
-  edgeProgressFast,
   isSolvedFast,
   reducedFaceletStringFast,
   stateFromFaces,
 } from "./nxn-fast";
-import { toFacelets, tokenizeSequence, type Cubie } from "./nxn-cube";
+import { toFacelets, type Cubie } from "./nxn-cube";
 
 const SIZE = 5;
 
-// Verified reduction-preserving 5x5 parity fixes (see parity verification).
-// OLL flips a single edge triplet's orientation (odd cubes can produce this);
-// PLL swaps two edge triplets. Confirmed to keep centers solved and edges
-// paired and to toggle only their own parity.
-const OLL_PARITY = "Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2";
-const PLL_PARITY = "Rw2 R2 U2 Rw2 R2 Uw2 Rw2 R2 Uw2";
-
-function permutationParity(perm: number[]): number {
-  const seen = Array(perm.length).fill(false);
-  let parity = 0;
-  for (let i = 0; i < perm.length; i++) {
-    if (seen[i]) continue;
-    let j = i, len = 0;
-    while (!seen[j]) { seen[j] = true; j = perm[j]; len++; }
-    parity += len - 1;
+let solverReady = false;
+function ensureSolver() {
+  if (!solverReady) {
+    Cube.initSolver();
+    solverReady = true;
   }
-  return parity % 2;
-}
-
-function reducedParity(faceletString: string): { oll: boolean; pll: boolean } {
-  const c = Cube.fromString(faceletString);
-  const oll = c.eo.reduce((a: number, b: number) => a + b, 0) % 2 === 1;
-  const pll = (permutationParity(c.cp) + permutationParity(c.ep)) % 2 === 1;
-  return { oll, pll };
 }
 
 /** Collapse consecutive same-layer turns (R R' cancels, R R = R2, …). */
@@ -78,37 +67,55 @@ export function solveState(start: Uint8Array): SolveResult {
   if (isSolvedFast(start, MODEL_5)) {
     return { solution: [], reductionMoves: 0, parityMoves: 0, cubeMoves: 0, verified: true };
   }
+  const invalid = validateCenterAndWingState(start);
+  if (invalid) throw new Error(invalid);
 
-  const { state: reduced, moves: reductionMoves } = reduce5(start);
-  if (centerProgressFast(MODEL_5, reduced) !== 54 || edgeProgressFast(MODEL_5, reduced) !== 12) {
-    throw new Error("Reduction did not complete");
+  const labels: string[] = [];
+  let state = start;
+
+  // Stage 1: centers.
+  const centers = solveCenters(state);
+  state = centers.state;
+  labels.push(...centers.moves);
+
+  // Parity: an odd wing permutation cannot be finished by 3-cycles. One slice
+  // quarter turn flips it to even; re-solving the centers it disturbed costs
+  // only even wing cycles, so the parity stays fixed.
+  let parityLabelCount = 0;
+  if (wingParityOdd(state)) {
+    const fix = ["Rs"];
+    state = applyFastSeq(MODEL_5, state, expandLabels(fix));
+    const refix = solveCenters(state);
+    state = refix.state;
+    labels.push(...fix, ...refix.moves);
+    parityLabelCount = fix.length + refix.moves.length;
   }
 
-  const parityMoves: string[] = [];
-  let afterParity = reduced;
-  const { oll, pll } = reducedParity(reducedFaceletStringFast(MODEL_5, afterParity));
-  if (oll) {
-    const seq = tokenizeSequence(OLL_PARITY);
-    parityMoves.push(...seq);
-    afterParity = applyFastSeq(MODEL_5, afterParity, seq);
-  }
-  if (pll) {
-    const seq = tokenizeSequence(PLL_PARITY);
-    parityMoves.push(...seq);
-    afterParity = applyFastSeq(MODEL_5, afterParity, seq);
-  }
+  // Stage 2: corners + midges via cubejs, applied as outer turns. With
+  // centers solved this substate is always a legal 3x3 (corner and midge
+  // permutation parities are locked together on a 5x5, midge orientation sum
+  // stays even, corner twist follows 3x3 rules).
+  ensureSolver();
+  const faceletString = reducedFaceletStringFast(MODEL_5, state);
+  const cubeSolution = Cube.fromString(faceletString).solve().trim();
+  const cubeMoveList: string[] = cubeSolution ? cubeSolution.split(/\s+/) : [];
+  state = applyFastSeq(MODEL_5, state, cubeMoveList);
 
-  const faceletString = reducedFaceletStringFast(MODEL_5, afterParity);
-  const cubeMoves = Cube.fromString(faceletString).solve().trim();
-  const cubeMoveList = cubeMoves ? cubeMoves.split(/\s+/) : [];
+  // Stage 3: wings.
+  const wings = solveWings(state);
+  state = wings.state;
 
-  const full = simplifyMoves([...reductionMoves, ...parityMoves, ...cubeMoveList]);
+  const full = simplifyMoves([
+    ...expandLabels(labels),
+    ...cubeMoveList,
+    ...expandLabels(wings.moves),
+  ]);
   const verified = isSolvedFast(applyFastSeq(MODEL_5, start, full), MODEL_5);
 
   return {
     solution: full,
-    reductionMoves: reductionMoves.length,
-    parityMoves: parityMoves.length,
+    reductionMoves: expandLabels(labels).length - parityLabelCount,
+    parityMoves: parityLabelCount,
     cubeMoves: cubeMoveList.length,
     verified,
   };
