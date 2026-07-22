@@ -85,6 +85,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const stickerGeometry=new THREE.BoxGeometry(.76,.76,.045);
     const cubies:Cubie[]=[];
     const materials:THREE.Material[]=[];
+    let disposed=false;
     const material=(color:string,sticker=false)=>{
       const mat=new THREE.MeshStandardMaterial({
         color,
@@ -104,13 +105,14 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       group.add(sticker);
     };
 
+    const bodyMaterial=material(COLORS.I);
     for(let xi=0;xi<size;xi++) for(let yi=0;yi<size;yi++) for(let zi=0;zi<size;zi++) {
       const exterior=xi===0||yi===0||zi===0||xi===size-1||yi===size-1||zi===size-1;
       if(!exterior) continue;
       const x=xi-edge,y=yi-edge,z=zi-edge;
       const mesh=new THREE.Group();
       mesh.position.set(x,y,z);
-      const body=new THREE.Mesh(bodyGeometry,material(COLORS.I));
+      const body=new THREE.Mesh(bodyGeometry,bodyMaterial);
       mesh.add(body);
       if(x===edge) addSticker(mesh,COLORS.R,[.468,0,0],[0,Math.PI/2,0]);
       if(x===-edge) addSticker(mesh,COLORS.L,[-.468,0,0],[0,Math.PI/2,0]);
@@ -123,6 +125,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       mesh.traverse(child=>{ child.userData.cubie=cubie; });
       cubies.push(cubie);
     }
+    const cubieMeshes=cubies.map(c=>c.mesh);
 
     const raycaster=new THREE.Raycaster();
     const pointer=new THREE.Vector2();
@@ -158,6 +161,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       highlighted.forEach(c=>glowCubie(c,.32));
     };
 
+    let moveFrame=0;
     const runNext=()=>{
       if(active||!queue.length) return;
       clearHighlight(); active=true; setBusy(true);
@@ -166,9 +170,10 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       const pivot=new THREE.Group(); root.add(pivot); selected.forEach(c=>pivot.attach(c.mesh));
       const started=performance.now();
       const animate=(now:number)=>{
+        if(disposed) return;
         const p=Math.min(1,(now-started)/245); const eased=1-Math.pow(1-p,3);
         pivot.rotation[move.axis]=move.direction*Math.PI*.5*eased;
-        if(p<1){ requestAnimationFrame(animate); return; }
+        if(p<1){ moveFrame=requestAnimationFrame(animate); return; }
         pivot.updateMatrixWorld(true);
         const rotation=new THREE.Matrix4().makeRotationAxis(axisVector(move.axis),move.direction*Math.PI*.5);
         selected.forEach(c=>{ root.attach(c.mesh); c.mesh.position.set(snap(c.mesh.position.x,size),snap(c.mesh.position.y,size),snap(c.mesh.position.z,size)); c.grid.applyMatrix4(rotation).set(snap(c.grid.x,size),snap(c.grid.y,size),snap(c.grid.z,size)); });
@@ -177,7 +182,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         setCanUndo(history.length>0); setMoves(history.length); setStatus(`${move.label} complete`);
         active=false; setBusy(queue.length>0); runNext();
       };
-      requestAnimationFrame(animate);
+      moveFrame=requestAnimationFrame(animate);
     };
 
     const turn=(move:Move)=>{ queue.push({...move,record:move.record!==false}); runNext(); };
@@ -220,7 +225,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       if(currentMode==="move"){ pointerStart=null; controls.enabled=true; renderer.domElement.style.cursor="grabbing"; return; }
       if(active||activePointers>1){ pointerStart=null; controls.enabled=true; clearHighlight(); return; }
       setPointerFromEvent(event);
-      const hit=raycaster.intersectObjects(cubies.map(c=>c.mesh),true)[0];
+      const hit=raycaster.intersectObjects(cubieMeshes,true)[0];
       if(!hit||!hit.face){ controls.enabled=true; return; }
       const cubie=(hit.object as THREE.Object3D).userData.cubie as Cubie|undefined; if(!cubie) return;
       const normalMatrix=new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld);
@@ -252,11 +257,15 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     renderer.domElement.addEventListener("pointercancel",finishPointer,true);
 
     const resize=()=>{ const w=Math.max(1,mount.clientWidth),h=Math.max(1,mount.clientHeight); renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); };
-    const observer=new ResizeObserver(resize); observer.observe(mount); resize();
+    const observer=new ResizeObserver(resize); observer.observe(mount);
+    window.addEventListener("resize",resize);
+    resize();
     let frame=0; const render=()=>{frame=requestAnimationFrame(render);controls.update();renderer.render(scene,camera);}; render();
 
     return()=>{
-      cancelAnimationFrame(frame); observer.disconnect();
+      disposed=true;
+      cancelAnimationFrame(frame); cancelAnimationFrame(moveFrame); observer.disconnect();
+      window.removeEventListener("resize",resize);
       renderer.domElement.removeEventListener("pointerdown",onPointerDown,true); renderer.domElement.removeEventListener("pointermove",onPointerMove,true); renderer.domElement.removeEventListener("pointerup",finishPointer,true); renderer.domElement.removeEventListener("pointercancel",finishPointer,true);
       controls.dispose(); actionsRef.current=null;
       materials.forEach(m=>m.dispose());
