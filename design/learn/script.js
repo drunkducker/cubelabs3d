@@ -126,4 +126,46 @@
     b.animate([{ transform: "scale(1)" }, { transform: "scale(.97)" }, { transform: "scale(1)" }],
       { duration: 150, easing: "ease-out" });
   });
+
+  /* ---- affiliate product carousel: auto-rotate + swipe + dots ---- */
+  function initCarousel(root) {
+    var vp = root.querySelector(".aff-viewport");
+    var cards = root.querySelectorAll(".prod-card");
+    var dotsWrap = root.querySelector(".aff-dots");
+    if (!vp || !cards.length || !dotsWrap) return;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var idx = 0, timer = null;
+
+    cards.forEach(function (_, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("aria-label", "Show product " + (i + 1) + " of " + cards.length);
+      if (i === 0) { b.className = "on"; b.setAttribute("aria-current", "true"); }
+      b.addEventListener("click", function () { go(i); });
+      dotsWrap.appendChild(b);
+    });
+    var dots = dotsWrap.querySelectorAll("button");
+
+    function step() { return cards[0].getBoundingClientRect().width + 12; } // card + gap
+    function atEnd() { return vp.scrollLeft + vp.clientWidth >= vp.scrollWidth - 4; }
+    function go(i) { idx = (i + cards.length) % cards.length; vp.scrollTo({ left: idx * step(), behavior: "smooth" }); }
+    function next() { go(atEnd() ? 0 : idx + 1); }
+    function sync() {
+      var i = Math.round(vp.scrollLeft / step());
+      i = Math.max(0, Math.min(cards.length - 1, i));
+      idx = i;
+      dots.forEach(function (d, k) {
+        var on = k === i; d.classList.toggle("on", on);
+        if (on) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
+      });
+    }
+    vp.addEventListener("scroll", function () { window.requestAnimationFrame(sync); }, { passive: true });
+
+    function start() { if (reduce || timer) return; timer = setInterval(next, 2800); }
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    ["pointerenter", "focusin", "touchstart"].forEach(function (ev) { root.addEventListener(ev, stop, { passive: true }); });
+    ["pointerleave", "focusout", "touchend"].forEach(function (ev) { root.addEventListener(ev, start, { passive: true }); });
+    start();
+  }
+  document.querySelectorAll("[data-carousel]").forEach(initCarousel);
 })();

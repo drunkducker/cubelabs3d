@@ -214,20 +214,30 @@
           </div>
         </section>
 
-        <!-- Affiliate strip -->
+        <!-- Affiliate strip: auto-rotating, swipeable product carousel -->
         <section class="affiliate-strip card">
           <span class="aff-tag">AFFILIATE</span>
-          <div class="aff-copy">
-            <h3>Everything a cuber needs!</h3>
-            <p>Mats, timers, lubes, bags and more.</p>
+          <div class="aff-head">
+            <div class="aff-copy">
+              <h3>Everything a cuber needs!</h3>
+              <p>Mats, timers, lubes, bags and more.</p>
+            </div>
+            <button class="btn-grad shop">Shop Now</button>
           </div>
-          <div class="aff-products" aria-hidden="true">
-            <span class="prod timer"></span>
-            <span class="prod lube"></span>
-            <span class="prod mat"></span>
-            <span class="prod bag"></span>
+
+          <div class="aff-carousel" data-carousel aria-roledescription="carousel" aria-label="Featured products">
+            <div class="aff-viewport">
+              <div class="aff-track">
+                <a class="prod-card" href="#"><span class="pc-img t-blue"><svg viewBox="0 0 24 24" class="pc-ico"><circle cx="12" cy="14" r="7"/><path d="M12 14V10"/><path d="M9 2h6"/><path d="M12 2v3"/><path d="M18.5 7.5l1.3-1.3"/></svg></span><span class="pc-body"><span class="pc-name">Speed Timer Pro</span><span class="pc-price">$24.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-slate"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M9.5 2h5v2.5l1 2.5v11a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V7l1-2.5z"/><path d="M9 11h6"/></svg></span><span class="pc-body"><span class="pc-name">Cube Lube 10ml</span><span class="pc-price">$8.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-purple"><svg viewBox="0 0 24 24" class="pc-ico"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7.5 5v14M12 5v14M16.5 5v14"/></svg></span><span class="pc-body"><span class="pc-name">Pro Timer Mat</span><span class="pc-price">$19.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-red"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span><span class="pc-body"><span class="pc-name">Cube Carry Bag</span><span class="pc-price">$14.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-green"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M4 20h16"/><path d="M12 5l6 11H6z"/></svg></span><span class="pc-body"><span class="pc-name">Display Stand</span><span class="pc-price">$6.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-cyan"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg></span><span class="pc-body"><span class="pc-name">GAN 13 Maglev</span><span class="pc-price">$59.95</span></span></a>
+              </div>
+            </div>
+            <div class="aff-dots" aria-label="Choose product"></div>
           </div>
-          <button class="btn-grad shop">Shop Now</button>
         </section>
       </main>
 

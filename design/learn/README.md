@@ -30,5 +30,10 @@ Open `index.html` in any browser — it needs no build step or server.
 ## Notes
 - Fully responsive: 2-column desktop → stacked sidebar → single column on phones.
 - Respects `prefers-reduced-motion`.
-- Cards, tags, buttons and the bottom nav are wired for look only (no routing);
-  routing/links come during the React port.
+- The **affiliate strip is a real product carousel** (`.aff-carousel`): native
+  scroll-snap for swipe, JS auto-advance every 2.8s that pauses on hover / focus
+  / touch, dot indicators that track position, and each card is its own link.
+  Auto-advance is disabled under `prefers-reduced-motion` (still swipeable).
+- Other cards, tags, buttons and the bottom nav are wired for look only (no
+  routing); product links point at `#` — real routing/links come with the
+  React port.
