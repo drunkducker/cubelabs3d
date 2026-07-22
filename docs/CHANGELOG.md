@@ -2,6 +2,17 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Admin Ads Manager (section 1)
+
+- Branch: `claude/working-status-mumm9x`.
+- Added the managed Ads Manager (owner-priority monetization):
+  - Migration `20260722_ads_manager.sql`: `ads` table (campaign name, advertiser, type, placement, media, destination/affiliate URL, disclosure, priority, schedule, impressions/clicks, `is_test`), admin-manage RLS, and a public read policy for live non-test ads (for the future render layer).
+  - `app/admin/ads`: list with derived status (Active/Scheduled/Paused/Expired) + CTR, status filter tabs, a New Ad form, and per-row activate/pause/delete. All mutations are role-gated (`editor`+ to edit, `admin`+ to delete) and written to the audit log via `writeAudit()`.
+  - Nav: `/admin/ads` is now live.
+- Deferred to next slices: full per-ad edit form, the public `AdSlot` render component, and click/impression tracking endpoint.
+- Requires running `20260722_ads_manager.sql` (and the admin foundation migration).
+- Testing: `npm run build` passes (28 routes). Not yet browser-verified.
+
 ## 2026-07-22 — Admin portal foundation (first slice)
 
 - Branch: `claude/working-status-mumm9x`.

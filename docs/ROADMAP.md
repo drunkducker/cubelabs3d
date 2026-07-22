@@ -123,7 +123,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Admin authentication and role enforcement — server-side gate + role model merged (`app/lib/admin.ts`, `20260722_admin_foundation.sql`); needs migration run + browser verify
 - [~] Protected `/admin` shell + dashboard skeleton (merged)
 - [~] Audit-log foundation — table, `writeAudit()`, and live Audit page (merged; needs migration)
-- [ ] Ads manager (managed ad slots) — owner priority
+- [~] Ads manager (managed ad slots) — CRUD + status/CTR + audit merged (`app/admin/ads`, `20260722_ads_manager.sql`); needs migration + public AdSlot render layer + click/impression tracking
 - [ ] YouTube video manager — owner priority
 - [ ] Banner/carousel + affiliate-link manager — owner priority
 - [ ] User search, suspension, deletion, and role management
