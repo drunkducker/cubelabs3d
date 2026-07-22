@@ -52,6 +52,34 @@ export type AdInput = {
   created_by: string;
 };
 
+export type VideoRecord = {
+  id: string;
+  title: string;
+  youtube_id: string;
+  description: string | null;
+  category: string | null;
+  placement: string;
+  priority: number;
+  is_active: boolean;
+  is_test: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+};
+
+export type VideoInput = {
+  title: string;
+  youtube_id: string;
+  description: string | null;
+  category: string | null;
+  placement: string;
+  priority: number;
+  is_active: boolean;
+  is_test: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_by: string;
+};
+
 export type AuditRecord = {
   id: string;
   actor_id: string | null;
@@ -115,6 +143,17 @@ export interface CubeLabsData {
     create(ctx: AccessContext, input: AdInput): Promise<{ id: string }>;
     setActive(ctx: AccessContext, id: string, active: boolean): Promise<void>;
     remove(ctx: AccessContext, id: string): Promise<void>;
+    /** Public: live ads for a placement (no auth token needed). */
+    liveByPlacement(placement: string): Promise<AdRecord[]>;
+  };
+
+  videos: {
+    list(ctx: AccessContext): Promise<VideoRecord[]>;
+    create(ctx: AccessContext, input: VideoInput): Promise<{ id: string }>;
+    setActive(ctx: AccessContext, id: string, active: boolean): Promise<void>;
+    remove(ctx: AccessContext, id: string): Promise<void>;
+    /** Public: live videos for a placement. */
+    liveByPlacement(placement: string): Promise<VideoRecord[]>;
   };
 
   audit: {

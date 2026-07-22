@@ -9,6 +9,8 @@ import type {
   AuthUser,
   CubeLabsData,
   DashboardMetrics,
+  VideoInput,
+  VideoRecord,
 } from "../types";
 
 /*
@@ -89,6 +91,54 @@ export const supabaseProvider: CubeLabsData = {
         `/rest/v1/ads?id=eq.${encodeURIComponent(id)}`,
         { method: "DELETE", headers: { Prefer: "return=minimal" } },
         token(ctx),
+      );
+    },
+    async liveByPlacement(placement): Promise<AdRecord[]> {
+      // No token → the publishable key is used, and the public-read RLS policy
+      // returns only live, in-window, non-test ads.
+      return supabaseRequest<AdRecord[]>(
+        `/rest/v1/ads?select=*&placement=eq.${encodeURIComponent(placement)}&order=priority.desc`,
+        {},
+        null,
+      );
+    },
+  },
+
+  videos: {
+    async list(ctx): Promise<VideoRecord[]> {
+      return supabaseRequest<VideoRecord[]>(
+        "/rest/v1/videos?select=*&order=priority.desc,created_at.desc",
+        {},
+        token(ctx),
+      );
+    },
+    async create(ctx, input: VideoInput): Promise<{ id: string }> {
+      const rows = await supabaseRequest<{ id: string }[]>(
+        "/rest/v1/videos",
+        { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(input) },
+        token(ctx),
+      );
+      return { id: rows?.[0]?.id };
+    },
+    async setActive(ctx, id, active): Promise<void> {
+      await supabaseRequest(
+        `/rest/v1/videos?id=eq.${encodeURIComponent(id)}`,
+        { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ is_active: active, updated_at: new Date().toISOString() }) },
+        token(ctx),
+      );
+    },
+    async remove(ctx, id): Promise<void> {
+      await supabaseRequest(
+        `/rest/v1/videos?id=eq.${encodeURIComponent(id)}`,
+        { method: "DELETE", headers: { Prefer: "return=minimal" } },
+        token(ctx),
+      );
+    },
+    async liveByPlacement(placement): Promise<VideoRecord[]> {
+      return supabaseRequest<VideoRecord[]>(
+        `/rest/v1/videos?select=*&placement=eq.${encodeURIComponent(placement)}&order=priority.desc`,
+        {},
+        null,
       );
     },
   },

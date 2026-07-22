@@ -128,7 +128,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Protected `/admin` shell + dashboard with live metrics (merged; players, solves, solve rate, active ads, ad clicks/impressions via security-definer RPC)
 - [~] Audit-log foundation — table, `writeAudit()`, and live Audit page (merged; needs migration)
 - [~] Ads manager (managed ad slots) — CRUD + status/CTR + audit merged (`app/admin/ads`, `20260722_ads_manager.sql`); needs migration + public AdSlot render layer + click/impression tracking
-- [ ] YouTube video manager — owner priority
+- [~] YouTube video manager — CRUD + publish/hide + thumbnails + audit (merged; `app/admin/videos`, `20260722_videos_manager.sql`); needs migration + public render
 - [ ] Banner/carousel + affiliate-link manager — owner priority
 - [ ] User search, suspension, deletion, and role management
 - [ ] Test Lab (`is_test = true` generators)
