@@ -494,7 +494,7 @@ export default function NotationCube() {
   };
 
   return (
-    <section className="cube-card relative mt-3 overflow-hidden rounded-[22px]">
+    <section className="cube-card relative mt-3 h-[min(58dvh,500px)] min-h-[390px] overflow-hidden rounded-[22px]">
       <div className="absolute left-3 top-3 z-[4] rounded-[11px] border border-[var(--border)] bg-black/35 px-3 py-1.5 text-xs font-bold text-[var(--muted)]">
         EXPLAINER CUBE
       </div>
@@ -510,7 +510,7 @@ export default function NotationCube() {
       >
         <RefreshIcon className="h-[19px] w-[19px]" />
       </button>
-      <div ref={mountRef} className="h-[72dvh] min-h-[520px] max-h-[1100px] w-full touch-none" />
+      <div ref={mountRef} className="h-full w-full touch-none" />
       <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">
         {selected}
       </div>
