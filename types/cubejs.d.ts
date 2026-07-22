@@ -3,5 +3,7 @@ declare module "cubejs" {
     static initSolver(): void;
     static fromString(facelets: string): Cube;
     solve(): string;
+    move(arg: string): this;
+    isSolved(): boolean;
   }
 }

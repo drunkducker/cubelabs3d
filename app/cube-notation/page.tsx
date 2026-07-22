@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import NotationCube from "@/components/NotationCube";
+import NotationNet from "@/components/NotationNet";
 
 export const metadata: Metadata = {
   title: "Cube Notation Explainer | Cube Lab 3D",
@@ -33,6 +34,12 @@ export default function CubeNotationPage() {
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
             Spin the labeled cube, tap stickers to identify face positions, and swipe stickers to test layer notation.
           </p>
+        </section>
+
+        <section className="glass mt-3 rounded-[22px] p-4">
+          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FLAT REFERENCE</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--muted)]">The same six faces, unfolded — useful when you're matching colors on the manual solver and don&apos;t want to spin the 3D cube around.</p>
+          <div className="mt-3"><NotationNet /></div>
         </section>
 
         <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
