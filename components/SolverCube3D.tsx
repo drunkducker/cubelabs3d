@@ -11,7 +11,6 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { applySequence, solved, toFaceletString } from "@/lib/cube-engine";
 
 const COLOR: Record<string, string> = {
   U: "#f7f7f2",
@@ -118,8 +117,7 @@ const Cubie = memo(function Cubie({ cell, facelets, register }: { cell: Cell; fa
   );
 });
 
-function Scene({ scramble, solution, step, onAnimating, durationMs }: { scramble: string; solution: string[]; step: number; onAnimating: (value: boolean) => void; durationMs: number }) {
-  const initialFacelets = useMemo(() => toFaceletString(applySequence(solved(), scramble)), [scramble]);
+function Scene({ initialFacelets, solution, step, onAnimating, durationMs }: { initialFacelets: string; solution: string[]; step: number; onAnimating: (value: boolean) => void; durationMs: number }) {
   const cubies = useRef(new Map<string, THREE.Group>());
   const shownStep = useRef(0);
   const animation = useRef<Animation | null>(null);
@@ -195,11 +193,10 @@ function Scene({ scramble, solution, step, onAnimating, durationMs }: { scramble
   );
 }
 
-export default function SolverCube3D({ scramble, solution, step, onAnimating, durationMs = 460 }: { scramble: string; solution: string[]; step: number; onAnimating: (value: boolean) => void; durationMs?: number }) {
-  const sceneKey = useMemo(() => toFaceletString(applySequence(solved(), scramble)), [scramble]);
+export default function SolverCube3D({ initialFacelets, solution, step, onAnimating, durationMs = 460 }: { initialFacelets: string; solution: string[]; step: number; onAnimating: (value: boolean) => void; durationMs?: number }) {
   return (
     <Canvas camera={{ position: [4.4, 3.5, 5.1], fov: 36 }} dpr={[1, 1.35]} gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }} style={{ background: "transparent" }}>
-      <Scene key={sceneKey} scramble={scramble} solution={solution} step={step} onAnimating={onAnimating} durationMs={durationMs} />
+      <Scene key={initialFacelets} initialFacelets={initialFacelets} solution={solution} step={step} onAnimating={onAnimating} durationMs={durationMs} />
     </Canvas>
   );
 }
