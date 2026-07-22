@@ -12,6 +12,19 @@ This document is the single current-state summary. Dated checkpoint files and un
 - The current site baseline includes the mobile-first homepage, interactive puzzle experiences, Supabase authentication foundation, and permanent documentation governance.
 - The homepage layout must not be changed unless the project owner explicitly requests it.
 - Login and profile work must continue from the existing Sign In flow.
+
+## Pending merge candidate (`claude/working-status-mumm9x`)
+
+A verified merge candidate for the next `main` has been assembled from the two branches that Vercel is actively deploying:
+
+- `gpt/cube-id-platform` — Cube ID dashboard, provider auth routes, working password-reset flow, and Cube Labs Mail.
+- `claude/new-session-euaf6s` — 3×3 manual color entry, arbitrary-state 4×4 solver, interim 5×5 solver, NxN timer/scramble history.
+
+Both merged with zero conflicts (disjoint files) and `npm run build` passes (25 routes). Promotion to `main` is gated on running both `supabase/migrations/20260722_*.sql` migrations and an owner review of the preview. Until promoted, the items below still reflect `main`, not the candidate.
+
+## Repository history caution
+
+The repo has **two unrelated Git histories**. `main` and the recent `gpt/*` / `claude/*` branches share root `01445ce`. A separate line (`drive-homepage-import`, `fix/cube-transform-stability`, `feature/social-challenges-foundation`, root `e28a424`) shares **no merge base** with `main`, is not deployed, and can only be brought in by manual port — not `git merge`.
 - Branch-only prototypes must be selectively reconciled rather than merged wholesale when they are substantially behind `main`.
 
 ## Verified completed work

@@ -2,6 +2,22 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Assemble merge candidate for next `main`
+
+- Branch: `claude/working-status-mumm9x` (merge candidate; not yet promoted to `main`).
+- Base: current production `main` (`80037f1`), which is the live deploy at `cubelabs3d.vercel.app`.
+- Merged `gpt/cube-id-platform`: Cube ID player dashboard, provider auth routes, working password-reset flow, password visibility field, and the Cube Labs Mail foundation (branded template renderer + activity page).
+- Merged `claude/new-session-euaf6s`: 3×3 manual color entry with invalid-entry freeze fix, real arbitrary-state 4×4 solver, interim reduced-state 5×5 solver, and NxN timer / solved-state / scramble history.
+- Merge quality: the two branches touch disjoint file sets, so both merged with zero conflicts.
+- Testing: `npm install` and `npm run build` succeed — 25 routes compiled, type-check passed.
+- Required deployment step: run both Supabase migrations before promoting — `supabase/migrations/20260722_cube_id_platform.sql` and `supabase/migrations/20260722_cube_labs_mail_foundation.sql`.
+- Deliberately excluded: `claude/more-cubelabs-yuom1x` (tip is an incomplete WIP 5×5 rewrite), `gpt/current-site-state` (competing auth-page redesign), and the parallel RootB line (see repository-history note below).
+- Rollback: `main` is untouched; discard this branch to abandon the candidate.
+
+### Repository history note (important)
+
+The repository contains **two unrelated Git histories**. The current `main` and all recent `gpt/*`, `claude/*`, `supabase-auth-foundation`, and `test-cube-engine` branches descend from root `01445ce` (2026-07-21). A separate line — `drive-homepage-import`, `fix/cube-transform-stability`, and `feature/social-challenges-foundation` — descends from an unrelated root `e28a424` (2026-07-20) and shares **no merge base** with `main`. That parallel line is not deployed on Vercel; its interactive-hero, animated solver-playback, and social-challenge work would require a manual port rather than a `git merge` if ever wanted.
+
 ## 2026-07-22 — Branch documentation recovery and project health
 
 - Author: OpenAI GPT working with the project owner

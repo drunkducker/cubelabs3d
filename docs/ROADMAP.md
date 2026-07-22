@@ -4,6 +4,8 @@
 
 This is the canonical project checklist. Items are checked only when repository evidence and required documentation support completion.
 
+> **Merge candidate in flight:** `claude/working-status-mumm9x` merges `gpt/cube-id-platform` (password reset, Cube ID, Mail) and `claude/new-session-euaf6s` (4×4 solver, interim 5×5, 3×3 manual entry) onto `main`; build passes. Several `[~]`/`[?]` items below already have working code there and will flip to `[x]` once the branch is promoted to `main` and the Supabase migrations are run. See `CHANGELOG.md` and `CURRENT_STATUS.md`.
+
 ## Status key
 
 - `[x]` verified complete on the canonical branch

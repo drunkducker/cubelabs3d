@@ -2,6 +2,35 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Branch audit and merge-candidate assembly
+
+### Checked
+
+- [x] Enumerated all 11 branches and classified each by root.
+- [x] **Found two unrelated Git histories** (roots `01445ce` vs `e28a424`); the RootB line shares no merge base with `main`.
+- [x] Confirmed via Vercel that `main` is the live production deploy and that `claude/new-session-euaf6s` + `gpt/cube-id-platform` are the actively-deployed preview branches.
+- [x] Confirmed the two active branches touch disjoint files (no conflicts).
+
+### Completed
+
+- [x] Assembled merge candidate on `claude/working-status-mumm9x` = `main` + `gpt/cube-id-platform` + `claude/new-session-euaf6s`.
+- [x] `npm install` + `npm run build` pass (25 routes, types valid).
+- [x] Updated `CHANGELOG.md`, `CURRENT_STATUS.md`, and `ROADMAP.md` to record the merge and the two-history split.
+
+### Blocked / needs owner
+
+- [ ] Promote candidate to `main` — gated on running both `supabase/migrations/20260722_*.sql` and a preview review.
+- [ ] Decide fate of the RootB line (homepage hero, animated solver playback, social challenges) — manual port only.
+- [ ] Resolve competing auth-page designs: `gpt/cube-id-platform` gateway vs. `gpt/current-site-state` redesign.
+
+### Next priorities
+
+1. Owner runs migrations + reviews preview, then fast-forward `main` to the candidate.
+2. Delete merged-out branches (`supabase-auth-foundation`, `test-cube-engine`).
+3. Decide RootB port scope.
+
+---
+
 ## 2026-07-22 — Branch documentation recovery
 
 ### Checked
