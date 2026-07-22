@@ -11,7 +11,8 @@ This file records meaningful product, architecture, security, database, deployme
 - Merge quality: the two branches touch disjoint file sets, so both merged with zero conflicts.
 - Testing: `npm install` and `npm run build` succeed — 25 routes compiled, type-check passed.
 - Required deployment step: run both Supabase migrations before promoting — `supabase/migrations/20260722_cube_id_platform.sql` and `supabase/migrations/20260722_cube_labs_mail_foundation.sql`.
-- Deliberately excluded: `claude/more-cubelabs-yuom1x` (tip is an incomplete WIP 5×5 rewrite), `gpt/current-site-state` (competing auth-page redesign), and the parallel RootB line (see repository-history note below).
+- Auth-page design decision: kept the homepage-matched single-page email Sign In / Create account page from `gpt/current-site-state` (Version B) as `/auth`, plus its `AccountHeader`, because it preserves the existing Sign In flow and works today. The `gpt/cube-id-platform` provider gateway (Version A) is parked — its `/auth/email` and `/auth/provider/*` routes remain in place, dormant, ready to become the front door once Google/Apple/GitHub OAuth is actually enabled in Supabase. Password reset, Cube ID dashboard, and Cube Labs Mail from cube-id-platform are all retained.
+- Deliberately excluded: `claude/more-cubelabs-yuom1x` (tip is an incomplete WIP 5×5 rewrite), and the parallel RootB line (see repository-history note below).
 - Rollback: `main` is untouched; discard this branch to abandon the candidate.
 
 ### Repository history note (important)

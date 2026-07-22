@@ -1,71 +1,120 @@
 import Link from "next/link";
+import AccountHeader from "@/components/AccountHeader";
+import { signIn, signUp } from "./actions";
 
-const providers = [
-  { label: "Continue with Google", icon: "G", href: "/auth/provider/google" },
-  { label: "Continue with GitHub", icon: "◆", href: "/auth/provider/github" },
-  { label: "Continue with Apple", icon: "●", href: "/auth/provider/apple" },
-];
+type AuthPageProps = {
+  searchParams?: { error?: string; message?: string };
+};
 
-export default function AccountOptionsPage() {
+/**
+ * Cube Labs account gateway.
+ *
+ * Both sign-in and account creation stay on one mobile-first page so the user
+ * can enter from the homepage and immediately choose the correct path. Server
+ * actions handle Supabase authentication and redirect successful users to the
+ * profile page.
+ */
+export default function AuthPage({ searchParams = {} }: AuthPageProps) {
+  const { error, message } = searchParams;
+
   return (
-    <main className="relative min-h-dvh w-full overflow-hidden bg-[var(--bg)] px-5 py-8 sm:px-8">
+    <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
       <div className="orb orb-a" />
       <div className="orb orb-b" />
 
-      <div className="relative z-[1] mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[620px] flex-col justify-center">
-        <Link href="/" className="mb-8 inline-flex w-fit items-center gap-2 text-sm font-bold text-[var(--muted)] transition hover:text-white">
-          <span aria-hidden="true">←</span> Back to Cube Lab 3D
-        </Link>
+      <div className="relative z-[1]">
+        <AccountHeader />
 
-        <section className="glass rounded-[28px] p-6 shadow-[var(--shadow)] sm:p-10">
-          <div className="mx-auto mb-7 grid h-16 w-16 place-items-center rounded-2xl border border-[var(--border-2)] bg-[var(--surface-2)] shadow-[var(--glow-blue)]">
-            <svg viewBox="0 0 48 48" aria-hidden="true" className="h-12 w-12">
-              <polygon points="24,3 43,13 24,23 5,13" fill="#f4f6f8" />
-              <polygon points="5,13 24,23 24,45 5,35" fill="#1667e0" />
-              <polygon points="24,23 43,13 43,35 24,45" fill="#e6352b" />
-              <polygon points="24,3 33,8 14,18 5,13" fill="#ffd21f" />
-            </svg>
-          </div>
-
-          <div className="text-center">
-            <p className="text-xs font-extrabold tracking-[0.24em] text-[var(--blue)]">YOUR CUBE ID</p>
-            <h1 className="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl">Join Cube Lab 3D</h1>
-            <p className="mx-auto mt-3 max-w-[430px] text-sm leading-6 text-[var(--muted)] sm:text-base">
-              Save solves, customize your identity, challenge friends, collect cubes, and build your player history.
-            </p>
-          </div>
-
-          <div className="mt-8 grid gap-3">
-            {providers.map((provider) => (
-              <Link
-                key={provider.label}
-                href={provider.href}
-                className="grid min-h-14 grid-cols-[34px_1fr_34px] items-center rounded-xl border border-[var(--border-2)] bg-[var(--surface)] px-4 text-center text-[15px] font-extrabold transition hover:border-[rgba(46,166,255,.55)] hover:bg-[var(--surface-2)]"
-              >
-                <span className="grid h-8 w-8 place-items-center rounded-lg bg-white font-black text-black">{provider.icon}</span>
-                <span>{provider.label}</span>
-                <span aria-hidden="true" className="text-[var(--faint)]">›</span>
-              </Link>
-            ))}
-
-            <div className="my-2 flex items-center gap-3 text-xs font-bold text-[var(--faint)]">
-              <span className="h-px flex-1 bg-[var(--border)]" /> OR <span className="h-px flex-1 bg-[var(--border)]" />
-            </div>
-
-            <Link href="/auth/email" className="cta-blue flex min-h-14 items-center justify-center rounded-xl px-5 text-[15px] font-black">
-              Continue with Email
-            </Link>
-          </div>
-
-          <p className="mt-7 text-center text-sm text-[var(--muted)]">
-            Already have a Cube ID? <Link href="/auth/email?mode=login" className="font-extrabold text-[var(--blue)]">Log in</Link>
+        <section className="mb-6">
+          <div className="mb-2 text-[11px] font-extrabold tracking-[2.3px] text-[var(--blue)]">PLAYER ACCOUNT</div>
+          <h1 className="text-[34px] font-black leading-[1.04] tracking-[-1.2px]">
+            Keep every solve.
+            <span className="accent-text block">Pick up anywhere.</span>
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+            Save times, track your progress, challenge friends, and sync Cube Lab 3D across your devices.
           </p>
         </section>
 
-        <p className="mx-auto mt-6 max-w-[520px] text-center text-xs leading-5 text-[var(--faint)]">
-          By continuing, you agree to the <Link href="/terms" className="underline">Terms</Link> and acknowledge the <Link href="/privacy" className="underline">Privacy Policy</Link>.
-        </p>
+        {(error || message) && (
+          <div
+            role="status"
+            className={`mb-5 rounded-2xl border p-4 text-sm font-semibold ${
+              error
+                ? "border-red-400/30 bg-red-500/10 text-red-200"
+                : "border-green-400/30 bg-green-500/10 text-green-200"
+            }`}
+          >
+            {error ?? message}
+          </div>
+        )}
+
+        <section className="cube-card rounded-[24px] p-5 shadow-[var(--shadow)]">
+          <div className="mb-5 flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-[rgba(46,166,255,0.15)] text-[var(--blue)]">
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M20 21a8 8 0 0 0-16 0" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </span>
+            <div>
+              <h2 className="text-xl font-extrabold">Welcome back</h2>
+              <p className="text-xs text-[var(--muted)]">Sign in to your Cube Labs profile.</p>
+            </div>
+          </div>
+
+          <form action={signIn} className="grid gap-4">
+            <label className="grid gap-2 text-sm font-bold">
+              Email
+              <input className={inputClass} name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+            </label>
+            <label className="grid gap-2 text-sm font-bold">
+              Password
+              <input className={inputClass} name="password" type="password" required autoComplete="current-password" placeholder="Your password" />
+            </label>
+            <button className="cta-blue mt-1 rounded-[13px] px-5 py-[14px] text-base font-extrabold" type="submit">
+              Sign In
+            </button>
+          </form>
+        </section>
+
+        <div className="my-5 flex items-center gap-3 text-[11px] font-bold tracking-[1.5px] text-[var(--faint)]">
+          <span className="h-px flex-1 bg-[var(--border)]" />
+          NEW PLAYER
+          <span className="h-px flex-1 bg-[var(--border)]" />
+        </div>
+
+        <section className="glass rounded-[24px] p-5">
+          <h2 className="text-xl font-extrabold">Create your profile</h2>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted)]">Your display name appears on future challenges and leaderboards.</p>
+
+          <form action={signUp} className="mt-5 grid gap-4">
+            <label className="grid gap-2 text-sm font-bold">
+              Display name
+              <input className={inputClass} name="display_name" maxLength={60} autoComplete="name" placeholder="Cube Solver" />
+            </label>
+            <label className="grid gap-2 text-sm font-bold">
+              Email
+              <input className={inputClass} name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+            </label>
+            <label className="grid gap-2 text-sm font-bold">
+              Password
+              <input className={inputClass} name="password" type="password" minLength={8} required autoComplete="new-password" placeholder="At least 8 characters" />
+            </label>
+            <button className="cta-green mt-1 rounded-[13px] px-5 py-[14px] text-base font-extrabold" type="submit">
+              Create Free Account
+            </button>
+          </form>
+        </section>
+
+        <div className="mt-6 text-center text-xs leading-5 text-[var(--muted)]">
+          Not ready for an account?{" "}
+          <Link href="/" className="font-bold text-[var(--blue)]">Continue solving as a guest.</Link>
+        </div>
       </div>
     </main>
   );
 }
+
+const inputClass =
+  "w-full rounded-[13px] border border-[var(--border-2)] bg-black/20 px-4 py-[13px] text-base text-[var(--text)] placeholder:text-[var(--faint)] transition focus:border-[var(--blue)] focus:outline-none";
