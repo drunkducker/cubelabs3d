@@ -1,5 +1,6 @@
 "use client";
 /* Optional account prompt that never blocks the solver. */
+import Link from "next/link";
 import { useToast } from "./Toast";
 import { UserIcon } from "./icons";
 
@@ -16,7 +17,7 @@ export default function SignInBanner() {
       </div>
       <div className="col-span-2 mt-0.5 flex items-center gap-3">
         <button onClick={() => toast("Continuing as Guest — no account needed.")} className="text-sm font-bold text-[var(--blue)]">Continue as Guest</button>
-        <button onClick={() => toast("Sign in — coming soon")} className="cta-blue ml-auto flex-none rounded-[11px] px-[26px] py-[11px] text-sm font-bold">Sign In</button>
+        <Link href="/auth" className="cta-blue ml-auto flex-none rounded-[11px] px-[26px] py-[11px] text-sm font-bold">Sign In</Link>
       </div>
     </div>
   );
