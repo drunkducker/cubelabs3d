@@ -21,6 +21,7 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 - [CUBE-ENGINE.md](./CUBE-ENGINE.md) — puzzle-engine boundaries, recovered branch findings, and challenge-state target
 - [SOCIAL-AND-MULTIPLAYER.md](./SOCIAL-AND-MULTIPLAYER.md) — consolidated challenges, friends, leaderboards, safety, and multiplayer plan
 - [AI-INSTRUCTIONS.md](./AI-INSTRUCTIONS.md) — required workflow for AI contributors
+- [AI-BUILD-PLAN.md](./AI-BUILD-PLAN.md) — context-resilient build method (how to build without context rot)
 - [CODING-STANDARDS.md](./CODING-STANDARDS.md) — implementation and commenting standards
 - [AUTHENTICATION.md](./AUTHENTICATION.md) — Cube ID, login, sessions, and recovery
 - [ADMIN-PORTAL.md](./ADMIN-PORTAL.md) — administration, testing, security, and content controls

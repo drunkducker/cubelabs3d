@@ -2,6 +2,12 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Add context-resilient build plan
+
+- Added `docs/AI-BUILD-PLAN.md`: a build method that reduces AI context rot — bounded session-start reads, single-session vertical slices, write-through externalization of every decision, evidence anchoring, handoff-first, one canonical branch + registry, deterministic conventions, and a per-slice checklist plus a build order.
+- Linked it from `README.md` and `AI-INSTRUCTIONS.md`.
+- Documentation only; no code change.
+
 ## 2026-07-22 — Admin Ads Manager (section 1)
 
 - Branch: `claude/working-status-mumm9x`.

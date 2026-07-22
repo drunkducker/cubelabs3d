@@ -2,6 +2,8 @@
 
 Every AI agent working on this repository must follow these instructions before changing code.
 
+> These are the **rules**. For the **build method** that keeps agents effective across long sessions and hand-offs — bounded session-start reads, single-session vertical slices, write-through memory, and the per-slice checklist — read [`AI-BUILD-PLAN.md`](./AI-BUILD-PLAN.md).
+
 ## Required reading
 
 Read, in order:
