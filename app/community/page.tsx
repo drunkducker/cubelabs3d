@@ -58,7 +58,7 @@ export default function CommunityPage() {
             friend to beat your time—or send the position that stopped you and bet they cannot finish it.
           </p>
           <div className={styles.heroActions}>
-            <Link className={styles.primaryButton} href="/play/3x3">Create a challenge</Link>
+            <Link className={styles.primaryButton} href="/challenge/create">Create a challenge</Link>
             <a className={styles.secondaryButton} href="#challenges">View challenges</a>
           </div>
         </div>
@@ -110,7 +110,7 @@ export default function CommunityPage() {
             <div className={styles.plus} aria-hidden="true">+</div>
             <h3>Create your own challenge</h3>
             <p>Use a random scramble, your current cube, or the exact point where you got stuck.</p>
-            <Link className={styles.cardButton} href="/play/3x3">Open the cube</Link>
+            <Link className={styles.cardButton} href="/challenge/create">Build challenge</Link>
           </article>
         </div>
       </section>
