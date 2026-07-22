@@ -2,6 +2,37 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Promote to `main` + doc refresh
+
+### Completed
+
+- [x] Promoted `claude/working-status-mumm9x` to `main` (fast-forward `80037f1..76f244d`).
+- [x] Refreshed docs to post-merge reality: `CURRENT_STATUS.md`, `ROADMAP.md`, `PROJECT-HEALTH.md`, `CHANGELOG.md`.
+- [x] Added a **Status & tracking rules** section (ROADMAP) and a live **branch registry** (CURRENT_STATUS).
+
+### Status changes logged
+
+- 3×3 manual color entry: `[?]` → `[~]` (merged `components/ManualSolver.tsx`; fixtures pending).
+- NxN timer/solved-state/scramble history: `[~]` → `[x]` (merged `app/NxNCubeGame.tsx`).
+- Arbitrary-state 4×4 solver: `[~]` (now merged `lib/cube4-solver.ts`; fixtures pending).
+- Interim 5×5 solver: `[~]` (merged `lib/cube5-*.ts`; deterministic path still WIP).
+- Password reset / Cube ID dashboard / Cube Labs Mail: `[~]` (merged; migration + verify pending).
+- Homepage-matched `/auth`: `[x]` (merged, build-verified).
+
+### Blocked / owner action
+
+- [ ] Run both `20260722_*.sql` migrations in production, then verify `/profile` + `/profile/mail`.
+- [ ] Verify password-reset + SES delivery end-to-end; write the runbook.
+- [ ] Delete the six merged branches — deletion is policy-blocked (403) in the agent session.
+
+### Next priorities
+
+1. Confirm migrations + browser-verify Cube ID and Mail.
+2. Add solver correctness fixtures before any solver goes `[x]`.
+3. Decide on porting the RootB homepage/playback/social work.
+
+---
+
 ## 2026-07-22 — Branch audit and merge-candidate assembly
 
 ### Checked

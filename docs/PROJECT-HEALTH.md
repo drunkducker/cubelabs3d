@@ -14,10 +14,10 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | Repository and deployment foundation | Strong | GitHub, `main`, Vercel workflow, and domain foundation exist |
 | Mobile-first interface | Strong | Homepage and puzzle interaction foundation exist; protect approved layout |
 | Documentation governance | Strong | Permanent index, constitution, architecture, roadmap, daily log, changelog, ADR structure |
-| Authentication and profiles | Developing | Supabase, auth, profile, reset, SES, and Cube ID work exist; production verification remains |
-| 3×3 puzzle and solver | Needs verification | Playable experience exists; arbitrary manual-input solver must be proven |
-| 4×4 puzzle and solver | Developing | Playable/reduction work exists; edge pairing and full solve path are not verified complete |
-| 5×5 puzzle and solver | Early | Work has been discussed or branched; canonical completion and tests are not verified |
+| Authentication and profiles | Developing | Cube ID dashboard, password reset, and Cube Labs Mail now merged to `main`; migrations + SES delivery + browser verification remain |
+| 3×3 puzzle and solver | Developing | Playable experience + manual color entry merged; correctness fixtures must still prove arbitrary-input solves |
+| 4×4 puzzle and solver | Developing | Arbitrary-state solver merged to `main`; correctness fixtures not yet added |
+| 5×5 puzzle and solver | Early | Interim reduced-state solver merged; full deterministic path still WIP on `claude/more-cubelabs-yuom1x` |
 | Pyraminx | Strong | Playable engine and solver with documented interaction and correctness work |
 | Social challenges | Prototype | Branch prototype exists; secure canonical integration is incomplete |
 | Leaderboards and multiplayer | Planned | Architecture recovered; production services are not complete |
@@ -43,7 +43,7 @@ These figures reflect roadmap maturity, not lines of code:
 
 ## Highest risks
 
-1. Branch-only work may be mistaken for production-complete work.
+1. Merged-but-unverified work may be mistaken for production-complete: `/profile` and `/profile/mail` will error until both `20260722_*.sql` migrations are run in production.
 2. Solver labels may overstate what arbitrary-state input and verification actually support.
 3. Authentication email delivery and recovery may work inconsistently until SES and Supabase configuration are documented and retested.
 4. Social challenge prototypes currently need secure, versioned server persistence and validation.

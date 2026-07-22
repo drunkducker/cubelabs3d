@@ -4,14 +4,28 @@
 
 This is the canonical project checklist. Items are checked only when repository evidence and required documentation support completion.
 
-> **Merge candidate in flight:** `claude/working-status-mumm9x` merges `gpt/cube-id-platform` (password reset, Cube ID, Mail) and `claude/new-session-euaf6s` (4×4 solver, interim 5×5, 3×3 manual entry) onto `main`; build passes. Several `[~]`/`[?]` items below already have working code there and will flip to `[x]` once the branch is promoted to `main` and the Supabase migrations are run. See `CHANGELOG.md` and `CURRENT_STATUS.md`.
+> **Latest merge (2026-07-22):** `main` was fast-forwarded to `76f244d`, folding in Cube ID / password reset / Cube Labs Mail (from `gpt/cube-id-platform`), the homepage-matched `/auth` sign-in (from `gpt/current-site-state`), and the 4×4 + interim-5×5 + 3×3-manual-entry solvers (from `claude/new-session-euaf6s`). Build passes. Items below marked `[~]` are merged but await production verification and/or the two Supabase migrations. See `CURRENT_STATUS.md` for the branch registry and `CHANGELOG.md` for details.
 
 ## Status key
 
 - `[x]` verified complete on the canonical branch
-- `[~]` partially implemented, branch-only, or requiring production verification
+- `[~]` merged to `main` but unverified, branch-only, or awaiting a migration
 - `[?]` reported but not yet verified against current code and tests
 - `[ ]` incomplete
+
+## Status & tracking rules
+
+These rules keep this list trustworthy. Read them before checking any box.
+
+1. **`main` is the only source of truth.** An item is `[x]` only when it is on `main` **and** verified. Work living on any other branch is at most `[~]`, and must name the branch.
+2. **Every checked item names its evidence** — a file/route, a commit/PR, a migration, or a recorded browser/device test. No evidence → not checked.
+3. **Migrations gate the checkbox.** A feature needing a SQL migration stays `[~]` until the migration is confirmed run in production and recorded in `DAILY-LOG.md`.
+4. **Build ≠ verified.** A green build earns `[~]`, not `[x]`. `[x]` needs the real behavior confirmed (browser/device) where a user can see it.
+5. **Log every status change** in `DAILY-LOG.md` as one line: item, old→new status, commit/PR, date.
+6. **Keep the branch registry current** (in `CURRENT_STATUS.md`): every active branch has a purpose and a merge state, so nothing is lost or accidentally re-merged.
+7. **Never `git merge` a RootB branch** (`drive-homepage-import`, `fix/cube-transform-stability`, `feature/social-challenges-foundation`) — no shared history. Port wanted work by hand.
+8. **When in doubt, mark it lower.** Honest `[~]`/`[ ]` beats an optimistic `[x]` (Constitution §12).
+9. **Reconcile on sight.** If code and these docs disagree, fix it the same session — neither may stay silently stale (docs `README` §Structure enforcement).
 
 ## 1. Foundation
 
@@ -36,12 +50,16 @@ This is the canonical project checklist. Items are checked only when repository 
 - [x] Profiles database schema
 - [x] Solve-results API foundation
 - [x] Sign In entry point connected
-- [~] Password reset flow
-- [~] AWS SES email delivery
-- [x] Password-reset preview deployment checkpoint preserved
+- [x] Homepage-matched `/auth` sign-in / create-account (merged; `app/auth/page.tsx`)
+- [~] Cube ID player dashboard (merged; `app/profile/page.tsx`; needs migration + browser verify)
+- [~] Password reset flow (merged; `app/auth/reset/page.tsx`; production delivery unverified)
+- [~] Cube Labs Mail (merged; `app/profile/mail/page.tsx`; needs migration + verify)
+- [~] AWS SES email delivery (wired; production delivery unverified)
+- [ ] Confirm `20260722_cube_id_platform.sql` + `20260722_cube_labs_mail_foundation.sql` run in production
 - [ ] Email configuration runbook and recovery procedure
+- [ ] Enable and wire real Google/Apple/GitHub OAuth (gateway parked at `/auth/provider/*`)
 - [ ] Avatar upload and moderation
-- [~] Public display-name and unique-handle database foundation
+- [~] Public display-name and unique-handle database foundation (migrated schema)
 - [ ] Public display-name and unique-handle rules fully implemented and verified
 - [ ] Account deletion and export workflow
 - [ ] Provider-migration test
@@ -55,16 +73,16 @@ This is the canonical project checklist. Items are checked only when repository 
 - [x] High-DPI mobile canvas fix
 - [x] Pyraminx engine, solver, timer, undo, scramble history, and swipe-depth behavior
 - [x] Permanent cube-engine architecture and recovered branch findings documented
-- [?] General-purpose 3×3 solver from arbitrary manual input
-- [~] 4×4 playable engine
-- [~] 4×4 reduction and edge-pairing solver
-- [~] 5×5 engine and solver work
-- [~] NxN timer, solved-state, and scramble-history parity described on an unmerged branch
-- [ ] Verify or port branch-only NxN tracked-state implementation to `main`
+- [~] 3×3 manual color entry with invalid-entry freeze fix (merged; `components/ManualSolver.tsx`; correctness fixtures pending)
+- [x] NxN timer, solved-state detection, and scramble history (merged; `app/NxNCubeGame.tsx`)
+- [~] 4×4 playable engine (merged)
+- [~] Arbitrary-state 4×4 reduction/edge-pairing solver (merged; `lib/cube4-solver.ts`; fixtures pending)
+- [~] Interim reduced-state 5×5 solver (merged; `lib/cube5-*.ts`; full deterministic path still WIP on `claude/more-cubelabs-yuom1x`)
+- [ ] Complete and verify deterministic 5×5 solver (finish `claude/more-cubelabs-yuom1x`)
 - [ ] 5×5 arbitrary-state manual input parity with the 3×3 workflow
 - [ ] 6×6 and larger solver strategy
 - [ ] Camera/photo/video state scanner
-- [ ] Solver correctness fixtures and regression suite
+- [ ] Solver correctness fixtures and regression suite (3×3, 4×4, 5×5)
 - [ ] Performance budgets for large cubes on real mobile devices
 
 ## 4. Learn experience
