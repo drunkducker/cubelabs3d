@@ -85,8 +85,17 @@ h1,h2,h3{line-height:1.15}
 .avatar{width:44px;height:44px;border-radius:50%;padding:2px;flex:none;
   background:conic-gradient(from 200deg,var(--blue),var(--purple),var(--magenta),var(--blue));
   display:grid;place-items:center}
-.avatar .mini-cube{width:36px;height:36px;border-radius:50%;overflow:hidden;
-  background:#0a0e17;display:grid;place-items:center}
+.avatar-cube{width:36px;height:36px;border-radius:50%;background:#0a0e17;
+  display:grid;place-items:center;perspective:200px}
+/* reuse the logo cube, sized down and desynced so it spins independently */
+.avatar-cube .logo-cube{width:22px;height:22px;animation-delay:-7s}
+.avatar-cube .lc-face{width:22px;height:22px;gap:1px;padding:1px;border-radius:4px}
+.avatar-cube .lcf-front {transform:rotateY(0deg)   translateZ(11px)}
+.avatar-cube .lcf-back  {transform:rotateY(180deg) translateZ(11px)}
+.avatar-cube .lcf-right {transform:rotateY(90deg)  translateZ(11px)}
+.avatar-cube .lcf-left  {transform:rotateY(-90deg) translateZ(11px)}
+.avatar-cube .lcf-top   {transform:rotateX(90deg)  translateZ(11px)}
+.avatar-cube .lcf-bottom{transform:rotateX(-90deg) translateZ(11px)}
 
 /* ================= CARD PRIMITIVE ================= */
 .card{background:var(--surface);border:1px solid var(--border);
