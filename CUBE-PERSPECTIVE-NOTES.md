@@ -1,6 +1,6 @@
 # Cube Perspective Notes
 
-Last updated: 2026-07-21, America/New_York
+Last updated: 2026-07-22, America/New_York
 
 ## Goal
 
@@ -24,6 +24,56 @@ Use this as the baseline when recreating the current 4x4 perspective:
   out of proportion as `size` changes.
 - Keep the canvas transparent so the cube card background does the visual framing.
 - Do not add a platform ring or decorative circle under the cube.
+
+## High-DPI Canvas Overflow (root cause of the 2026-07-22 centering bug)
+
+The manual three.js cubes (`app/NxNCubeGame.tsx`, `components/NotationCube.tsx`)
+build their own `THREE.WebGLRenderer` instead of using `@react-three/fiber`'s
+`<Canvas>`. Their resize handler called:
+
+```
+renderer.setSize(w, h, false);
+```
+
+The third argument (`updateStyle`) is `false`, so three.js sets the canvas's
+`width`/`height` HTML attributes to the drawing-buffer resolution
+(`container size * devicePixelRatio`) but never touches `canvas.style.width` /
+`canvas.style.height`. A `<canvas>` with no CSS constraining it renders its
+box at those attribute values interpreted as CSS pixels.
+
+On desktop testing (`devicePixelRatio` 1) the attribute values equal the
+container size, so the bug is invisible — the cube looks centered. On a real
+phone (`devicePixelRatio` ~2-2.75), the canvas box balloons to 1.5-2.75x the
+card size, overflows it, and gets clipped by the card's `overflow-hidden`
+rounded corner. Because that clip anchors top-left, the visible slice shows
+the cube pushed toward the bottom-right and cropped, even though the camera
+math underneath is centering it correctly.
+
+This is why the first centering fix (removing the `focusOffset` root-position
+hack, see below) looked right in desktop screenshots but the user still saw a
+cropped, bottom-right-shifted cube on their actual Android phone — two
+separate bugs stacked on the same symptom description ("won't center").
+
+**Diagnosis method:** desktop Playwright screenshots didn't reproduce it;
+emulating a real phone's pixel ratio did — `newPage({ deviceScaleFactor: 2.75,
+viewport: { width: 412, height: 892 } })` reproduced the exact bottom-right
+crop from the user's phone screenshots, confirming the theory before touching
+code.
+
+**Fix:** explicitly set the canvas's CSS box right after creating the
+renderer, independent of `setSize`'s `updateStyle` flag:
+
+```
+renderer.domElement.style.display = "block";
+renderer.domElement.style.width = "100%";
+renderer.domElement.style.height = "100%";
+```
+
+`@react-three/fiber`'s `<Canvas>` (used by `RubiksCube.tsx`, `PocketCube3D.tsx`,
+`SolverCube3D.tsx`, `InteractiveHeroCube.tsx`) does this internally, which is
+why those cubes never showed the bug. Any future hand-rolled three.js cube in
+this repo needs the same explicit canvas sizing, or should just use
+`@react-three/fiber` instead.
 
 ## Visual Anchor
 
