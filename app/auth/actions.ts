@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   clearAuthCookies,
@@ -9,12 +8,15 @@ import {
   supabaseRequest,
 } from "@/app/lib/supabase-rest";
 
+const BRANCH_ORIGIN = "https://cubelabs3d-git-gpt-cube-id-platform-agents-of-chaos.vercel.app";
+
 type AuthResponse = {
   access_token?: string;
   refresh_token?: string;
   expires_in?: number;
   user?: { id: string; email?: string };
   msg?: string;
+  error?: string;
   error_description?: string;
 };
 
@@ -24,29 +26,6 @@ function value(formData: FormData, name: string) {
 
 function authErrorUrl(message: string) {
   return `/auth/email?error=${encodeURIComponent(message)}`;
-}
-
-/*
- * Build an absolute public URL for Supabase confirmation emails.
- * The incoming Vercel host is preferred so every preview branch returns to
- * itself. VERCEL_URL is the fallback, followed by the known Cube ID preview.
- */
-function getPublicOrigin() {
-  const requestHeaders = headers();
-  const forwardedHost = requestHeaders.get("x-forwarded-host");
-  const host = forwardedHost || requestHeaders.get("host");
-  const protocol = requestHeaders.get("x-forwarded-proto") || "https";
-
-  if (host && !host.startsWith("localhost")) {
-    return `${protocol}://${host}`;
-  }
-
-  const vercelUrl = process.env.VERCEL_URL?.trim();
-  if (vercelUrl) {
-    return `https://${vercelUrl.replace(/^https?:\/\//, "")}`;
-  }
-
-  return "https://cubelabs3d-git-gpt-cube-id-platform-agents-of-chaos.vercel.app";
 }
 
 async function upsertProfile(
@@ -82,7 +61,7 @@ export async function signIn(formData: FormData) {
 
   const result = (await response.json()) as AuthResponse;
   if (!response.ok || !result.access_token || !result.refresh_token) {
-    redirect(authErrorUrl(result.error_description ?? result.msg ?? "Unable to sign in."));
+    redirect(authErrorUrl(result.error_description ?? result.msg ?? result.error ?? "Unable to sign in."));
   }
 
   setAuthCookies({
@@ -98,27 +77,22 @@ export async function signUp(formData: FormData) {
   const password = value(formData, "password");
   const displayName = value(formData, "display_name");
   const { url, key } = getSupabaseConfig();
-  const confirmationReturnUrl = `${getPublicOrigin()}/auth/email?message=${encodeURIComponent(
-    "Email confirmed. Sign in to open your Cube ID.",
-  )}`;
 
-  const response = await fetch(
-    `${url}/auth/v1/signup?redirect_to=${encodeURIComponent(confirmationReturnUrl)}`,
-    {
-      method: "POST",
-      headers: { apikey: key, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        data: { display_name: displayName },
-      }),
-      cache: "no-store",
-    },
-  );
+  const response = await fetch(`${url}/auth/v1/signup`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      data: { display_name: displayName },
+      redirect_to: `${BRANCH_ORIGIN}/auth/email?mode=login&message=${encodeURIComponent("Email confirmed. Log in to continue.")}`,
+    }),
+    cache: "no-store",
+  });
 
   const result = (await response.json()) as AuthResponse;
   if (!response.ok) {
-    redirect(authErrorUrl(result.error_description ?? result.msg ?? "Unable to create account."));
+    redirect(authErrorUrl(result.error_description ?? result.msg ?? result.error ?? "Unable to create account."));
   }
 
   if (result.access_token && result.refresh_token && result.user) {
@@ -138,6 +112,26 @@ export async function signUp(formData: FormData) {
   }
 
   redirect("/auth/email?message=Check%20your%20email%20to%20confirm%20your%20account.");
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = value(formData, "email");
+  if (!email) redirect("/auth/email?error=Enter%20your%20email%20before%20requesting%20a%20reset.");
+
+  const { url, key } = getSupabaseConfig();
+  const response = await fetch(`${url}/auth/v1/recover`, {
+    method: "POST",
+    headers: { apikey: key, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, redirect_to: `${BRANCH_ORIGIN}/auth/reset` }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const result = (await response.json()) as AuthResponse;
+    redirect(authErrorUrl(result.error_description ?? result.msg ?? result.error ?? "Unable to send reset email."));
+  }
+
+  redirect("/auth/email?mode=login&message=Password%20reset%20email%20sent.%20Check%20your%20inbox.");
 }
 
 export async function signOut() {
