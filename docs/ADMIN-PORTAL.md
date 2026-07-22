@@ -75,7 +75,7 @@ It can generate or modify:
 - leaderboard entries;
 - premium status.
 
-Every generated record must be marked as test data. Test data is excluded from public rankings, production analytics, and real achievements by default.
+Every generated record must be marked as test data using the canonical `is_test = true` column. Test data is excluded from public rankings, production analytics, and real achievements by default.
 
 ## Leaderboard control
 

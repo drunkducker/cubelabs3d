@@ -85,7 +85,7 @@ The platform is expected to contain ordinary PostgreSQL tables for:
 - audit logs;
 - feature flags and site settings.
 
-Test records must include an explicit test marker and remain excluded from public rankings and production analytics by default.
+Test records must include an explicit test marker — the canonical convention is a boolean `is_test` column set to `true` — and remain excluded from public rankings and production analytics by default.
 
 ## Authentication
 

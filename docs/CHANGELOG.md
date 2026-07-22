@@ -2,6 +2,13 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Reconcile database & admin design submission
+
+- Reviewed the submitted "Database & Admin Control Panel Design" against the permanent docs. It was already covered by (and narrower than) `ADMIN-PORTAL.md` and `ARCHITECTURE.md`; no new admin spec was needed.
+- Net-new detail captured: pinned the canonical test-record marker as an `is_test = true` boolean in both `ARCHITECTURE.md` and `ADMIN-PORTAL.md`.
+- Preserved the submission verbatim as `docs/checkpoints/2026-07-22-database-and-admin-design.md` and indexed it, per the archive rule against silently discarding submitted design records.
+- No code changes; admin portal remains unbuilt (`[ ]` across ROADMAP §6).
+
 ## 2026-07-22 — Add reachable "Forgot your password?" entry on `/auth`
 
 - Branch: `claude/working-status-mumm9x`.
