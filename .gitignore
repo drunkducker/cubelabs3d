@@ -5,3 +5,6 @@ node_modules/
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# npm lockfile — repo tracks deps via package.json ranges
+package-lock.json
