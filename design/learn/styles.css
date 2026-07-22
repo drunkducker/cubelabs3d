@@ -47,9 +47,31 @@ h1,h2,h3{line-height:1.15}
 /* ================= TOP HEADER ================= */
 .topbar{display:flex;align-items:center;justify-content:space-between;
   padding:6px 4px 18px}
-.brand{display:flex;align-items:center;gap:11px}
-.brand-logo{width:40px;height:40px;flex:none;
-  filter:drop-shadow(0 4px 14px rgba(77,124,255,.55))}
+.brand{display:flex;align-items:center;gap:13px}
+/* 3D Rubik's-cube brand mark (matches the hero cube) */
+.brand-logo{width:44px;height:44px;flex:none;display:grid;place-items:center;
+  perspective:220px}
+.logo-cube{position:relative;width:30px;height:30px;transform-style:preserve-3d;
+  transform:rotateX(-22deg) rotateY(-32deg);animation:logospin 16s linear infinite}
+.brand:hover .logo-cube{animation-duration:4s}
+.lc-face{position:absolute;top:0;left:0;width:30px;height:30px;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  gap:1.5px;padding:1.5px;background:#070a12;border-radius:5px}
+.lc-face i{border-radius:2px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.35),
+  inset 0 -1px 2px rgba(0,0,0,.3),inset 0 1px 2px rgba(255,255,255,.2)}
+.lcf-front {transform:rotateY(0deg)   translateZ(15px)} .lcf-front  i{background:#e6352b}
+.lcf-back  {transform:rotateY(180deg) translateZ(15px)} .lcf-back   i{background:#ff7a1a}
+.lcf-right {transform:rotateY(90deg)  translateZ(15px)} .lcf-right  i{background:#1667e0}
+.lcf-left  {transform:rotateY(-90deg) translateZ(15px)} .lcf-left   i{background:#2fbf3f}
+.lcf-top   {transform:rotateX(90deg)  translateZ(15px)} .lcf-top    i{background:#f4f6f8}
+.lcf-bottom{transform:rotateX(-90deg) translateZ(15px)} .lcf-bottom i{background:#ffd21f}
+@keyframes logospin{
+  from{transform:rotateX(-22deg) rotateY(-32deg)}
+  to  {transform:rotateX(-22deg) rotateY(328deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .logo-cube{animation:none;transform:rotateX(-22deg) rotateY(-32deg)}
+}
 .brand-word{font-size:21px;font-weight:800;letter-spacing:.5px;font-style:italic}
 .brand-3d{background:linear-gradient(90deg,var(--blue),var(--purple));
   -webkit-background-clip:text;background-clip:text;color:transparent}

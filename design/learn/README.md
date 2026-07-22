@@ -17,6 +17,11 @@ port — so it can later be moved into the Next.js app (`app/learn/`) 1:1.
 The hero cube is a pure-CSS 3D Rubik's cube (six `.cube-face` panels on a
 `preserve-3d` stage) that tumbles continuously behind the headline via the
 `spin3d` keyframes; a left-to-right scrim keeps the copy readable over it.
+
+The header **brand mark is the same 3D cube** shrunk to logo size
+(`.logo-cube` / `.lc-face`): a slow idle `logospin` that speeds up on hover,
+replacing the old flat polygon icon. Both cubes honor `prefers-reduced-motion`
+by holding a static angled pose.
 - `preview.png` — rendered reference screenshot.
 
 ## Preview locally
