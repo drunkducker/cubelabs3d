@@ -46,6 +46,11 @@ const FACE_MOVE: Record<Face, { axis: Axis; layerSign: Direction; clockwise: Dir
   L: { axis: "x", layerSign: -1, clockwise: 1 },
 };
 
+const NOTATION_ANCHOR_VIEWPORT = {
+  x: 349 / 709,
+  y: 597 / 1536,
+};
+
 const axisVector = (axis: Axis) =>
   axis === "x" ? new THREE.Vector3(1, 0, 0) : axis === "y" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
 
@@ -148,6 +153,7 @@ export default function NotationCube() {
     const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 240);
     const distance = size * 4.8;
     const cubeAnchor = new THREE.Vector3(0, 0, 0);
+    const uCenterStickerAnchor = new THREE.Vector3(0, edge + 0.468, 0);
     camera.position.set(cubeAnchor.x + distance * 0.82, cubeAnchor.y + distance * 0.68, cubeAnchor.z + distance);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -452,6 +458,19 @@ export default function NotationCube() {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      controls.update();
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      const targetClientX = window.innerWidth * NOTATION_ANCHOR_VIEWPORT.x;
+      const targetClientY = window.innerHeight * NOTATION_ANCHOR_VIEWPORT.y;
+      const targetNdc = new THREE.Vector2(
+        ((targetClientX - rect.left) / rect.width) * 2 - 1,
+        -(((targetClientY - rect.top) / rect.height) * 2 - 1),
+      );
+      const currentNdc = uCenterStickerAnchor.clone().project(camera);
+      camera.projectionMatrix.elements[8] += currentNdc.x - targetNdc.x;
+      camera.projectionMatrix.elements[9] += currentNdc.y - targetNdc.y;
+      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
@@ -514,4 +533,3 @@ export default function NotationCube() {
     </section>
   );
 }
-
