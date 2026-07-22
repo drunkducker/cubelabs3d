@@ -92,7 +92,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 
 ## 4. Learn experience
 
-- [ ] Learn landing page
+- [~] Learn landing page — built (`/learn`): topic cards, managed featured videos, popular-algorithm reference, progress CTA, affiliate + Go-Premium slots (merged; needs migrations for managed content)
 - [ ] Beginner 3×3 guide
 - [ ] Animated notation and algorithm library
 - [ ] 4×4 and 5×5 reduction guides

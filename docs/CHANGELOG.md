@@ -2,6 +2,13 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Public Learn page
+
+- Branch: `claude/working-status-mumm9x`.
+- Built `/learn` from the approved mockup, mobile-first on the homepage palette: gradient hero + feature chips + search field; "Learn by topic" cards; **managed featured tutorials** via `FeaturedVideos` (Videos manager); "Popular algorithms" reference (Sexy Move, Sledgehammer, T/Y Perm) linking to `/cube-notation`; a "Your progress" sign-in CTA; and **managed affiliate + Go-Premium slots** via `AdSlot` (no hard-coded campaigns — Constitution §10).
+- Reuses the render layer and managers built earlier; empty managed slots render nothing, so the page is safe before content/migrations.
+- Testing: `npm run build` passes (32 routes).
+
 ## 2026-07-22 — Diagnose 4×4 solver + wire managed layout into solver pages
 
 - Branch: `claude/working-status-mumm9x`.
