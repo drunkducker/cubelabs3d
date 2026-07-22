@@ -9,12 +9,12 @@ export const metadata: Metadata = {
 
 export default function CubeNotationPage() {
   return (
-    <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-x-hidden px-4 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[14px]">
+    <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-x-hidden px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[12px]">
       <div className="orb orb-a" />
       <div className="orb orb-b" />
 
       <div className="relative z-[1]">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex h-10 items-center justify-between gap-3">
           <Link href="/" className="rounded-full border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--muted)]">
             ← Home
           </Link>
