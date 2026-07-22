@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { signIn, signUp } from "../actions";
+import PasswordField from "@/components/PasswordField";
+import { requestPasswordReset, signIn, signUp } from "../actions";
 
 type EmailAuthPageProps = {
   searchParams?: { error?: string; message?: string; mode?: string };
@@ -35,9 +36,8 @@ export default function EmailAuthPage({ searchParams = {} }: EmailAuthPageProps)
               <h2 className="mt-2 text-2xl font-black">Log in</h2>
             </div>
             <label className="grid gap-2 text-sm font-bold">Email<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="email" type="email" required autoComplete="email" /></label>
-            <label className="grid gap-2 text-sm font-bold">Password<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="password" type="password" required autoComplete="current-password" /></label>
+            <PasswordField name="password" autoComplete="current-password" />
             <button className="cta-blue mt-2 min-h-12 rounded-xl px-5 font-black" type="submit">Log in to Cube Labs</button>
-            <button type="button" className="text-left text-sm font-bold text-[var(--muted)]">Forgot password? <span className="text-[var(--blue)]">Reset flow coming next</span></button>
           </form>
 
           <form action={signUp} className="glass grid content-start gap-4 rounded-[24px] p-6 sm:p-8">
@@ -48,10 +48,19 @@ export default function EmailAuthPage({ searchParams = {} }: EmailAuthPageProps)
             <label className="grid gap-2 text-sm font-bold">Display name<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="display_name" maxLength={40} required autoComplete="nickname" placeholder="Ducker" /></label>
             <p className="-mt-2 text-xs leading-5 text-[var(--muted)]">This is what everyone sees. Your private unique tag, such as Ducker#1234, is generated automatically.</p>
             <label className="grid gap-2 text-sm font-bold">Email<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="email" type="email" required autoComplete="email" /></label>
-            <label className="grid gap-2 text-sm font-bold">Password<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="password" type="password" minLength={8} required autoComplete="new-password" /></label>
+            <PasswordField name="password" autoComplete="new-password" minLength={8} />
             <button className="cta-green mt-2 min-h-12 rounded-xl px-5 font-black" type="submit">Create my Cube ID</button>
           </form>
         </div>
+
+        <form action={requestPasswordReset} className="glass mx-auto mt-5 grid max-w-[480px] gap-3 rounded-[20px] p-5">
+          <div>
+            <h2 className="font-black">Forgot your password?</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Enter your account email and we will send a secure reset link.</p>
+          </div>
+          <label className="grid gap-2 text-sm font-bold">Account email<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="email" type="email" required autoComplete="email" /></label>
+          <button className="min-h-12 rounded-xl border border-[var(--border-2)] bg-[var(--surface-2)] px-5 font-black text-[var(--blue)]" type="submit">Send password reset email</button>
+        </form>
       </div>
     </main>
   );
