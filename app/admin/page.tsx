@@ -1,27 +1,13 @@
 import Link from "next/link";
 import { requireAdmin, hasAnyRole } from "@/app/lib/admin";
-import { supabaseRequest } from "@/app/lib/supabase-rest";
+import { getData } from "@/app/lib/data";
 import { ADMIN_NAV } from "./adminNav";
 
 type SearchParams = { searchParams?: { error?: string } };
 
-// Live count of registered players. Readable under the existing profiles RLS.
-async function countPlayers(token: string): Promise<number | null> {
-  try {
-    const rows = await supabaseRequest<{ id: string }[]>(
-      "/rest/v1/profiles?select=id&limit=10000",
-      {},
-      token,
-    );
-    return Array.isArray(rows) ? rows.length : null;
-  } catch {
-    return null;
-  }
-}
-
 export default async function AdminDashboard({ searchParams = {} }: SearchParams) {
   const { role, token } = await requireAdmin();
-  const players = await countPlayers(token);
+  const players = await getData().profiles.countAll({ accessToken: token });
 
   // Tiles marked live:false need a data pipeline (service-role reads or
   // security-definer aggregates) that arrives with their sections. Shown as

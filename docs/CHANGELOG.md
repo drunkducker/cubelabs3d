@@ -2,6 +2,17 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Provider abstraction to reduce Supabase lock-in
+
+- Branch: `claude/working-status-mumm9x`.
+- Added a provider-neutral data layer so features stop depending directly on Supabase:
+  - `app/lib/data/types.ts` (`CubeLabsData` contract), `app/lib/data/index.ts` (`getData()` selected by `DATA_PROVIDER`), `app/lib/data/providers/supabase.ts` (the only Supabase-specific file).
+  - Refactored the admin domain (gate, roles, dashboard count, ads, audit) to call the data layer instead of Supabase REST directly.
+- "Leave quickly" tooling: `scripts/export-data.sh` (portable `pg_dump` restorable into any Postgres) and `docs/PORTABILITY-AND-EXIT.md` (self-hosted Supabase as the fastest exit, plus Postgres+PostgREST+GoTrue / Nhost / Pocketbase / Appwrite, email off Supabase via SES/SMTP, S3-compatible storage, and an exit checklist).
+- ADR `0003-provider-abstraction.md`; `DATA_PROVIDER` documented in `.env.example`.
+- Honest scope: auth actions, profile, mail, and the solves API are still Supabase-coupled and migrate in later slices (ROADMAP §2).
+- Testing: `npm run build` passes (28 routes). Behavior unchanged; this is isolation, not a backend swap.
+
 ## 2026-07-22 — Add context-resilient build plan
 
 - Added `docs/AI-BUILD-PLAN.md`: a build method that reduces AI context rot — bounded session-start reads, single-session vertical slices, write-through externalization of every decision, evidence anchoring, handoff-first, one canonical branch + registry, deterministic conventions, and a per-slice checklist plus a build order.

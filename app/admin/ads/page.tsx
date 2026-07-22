@@ -1,22 +1,7 @@
 import { requireAdmin, hasAnyRole } from "@/app/lib/admin";
-import { supabaseRequest } from "@/app/lib/supabase-rest";
+import { getData } from "@/app/lib/data";
+import type { AdRecord as Ad } from "@/app/lib/data/types";
 import { createAd, setAdActive, deleteAd } from "./actions";
-
-type Ad = {
-  id: string;
-  name: string;
-  advertiser: string | null;
-  ad_type: string;
-  placement: string;
-  destination_url: string | null;
-  priority: number;
-  is_active: boolean;
-  is_test: boolean;
-  starts_at: string | null;
-  ends_at: string | null;
-  impressions: number;
-  clicks: number;
-};
 
 type AdStatus = "Active" | "Scheduled" | "Paused" | "Expired";
 const FILTERS: (AdStatus | "All")[] = ["All", "Active", "Scheduled", "Paused", "Expired"];
@@ -53,7 +38,7 @@ export default async function AdsManagerPage({ searchParams = {} }: PageProps) {
   let ads: Ad[] = [];
   let loadError = false;
   try {
-    ads = await supabaseRequest<Ad[]>("/rest/v1/ads?select=*&order=priority.desc,created_at.desc", {}, token);
+    ads = await getData().ads.list({ accessToken: token });
   } catch {
     loadError = true;
   }

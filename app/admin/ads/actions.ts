@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, writeAudit } from "@/app/lib/admin";
-import { supabaseRequest } from "@/app/lib/supabase-rest";
+import { getData } from "@/app/lib/data";
 
 // Roles allowed to manage ads.
 const AD_EDITORS = ["owner", "admin", "editor"] as const;
@@ -52,13 +52,9 @@ export async function createAd(formData: FormData) {
     created_by: ctx.user.id,
   };
 
-  let created: { id: string }[] = [];
+  let created: { id: string } | null = null;
   try {
-    created = await supabaseRequest<{ id: string }[]>(
-      "/rest/v1/ads",
-      { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(payload) },
-      ctx.token,
-    );
+    created = await getData().ads.create({ accessToken: ctx.token }, payload);
   } catch {
     await writeAudit(ctx, { action: "ad.create", targetType: "ad", newValue: { name, placement }, success: false });
     redirect("/admin/ads?error=Could%20not%20create%20the%20ad.%20Confirm%20the%20ads%20migration%20has%20run.");
@@ -67,7 +63,7 @@ export async function createAd(formData: FormData) {
   await writeAudit(ctx, {
     action: "ad.create",
     targetType: "ad",
-    targetId: created?.[0]?.id,
+    targetId: created?.id,
     newValue: { name, placement, ad_type: payload.ad_type, is_active: payload.is_active },
   });
   revalidatePath("/admin/ads");
@@ -81,11 +77,7 @@ export async function setAdActive(formData: FormData) {
   if (!id) redirect("/admin/ads?error=Missing%20ad%20id.");
 
   try {
-    await supabaseRequest(
-      `/rest/v1/ads?id=eq.${encodeURIComponent(id)}`,
-      { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ is_active: active, updated_at: new Date().toISOString() }) },
-      ctx.token,
-    );
+    await getData().ads.setActive({ accessToken: ctx.token }, id, active);
   } catch {
     await writeAudit(ctx, { action: "ad.set_active", targetType: "ad", targetId: id, newValue: { is_active: active }, success: false });
     redirect("/admin/ads?error=Could%20not%20update%20the%20ad.");
@@ -102,11 +94,7 @@ export async function deleteAd(formData: FormData) {
   if (!id) redirect("/admin/ads?error=Missing%20ad%20id.");
 
   try {
-    await supabaseRequest(
-      `/rest/v1/ads?id=eq.${encodeURIComponent(id)}`,
-      { method: "DELETE", headers: { Prefer: "return=minimal" } },
-      ctx.token,
-    );
+    await getData().ads.remove({ accessToken: ctx.token }, id);
   } catch {
     await writeAudit(ctx, { action: "ad.delete", targetType: "ad", targetId: id, success: false });
     redirect("/admin/ads?error=Could%20not%20delete%20the%20ad.");

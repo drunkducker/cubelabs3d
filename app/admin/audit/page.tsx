@@ -1,17 +1,6 @@
 import { requireAdmin } from "@/app/lib/admin";
-import { supabaseRequest } from "@/app/lib/supabase-rest";
-
-type AuditRow = {
-  id: string;
-  actor_id: string | null;
-  actor_role: string | null;
-  action: string;
-  target_type: string | null;
-  target_id: string | null;
-  reason: string | null;
-  success: boolean;
-  created_at: string;
-};
+import { getData } from "@/app/lib/data";
+import type { AuditRecord as AuditRow } from "@/app/lib/data/types";
 
 function formatWhen(iso: string): string {
   const d = new Date(iso);
@@ -25,11 +14,7 @@ export default async function AuditLogPage() {
   let rows: AuditRow[] = [];
   let loadError = false;
   try {
-    rows = await supabaseRequest<AuditRow[]>(
-      "/rest/v1/admin_audit_log?select=*&order=created_at.desc&limit=100",
-      {},
-      token,
-    );
+    rows = await getData().audit.recent({ accessToken: token }, 100);
   } catch {
     loadError = true;
   }

@@ -1,7 +1,8 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { getAccessToken, supabaseRequest } from "@/app/lib/supabase-rest";
+import { getAccessToken } from "@/app/lib/supabase-rest";
+import { getData } from "@/app/lib/data";
 
 /*
  * Server-side admin access control for Cube Labs.
@@ -65,12 +66,10 @@ export async function getAdminContext(): Promise<AdminContext | null> {
   const token = getAccessToken();
   if (!token) return null;
 
-  let user: AdminUser;
-  try {
-    user = await supabaseRequest<AdminUser>("/auth/v1/user", {}, token);
-  } catch {
-    return null;
-  }
+  const data = getData();
+  const ctx = { accessToken: token };
+
+  const user = await data.auth.currentUser(ctx);
   if (!user?.id) return null;
 
   // Failsafe: the configured owner email is always owner.
@@ -81,12 +80,8 @@ export async function getAdminContext(): Promise<AdminContext | null> {
 
   let role: AdminRole = "user";
   try {
-    const rows = await supabaseRequest<{ role: AdminRole }[]>(
-      `/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=role`,
-      {},
-      token,
-    );
-    if (rows?.[0]?.role) role = rows[0].role;
+    const dbRole = await data.profiles.getRole(ctx, user.id);
+    if (dbRole) role = dbRole;
   } catch {
     return null;
   }
@@ -126,30 +121,19 @@ export type AuditEntry = {
  * returned boolean.
  */
 export async function writeAudit(context: AdminContext, entry: AuditEntry): Promise<boolean> {
-  try {
-    await supabaseRequest(
-      "/rest/v1/admin_audit_log",
-      {
-        method: "POST",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          actor_id: context.user.id,
-          actor_role: context.role,
-          action: entry.action,
-          target_type: entry.targetType ?? null,
-          target_id: entry.targetId ?? null,
-          previous_value: entry.previousValue ?? null,
-          new_value: entry.newValue ?? null,
-          reason: entry.reason ?? null,
-          metadata: entry.metadata ?? null,
-          success: entry.success ?? true,
-        }),
-      },
-      context.token,
-    );
-    return true;
-  } catch (error) {
-    console.error("admin audit write failed", error);
-    return false;
-  }
+  return getData().audit.write(
+    { accessToken: context.token },
+    {
+      actor_id: context.user.id,
+      actor_role: context.role,
+      action: entry.action,
+      target_type: entry.targetType ?? null,
+      target_id: entry.targetId ?? null,
+      previous_value: entry.previousValue ?? null,
+      new_value: entry.newValue ?? null,
+      reason: entry.reason ?? null,
+      metadata: entry.metadata ?? null,
+      success: entry.success ?? true,
+    },
+  );
 }

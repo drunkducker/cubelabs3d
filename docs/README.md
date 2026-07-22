@@ -28,6 +28,7 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 - [ADS-AFFILIATES.md](./ADS-AFFILIATES.md) — managed ad slots, banners, carousels, and affiliate links
 - [SECURITY.md](./SECURITY.md) — security requirements and review checklist
 - [BACKUP-AND-MIGRATION.md](./BACKUP-AND-MIGRATION.md) — provider independence, exports, and Supabase migration
+- [PORTABILITY-AND-EXIT.md](./PORTABILITY-AND-EXIT.md) — provider adapter layer, backups, and the "leave quickly" exit plan
 - [decisions](./decisions/) — architecture decision records
 
 ## Required documentation workflow

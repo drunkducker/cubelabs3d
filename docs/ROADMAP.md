@@ -62,7 +62,11 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Public display-name and unique-handle database foundation (migrated schema)
 - [ ] Public display-name and unique-handle rules fully implemented and verified
 - [ ] Account deletion and export workflow
-- [ ] Provider-migration test
+- [~] Provider adapter layer (`app/lib/data`) — admin domain routed through it; auth/profile/mail/solves still to migrate
+- [~] Portable data export (`scripts/export-data.sh`) + exit plan (`PORTABILITY-AND-EXIT.md`)
+- [ ] Migrate remaining direct Supabase calls (auth actions, profile, mail, solves API) to the data layer
+- [ ] Email adapter off Supabase (SES/SMTP)
+- [ ] Provider-migration test (restore export into a scratch Postgres)
 
 ## 3. Puzzle engine and solvers
 
