@@ -7,6 +7,7 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 ## Current project control
 
 - [CURRENT_STATUS.md](./CURRENT_STATUS.md) — single current-state summary and active priorities
+- [PROJECT-HEALTH.md](./PROJECT-HEALTH.md) — evidence-backed health dashboard, risks, and directional completion
 - [ROADMAP.md](./ROADMAP.md) — canonical master checklist and release gates
 - [DAILY-LOG.md](./DAILY-LOG.md) — daily verification, completed work, blockers, and next actions
 - [CHANGELOG.md](./CHANGELOG.md) — meaningful shipped project changes
@@ -17,6 +18,8 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 - [CONSTITUTION.md](./CONSTITUTION.md) — non-negotiable project rules
 - [VISION.md](./VISION.md) — product purpose and long-term direction
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — application structure and system boundaries
+- [CUBE-ENGINE.md](./CUBE-ENGINE.md) — puzzle-engine boundaries, recovered branch findings, and challenge-state target
+- [SOCIAL-AND-MULTIPLAYER.md](./SOCIAL-AND-MULTIPLAYER.md) — consolidated challenges, friends, leaderboards, safety, and multiplayer plan
 - [AI-INSTRUCTIONS.md](./AI-INSTRUCTIONS.md) — required workflow for AI contributors
 - [CODING-STANDARDS.md](./CODING-STANDARDS.md) — implementation and commenting standards
 - [AUTHENTICATION.md](./AUTHENTICATION.md) — Cube ID, login, sessions, and recovery
@@ -34,10 +37,11 @@ A feature is not complete until all applicable items are finished:
 2. The relevant permanent document is updated.
 3. `ROADMAP.md` reflects the verified status.
 4. `DAILY-LOG.md` records what was checked, completed, blocked, and next.
-5. `CHANGELOG.md` is updated for meaningful shipped changes.
-6. A decision record is added when architecture, data ownership, security, public behavior, providers, or project structure changes.
-7. Branch, commit, deployment, testing, known issues, and rollback notes are logged.
-8. Any old checkpoint document is either preserved as history or folded into the permanent documentation without losing important information.
+5. `PROJECT-HEALTH.md` is updated when a major area changes readiness or risk.
+6. `CHANGELOG.md` is updated for meaningful shipped changes.
+7. A decision record is added when architecture, data ownership, security, public behavior, providers, or project structure changes.
+8. Branch, commit, deployment, testing, known issues, and rollback notes are logged.
+9. Any old checkpoint document is either preserved as history or folded into the permanent documentation without losing important information.
 
 ## Structure enforcement
 
