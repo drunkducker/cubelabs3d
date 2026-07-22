@@ -1,18 +1,22 @@
 import { cookies } from "next/headers";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+/*
+ * Prefer Vercel environment variables. Use logical OR instead of nullish
+ * coalescing because Vercel may expose an unset preview variable as an empty
+ * string, which would otherwise produce relative URLs such as /auth/v1/signup.
+ */
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://fvcjufbyjkjyorrmpgrm.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "sb_publishable_M7xCkwqOO3GxL7VhZcdv7A_cVxbHy9s";
 
 export const ACCESS_COOKIE = "cubelabs_access_token";
 export const REFRESH_COOKIE = "cubelabs_refresh_token";
 
 export function getSupabaseConfig() {
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
-    );
-  }
-
   return {
     url: SUPABASE_URL.replace(/\/$/, ""),
     key: SUPABASE_PUBLISHABLE_KEY,
