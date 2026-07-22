@@ -22,7 +22,7 @@ function value(formData: FormData, name: string) {
 }
 
 function authErrorUrl(message: string) {
-  return `/auth?error=${encodeURIComponent(message)}`;
+  return `/auth/email?error=${encodeURIComponent(message)}`;
 }
 
 async function upsertProfile(
@@ -101,13 +101,13 @@ export async function signUp(formData: FormData) {
     try {
       await upsertProfile({ access_token: result.access_token }, result.user, displayName);
     } catch {
-      // Profile creation can be retried later; auth should still complete.
+      // The profile trigger/backfill can repair identity fields later.
     }
 
     redirect("/profile");
   }
 
-  redirect("/auth?message=Check%20your%20email%20to%20confirm%20your%20account.");
+  redirect("/auth/email?message=Check%20your%20email%20to%20confirm%20your%20account.");
 }
 
 export async function signOut() {
