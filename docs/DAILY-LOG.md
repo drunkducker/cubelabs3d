@@ -15,6 +15,7 @@ Use this file for concise daily project check-ins. The newest entry goes first. 
 - [x] Added `/leaderboard` mobile visual prototype matching the owner reference.
 - [x] Added shared `AppBottomNav` for Next app routes.
 - [x] Added `leaderboard-preview` data module with explicit preview/test-data markers.
+- [x] Wired the homepage Daily Challenge "View Leaderboard" action to `/leaderboard`.
 - [x] Updated roadmap/social/changelog documentation without marking production leaderboards complete.
 
 **In progress**

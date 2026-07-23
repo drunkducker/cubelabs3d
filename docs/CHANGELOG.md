@@ -7,6 +7,7 @@ This file records meaningful product, architecture, security, database, deployme
 - Branch: `claude/home-page-html-rebuild-q7qomi` preview/deployment worktree at `388fa85`.
 - Purpose: build the first mobile-first `/leaderboard` page from the owner-provided reference without changing the approved homepage.
 - Added: `app/leaderboard/page.tsx`, reusable `components/AppBottomNav.tsx`, and `lib/leaderboard-preview.ts`.
+- Follow-up wiring: homepage Daily Challenge "View Leaderboard" now links to `/leaderboard`.
 - Data status: leaderboard rows are explicitly marked preview/test data. Production ranking still needs a provider-isolated `getLeaderboard()` service, server-side validation, assisted/unassisted flags, suspicious-result review, and test-data exclusion.
 - Documentation: updated roadmap/social planning and daily log to classify this as a prototype only.
 - Testing: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes (26 app routes, including `/leaderboard`).
