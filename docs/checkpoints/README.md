@@ -6,6 +6,12 @@ Checkpoint files preserve what was believed, planned, or completed at a particul
 
 ## Known historical records to preserve
 
+- `2026-07-23-news-arcade-home-links.md` — homepage-linked News, My Arcade, and Learn route pass with remaining content/admin wiring.
+- `2026-07-22-3x3-scrambles-solver-memory-handoff.md` — current handoff for tracked 3x3 play, chosen scrambles, Supabase scramble ranking, solver memory, and remaining verification work.
+- `2026-07-22-mobile-profile-layout.md` — profile dashboard layout branch checkpoint, approved-layout wiring pass, connected profile subroutes, and remaining production QA items.
+- `2026-07-22-social-discovery-privacy.md` — profile social discovery, public player profiles, friend actions, challenge prefill, and export/close-account queue handoff.
+- `2026-07-22-site-health-context-rot-review.md` — health review documenting clickable route gaps, preview-data risks, Supabase proof steps, context-rot reductions, and the highest-value next fixes.
+- `2026-07-22-tracked-3x3-challenge-next-steps.md` — tracked 3x3 leaderboard challenge prototype handoff and production gap list.
 - `cubelabs3d-project-status.md` — July 20, 2026 early project and business checkpoint; now substantially outdated.
 - `PROJECT_STATUS_2026-07-21_0246.md` — July 21, 2026 at 02:46 checkpoint.
 - `CURRENT-SITE-STATE-2026-07-22.md` — July 22, 2026 branch, auth, and production-baseline checkpoint.

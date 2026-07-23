@@ -22,6 +22,20 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [ ] Production build and lint verification recorded for the branch.
 - [ ] Safe integration with the canonical homepage and current cube engines.
 
+## Current leaderboard UI prototype
+
+- [~] A mobile-first `/leaderboard` visual prototype exists on `claude/home-page-html-rebuild-q7qomi`.
+- [~] The prototype uses a shared Next app bottom navigation component and a provider-isolated preview data module.
+- [~] A build-verified tracked 3x3 leaderboard challenge prototype exists at `/leaderboard/3x3/play`.
+- [~] `/play/3x3`, `/challenge/[id]`, and `/profile/challenges` now provide a first usable send/receive path for signed-in accounts.
+- [~] The challenge prototype records elapsed time, move count, touch/button move counts, undo use, replay metadata, and manual test/admin time overrides.
+- [~] Players can load a chosen 3x3 scramble and save/send that exact scramble in the prototype.
+- [~] Admin/test overrides can manipulate reported moves, undo count, touch/button moves, and solved status while preserving actual metrics in replay metadata.
+- [ ] Replace preview/test rows with a production `getLeaderboard()` application service.
+- [ ] Exclude admin/test data from public rankings by default.
+- [ ] Separate assisted and unassisted results before public ranking.
+- [ ] Add suspicious-result review, admin correction, and audit logging before trusting public results.
+
 ## Release 1 — Asynchronous challenges
 
 ### Cube-state integration
@@ -29,18 +43,24 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [ ] Define a versioned serialized puzzle-state contract.
 - [ ] Store puzzle type, cube size, exact state, scramble, rule settings, and schema version.
 - [ ] Separate setup/scramble history from player move history.
-- [ ] Capture elapsed time, move count, solved status, undo use, hint use, solver use, and control/device type.
+- [~] Capture elapsed time, move count, solved status, undo use, and touch/button control type in the 3x3 prototype replay metadata.
+- [ ] Promote tracking fields such as test data, assistance flags, validation status, recipient time, and device/control type to explicit schema columns before production rankings.
+- [ ] Capture hint use, solver use, device class, and full renderer-independent puzzle state.
 - [ ] Add a Create Challenge action to supported playable puzzle controls.
-- [ ] Load and lock the official starting state when an attempt begins.
+- [~] Load an official 3x3 scramble from `/leaderboard/3x3/play` and `/challenge/[id]`.
+- [ ] Lock the official starting state and validate it server-side when an attempt begins.
 - [ ] Validate submitted results server-side.
 
 ### Sharing and attempts
 
 - [ ] Generate non-enumerable server-created challenge IDs.
-- [ ] Provide shareable `/challenge/[id]` routes.
+- [~] Provide signed-in `/challenge/[id]` routes for direct account challenges.
 - [ ] Allow guest attempts without registration.
+- [~] Add first send-to-account action from the tracked 3x3 challenge page using exact Cube Tag / username / public slug lookup.
+- [~] Allow a player-selected 3x3 scramble for signed-in direct challenges.
 - [ ] Add copy-link, native share, QR, email, and text-message actions.
-- [ ] Add sender/recipient result comparison.
+- [~] Add sender target time to the recipient challenge page.
+- [ ] Add full sender/recipient comparison, including recipient time and move-count display from stored solve rows.
 - [ ] Add rematch flow.
 - [ ] Add expiration, privacy, deletion, and abuse controls.
 
@@ -53,12 +73,13 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [ ] Add built-in and uploaded avatars with moderation.
 - [ ] Add public, friends-only, and private profile settings.
 - [ ] Add puzzle-specific statistics, streaks, achievements, and activity history.
-- [ ] Add account deletion and data export.
+- [~] Add account deletion and data export. Settings now queues export/closure requests and hides profiles on closure request; actual email delivery and auth-user deletion need a server-only privacy worker.
 
 ## Friends and safety
 
-- [ ] Friend requests, accept, decline, remove, block, and report.
-- [ ] Direct friend challenges.
+- [~] Friend requests, accept, decline, remove, block, and report. Send/accept/decline/remove exist; block/report are still missing.
+- [~] Social discovery through public profile search and solve/time-based player suggestions.
+- [~] Direct friend challenges. Friend/suggestion cards can prefill the existing 3x3 challenge sender; full friend-only challenge filters are still pending.
 - [ ] Notification preferences.
 - [ ] Username, avatar, and challenge-message moderation.
 - [ ] Rate limits for invitations, friend requests, challenge creation, and email delivery.
@@ -68,6 +89,8 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 ## Leaderboards
 
 - [ ] Challenge-specific leaderboards.
+- [ ] Scramble library and ranked scramble attempts.
+- [ ] Rank scrambles by attempts, completion rate, best time, average time, fewest moves, assisted/unassisted status, and validation state.
 - [ ] Friends, daily, weekly, monthly, seasonal, and all-time filters.
 - [ ] Separate puzzle types and cube sizes.
 - [ ] Separate assisted and unassisted results.

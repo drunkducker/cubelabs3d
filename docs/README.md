@@ -24,6 +24,7 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 - [CODING-STANDARDS.md](./CODING-STANDARDS.md) — implementation and commenting standards
 - [AUTHENTICATION.md](./AUTHENTICATION.md) — Cube ID, login, sessions, and recovery
 - [ADMIN-PORTAL.md](./ADMIN-PORTAL.md) — administration, testing, security, and content controls
+- [ADMIN-GUIDE.md](./ADMIN-GUIDE.md) — plain-language operator how-to (affiliate links, ads, day-to-day tasks)
 - [ADS-AFFILIATES.md](./ADS-AFFILIATES.md) — managed ad slots, banners, carousels, and affiliate links
 - [SECURITY.md](./SECURITY.md) — security requirements and review checklist
 - [BACKUP-AND-MIGRATION.md](./BACKUP-AND-MIGRATION.md) — provider independence, exports, and Supabase migration

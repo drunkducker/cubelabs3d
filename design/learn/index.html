@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070d" />
+  <title>Cube Lab 3D — Learn</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Ambient background orbs -->
+  <div class="orb orb-a" aria-hidden="true"></div>
+  <div class="orb orb-b" aria-hidden="true"></div>
+  <div class="orb orb-c" aria-hidden="true"></div>
+
+  <div class="frame">
+    <!-- ================= TOP HEADER ================= -->
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Cube Lab 3D home">
+        <span class="brand-logo" aria-hidden="true">
+          <span class="logo-cube">
+            <span class="lc-face lcf-front"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-back"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-right"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-left"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-top"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-bottom"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </span>
+        </span>
+        <span class="brand-word">CUBE LAB <span class="brand-3d">3D</span></span>
+      </a>
+
+      <nav class="top-actions" aria-label="Quick actions">
+        <button class="icon-btn" aria-label="Search">
+          <svg viewBox="0 0 24 24" class="ico"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <button class="icon-btn bell" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" class="ico"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="badge">3</span>
+        </button>
+        <button class="avatar" aria-label="Your profile">
+          <span class="avatar-cube">
+            <span class="logo-cube">
+              <span class="lc-face lcf-front"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-back"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-right"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-left"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-top"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-bottom"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            </span>
+          </span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- ================= HERO ================= -->
+    <section class="hero card">
+      <div class="stars" aria-hidden="true"></div>
+      <!-- spinning 3D cube behind the headline -->
+      <div class="hero-cube" aria-hidden="true">
+        <div class="cube3d">
+          <div class="cube-face cf-front"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-back"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-right"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-left"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-top"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-bottom"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="hero-copy">
+        <p class="eyebrow">LEARN. PRACTICE. MASTER.</p>
+        <h1 class="hero-title">Learn to Solve<br>Like a <span class="grad">Pro</span></h1>
+        <p class="hero-sub">Step-by-step guides, animations and algorithms to take your skills to the next level.</p>
+        <ul class="hero-feats">
+          <li>
+            <span class="hf-ico purple"><svg viewBox="0 0 24 24" class="ico"><path d="M4 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H4z"/><path d="M20 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H20z"/></svg></span>
+            <span>Beginner<br>Friendly</span>
+          </li>
+          <li>
+            <span class="hf-ico blue"><svg viewBox="0 0 24 24" class="ico"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg></span>
+            <span>Visual &amp;<br>Interactive</span>
+          </li>
+          <li>
+            <span class="hf-ico pink"><svg viewBox="0 0 24 24" class="ico"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 8-10c1.5 1.5 3 4.5 3 9a22 22 0 0 1-8 4z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+            <span>Progress<br>Tracking</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================= SEARCH ================= -->
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" class="ico"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="search" placeholder="Search topics, algorithms or guides..." aria-label="Search topics, algorithms or guides" />
+    </div>
+
+    <!-- ================= MAIN GRID ================= -->
+    <div class="layout">
+      <!-- ---------- LEFT / MAIN COLUMN ---------- -->
+      <main class="col-main">
+
+        <!-- Learn by Topic -->
+        <section class="block">
+          <div class="block-head">
+            <h2>Learn by Topic</h2>
+            <a class="view-all" href="#">View All</a>
+          </div>
+          <div class="topic-grid">
+            <a class="topic card" href="/cube-notation">
+              <span class="mini-cube" data-cube="getting-started"></span>
+              <h3>Getting Started</h3>
+              <p>The basics you need to know</p>
+              <div class="topic-foot"><span class="bar" style="--p:35%"></span><span class="cnt">6 Lessons</span></div>
+            </a>
+            <a class="topic card" href="#">
+              <span class="mini-cube" data-cube="beginner"></span>
+              <h3>Beginner Method</h3>
+              <p>Layer-by-layer for 3x3</p>
+              <div class="topic-foot"><span class="bar" style="--p:55%"></span><span class="cnt">12 Lessons</span></div>
+            </a>
+            <a class="topic card" href="#">
+              <span class="mini-cube" data-cube="cfop"></span>
+              <h3>CFOP Method</h3>
+              <p>The most popular speedcubing method</p>
+              <div class="topic-foot"><span class="bar" style="--p:20%"></span><span class="cnt">23 Lessons</span></div>
+            </a>
+            <a class="topic card" href="#">
+              <span class="mini-cube" data-cube="oll"></span>
+              <h3>OLL</h3>
+              <p>Orientation of the Last Layer</p>
+              <div class="topic-foot"><span class="bar" style="--p:15%"></span><span class="cnt">57 Algorithms</span></div>
+            </a>
+          </div>
+        </section>
+
+        <!-- Featured Tutorials -->
+        <section class="block card pad">
+          <div class="block-head">
+            <h2>Featured Tutorials</h2>
+            <a class="view-all" href="#">View All</a>
+          </div>
+          <ul class="tut-list">
+            <li class="tut">
+              <span class="thumb" data-cube="t1"><span class="dur">5:24</span></span>
+              <div class="tut-body">
+                <h3>How the 3x3 Cube Works</h3>
+                <p>Understand the pieces, faces, and basic moves.</p>
+                <div class="tut-meta"><span class="tag beginner">Beginner</span><span class="dot">•</span><span>5:24</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+            <li class="tut">
+              <span class="thumb" data-cube="t2"><span class="dur">6:31</span></span>
+              <div class="tut-body">
+                <h3>Beginner Method — Cross</h3>
+                <p>Learn how to solve the first layer cross.</p>
+                <div class="tut-meta"><span class="tag beginner">Beginner</span><span class="dot">•</span><span>6:31</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+            <li class="tut">
+              <span class="thumb" data-cube="t3"><span class="dur">7:18</span></span>
+              <div class="tut-body">
+                <h3>F2L — First Two Layers</h3>
+                <p>Solve the middle layer the easy way.</p>
+                <div class="tut-meta"><span class="tag beginner">Beginner</span><span class="dot">•</span><span>7:18</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+            <li class="tut">
+              <span class="thumb" data-cube="t4"><span class="dur">24:10</span></span>
+              <div class="tut-body">
+                <h3>OLL — All Cases</h3>
+                <p>Learn all 57 OLL cases with easy animations.</p>
+                <div class="tut-meta"><span class="tag advanced">Advanced</span><span class="dot">•</span><span>24:10</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+          </ul>
+          <button class="browse-all">Browse All Tutorials <svg viewBox="0 0 24 24" class="ico"><polyline points="9 6 15 12 9 18"/></svg></button>
+        </section>
+
+        <!-- Popular Algorithms -->
+        <section class="block">
+          <div class="block-head">
+            <h2>Popular Algorithms</h2>
+            <a class="view-all" href="#">View All</a>
+          </div>
+          <div class="algo-grid">
+            <div class="algo card">
+              <h3>The Sexy Move<br><span class="moves">(R U R' U')</span></h3>
+              <div class="face" data-face="sexy"></div>
+              <p class="use">Use: Sune / Anti-Sune</p>
+              <div class="algo-foot"><span class="tag beginner">Beginner</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+            <div class="algo card">
+              <h3>Sledgehammer<br><span class="moves">(R' F R F')</span></h3>
+              <div class="face" data-face="sledge"></div>
+              <p class="use">Use: OLL Case</p>
+              <div class="algo-foot"><span class="tag intermediate">Intermediate</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+            <div class="algo card">
+              <h3>T Perm<br><span class="moves">(R U R' U' R' F R2 U' R' U' R U R' F')</span></h3>
+              <div class="face" data-face="tperm"></div>
+              <p class="use">Use: PLL</p>
+              <div class="algo-foot"><span class="tag advanced">Advanced</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+            <div class="algo card">
+              <h3>Y Perm<br><span class="moves">(F R U' R' U' R U R' F' R U R' U' R' F R F')</span></h3>
+              <div class="face" data-face="yperm"></div>
+              <p class="use">Use: PLL</p>
+              <div class="algo-foot"><span class="tag advanced">Advanced</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Affiliate strip: auto-rotating, swipeable product carousel -->
+        <section class="affiliate-strip card">
+          <span class="aff-tag">AFFILIATE</span>
+          <div class="aff-head">
+            <div class="aff-copy">
+              <h3>Everything a cuber needs!</h3>
+              <p>Mats, timers, lubes, bags and more.</p>
+            </div>
+            <button class="btn-grad shop">Shop Now</button>
+          </div>
+
+          <div class="aff-carousel" data-carousel aria-roledescription="carousel" aria-label="Featured products">
+            <div class="aff-viewport">
+              <div class="aff-track">
+                <a class="prod-card" href="#"><span class="pc-img t-blue"><svg viewBox="0 0 24 24" class="pc-ico"><circle cx="12" cy="14" r="7"/><path d="M12 14V10"/><path d="M9 2h6"/><path d="M12 2v3"/><path d="M18.5 7.5l1.3-1.3"/></svg></span><span class="pc-body"><span class="pc-name">Speed Timer Pro</span><span class="pc-price">$24.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-slate"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M9.5 2h5v2.5l1 2.5v11a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V7l1-2.5z"/><path d="M9 11h6"/></svg></span><span class="pc-body"><span class="pc-name">Cube Lube 10ml</span><span class="pc-price">$8.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-purple"><svg viewBox="0 0 24 24" class="pc-ico"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7.5 5v14M12 5v14M16.5 5v14"/></svg></span><span class="pc-body"><span class="pc-name">Pro Timer Mat</span><span class="pc-price">$19.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-red"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span><span class="pc-body"><span class="pc-name">Cube Carry Bag</span><span class="pc-price">$14.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-green"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M4 20h16"/><path d="M12 5l6 11H6z"/></svg></span><span class="pc-body"><span class="pc-name">Display Stand</span><span class="pc-price">$6.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-cyan"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg></span><span class="pc-body"><span class="pc-name">GAN 13 Maglev</span><span class="pc-price">$59.95</span></span></a>
+              </div>
+            </div>
+            <div class="aff-dots" aria-label="Choose product"></div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ---------- RIGHT / SIDEBAR ---------- -->
+      <aside class="col-side">
+        <!-- Your Progress -->
+        <section class="card pad progress-card">
+          <div class="block-head">
+            <h2>Your Progress</h2>
+            <a class="view-all" href="#">View Stats</a>
+          </div>
+          <div class="progress-body">
+            <div class="ring" data-ring="64">
+              <span class="ring-num">64%</span>
+            </div>
+            <dl class="progress-stats">
+              <div><dt>Lessons</dt><dd>18 / 28</dd></div>
+              <div><dt>Algorithms</dt><dd>24 / 57</dd></div>
+            </dl>
+          </div>
+          <button class="btn-grad">Continue Learning</button>
+        </section>
+
+        <!-- Affiliate product -->
+        <section class="card pad product-card">
+          <span class="aff-tag corner">AFFILIATE</span>
+          <div class="product-top">
+            <div class="product-info">
+              <h2>The World's<br>Best Cubes</h2>
+              <p class="product-name">GAN 13 Maglev UV<br>3x3 Speed Cube</p>
+              <div class="stars-row">
+                <span class="stars5" data-stars="4.5"></span>
+                <span class="rating">4.9</span>
+              </div>
+              <p class="reviews">(2,341)</p>
+              <p class="price">$59.95 <span class="prime">✓ prime</span></p>
+            </div>
+            <span class="mini-cube stand" data-cube="product"></span>
+          </div>
+          <button class="btn-grad">Shop Now</button>
+        </section>
+
+        <!-- Go Premium -->
+        <section class="card pad premium-card">
+          <div class="premium-head">
+            <svg viewBox="0 0 24 24" class="crown"><path d="M3 7l4 4 5-7 5 7 4-4v10H3z"/></svg>
+            <h2>Go Premium</h2>
+          </div>
+          <p class="premium-sub">Unlock unlimited learning</p>
+          <ul class="premium-list">
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Advanced tutorials &amp; methods</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Exclusive algorithms database</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Ad-free experience</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Custom practice sessions</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Track your progress in detail</li>
+          </ul>
+          <button class="btn-grad">Upgrade Now</button>
+        </section>
+      </aside>
+    </div>
+
+    <div class="nav-spacer" aria-hidden="true"></div>
+  </div>
+
+  <!-- ================= BOTTOM NAV ================= -->
+  <nav class="bottom-nav" aria-label="Primary">
+    <a href="/" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
+      <span>Play</span>
+    </a>
+    <a href="/solve" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Solvers</span>
+    </a>
+    <a href="/learn" class="nav-item active">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5"/></svg>
+      <span>Learn</span>
+    </a>
+    <a href="/profile" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span>Profile</span>
+    </a>
+    <span class="home-indicator" aria-hidden="true"></span>
+  </nav>
+
+  <script src="script.js"></script>
+</body>
+</html>

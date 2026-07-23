@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05070d" />
+  <title>Cube Lab 3D — Learn</title>
+  <style>
+/* ==========================================================================
+   CUBE LAB 3D — LEARN PAGE
+   Faithful standalone rebuild of the Learn mockup. Brand tokens mirror the
+   Next.js app's globals.css so this page can later be ported 1:1.
+   ========================================================================== */
+:root{
+  --bg:#05070d; --bg-2:#0a0e17;
+  --surface:rgba(255,255,255,.045); --surface-2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.09); --border-2:rgba(255,255,255,.16);
+  --text:#eaf0f8; --muted:#8b97ab; --faint:#5c6678;
+  --blue:#2ea6ff; --blue-2:#4d7cff; --cyan:#38bdf8;
+  --purple:#8b5cf6; --purple-2:#6d3bf5; --magenta:#e24bd6; --pink:#f472d0;
+  --gold:#f5b942; --yellow:#ffd21f; --leaf:#34d058; --green:#3fbf3f;
+  --red:#e6352b; --orange:#ff7a1a;
+  --grad-purple:linear-gradient(95deg,var(--purple-2),var(--purple));
+  --grad-cta:linear-gradient(92deg,#6d3bf5 0%,#8b5cf6 55%,#a855f7 100%);
+  --font:-apple-system,"SF Pro Display","Segoe UI",Inter,system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--font); color:var(--text); line-height:1.4;
+  min-height:100dvh; padding-bottom:env(safe-area-inset-bottom);
+  background:
+    radial-gradient(1100px 640px at 78% -8%,#141d33 0%,transparent 58%),
+    radial-gradient(900px 520px at 8% 4%,#160f2e 0%,transparent 55%),
+    var(--bg);
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none}
+input{font-family:inherit}
+h1,h2,h3{line-height:1.15}
+.ico{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;display:block}
+
+/* ---------- ambient orbs ---------- */
+.orb{position:fixed;border-radius:50%;filter:blur(70px);opacity:.5;pointer-events:none;z-index:0}
+.orb-a{width:340px;height:340px;top:120px;right:-60px;background:#1b4fd6}
+.orb-b{width:300px;height:300px;top:900px;left:-90px;background:#6d28d9}
+.orb-c{width:260px;height:260px;top:1700px;right:-40px;background:#7c3aed;opacity:.35}
+
+/* ---------- frame ---------- */
+.frame{position:relative;z-index:1;max-width:900px;margin:0 auto;
+  padding:18px 16px 0}
+
+/* ================= TOP HEADER ================= */
+.topbar{display:flex;align-items:center;justify-content:space-between;
+  padding:6px 4px 18px}
+.brand{display:flex;align-items:center;gap:13px}
+/* 3D Rubik's-cube brand mark (matches the hero cube) */
+.brand-logo{width:44px;height:44px;flex:none;display:grid;place-items:center;
+  perspective:220px}
+.logo-cube{position:relative;width:30px;height:30px;transform-style:preserve-3d;
+  transform:rotateX(-22deg) rotateY(-32deg);animation:logospin 16s linear infinite}
+.brand:hover .logo-cube{animation-duration:4s}
+.lc-face{position:absolute;top:0;left:0;width:30px;height:30px;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  gap:1.5px;padding:1.5px;background:#070a12;border-radius:5px}
+.lc-face i{border-radius:2px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.35),
+  inset 0 -1px 2px rgba(0,0,0,.3),inset 0 1px 2px rgba(255,255,255,.2)}
+.lcf-front {transform:rotateY(0deg)   translateZ(15px)} .lcf-front  i{background:#e6352b}
+.lcf-back  {transform:rotateY(180deg) translateZ(15px)} .lcf-back   i{background:#ff7a1a}
+.lcf-right {transform:rotateY(90deg)  translateZ(15px)} .lcf-right  i{background:#1667e0}
+.lcf-left  {transform:rotateY(-90deg) translateZ(15px)} .lcf-left   i{background:#2fbf3f}
+.lcf-top   {transform:rotateX(90deg)  translateZ(15px)} .lcf-top    i{background:#f4f6f8}
+.lcf-bottom{transform:rotateX(-90deg) translateZ(15px)} .lcf-bottom i{background:#ffd21f}
+@keyframes logospin{
+  from{transform:rotateX(-22deg) rotateY(-32deg)}
+  to  {transform:rotateX(-22deg) rotateY(328deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .logo-cube{animation:none;transform:rotateX(-22deg) rotateY(-32deg)}
+}
+.brand-word{font-size:21px;font-weight:800;letter-spacing:.5px;font-style:italic}
+.brand-3d{background:linear-gradient(90deg,var(--blue),var(--purple));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.top-actions{display:flex;align-items:center;gap:14px}
+.icon-btn{width:40px;height:40px;display:grid;place-items:center;position:relative;
+  color:var(--text)}
+.icon-btn .ico{width:23px;height:23px}
+.bell .badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;
+  padding:0 5px;border-radius:9px;background:#ff3b5c;color:#fff;font-size:11px;
+  font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px var(--bg)}
+.avatar{width:44px;height:44px;border-radius:50%;padding:2px;flex:none;
+  background:conic-gradient(from 200deg,var(--blue),var(--purple),var(--magenta),var(--blue));
+  display:grid;place-items:center}
+.avatar-cube{width:36px;height:36px;border-radius:50%;background:#0a0e17;
+  display:grid;place-items:center;perspective:200px}
+/* reuse the logo cube, sized down and desynced so it spins independently */
+.avatar-cube .logo-cube{width:22px;height:22px;animation-delay:-7s}
+.avatar-cube .lc-face{width:22px;height:22px;gap:1px;padding:1px;border-radius:4px}
+.avatar-cube .lcf-front {transform:rotateY(0deg)   translateZ(11px)}
+.avatar-cube .lcf-back  {transform:rotateY(180deg) translateZ(11px)}
+.avatar-cube .lcf-right {transform:rotateY(90deg)  translateZ(11px)}
+.avatar-cube .lcf-left  {transform:rotateY(-90deg) translateZ(11px)}
+.avatar-cube .lcf-top   {transform:rotateX(90deg)  translateZ(11px)}
+.avatar-cube .lcf-bottom{transform:rotateX(-90deg) translateZ(11px)}
+
+/* ================= CARD PRIMITIVE ================= */
+.card{background:var(--surface);border:1px solid var(--border);
+  border-radius:22px;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.pad{padding:20px}
+
+/* ================= HERO ================= */
+.hero{position:relative;overflow:hidden;padding:38px 30px;min-height:360px;
+  display:flex;align-items:center;
+  background:
+    radial-gradient(520px 320px at 82% 42%,rgba(124,58,237,.28),transparent 62%),
+    radial-gradient(420px 300px at 96% 20%,rgba(46,166,255,.20),transparent 60%),
+    linear-gradient(160deg,rgba(23,16,46,.9),rgba(10,14,23,.9));
+  border-color:rgba(139,92,246,.22)}
+/* readability scrim: darkens the text side, fades to reveal the cube on the right */
+.hero::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,rgba(9,12,20,.9) 0%,rgba(9,12,20,.55) 40%,
+    rgba(9,12,20,0) 66%)}
+.hero-copy{position:relative;z-index:2;max-width:60%}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:2.5px;color:var(--magenta);
+  margin-bottom:14px}
+.hero-title{font-size:40px;font-weight:800;letter-spacing:-.5px}
+.hero-title .grad{background:linear-gradient(90deg,var(--blue),var(--blue-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-sub{margin-top:16px;max-width:300px;color:#b9c2d4;font-size:15px;line-height:1.5}
+.hero-feats{list-style:none;display:flex;gap:22px;margin-top:22px;flex-wrap:wrap}
+.hero-feats li{display:flex;align-items:center;gap:9px;font-size:12.5px;
+  font-weight:600;color:#dbe2ee;line-height:1.2}
+.hf-ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none}
+.hf-ico .ico{width:19px;height:19px}
+.hf-ico.purple{background:rgba(139,92,246,.16);color:#b794ff;border:1px solid rgba(139,92,246,.3)}
+.hf-ico.blue{background:rgba(46,166,255,.14);color:#6cc5ff;border:1px solid rgba(46,166,255,.3)}
+.hf-ico.pink{background:rgba(226,75,214,.14);color:var(--pink);border:1px solid rgba(226,75,214,.3)}
+
+/* starfield behind everything in the hero */
+.stars{position:absolute;inset:0;z-index:0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%,rgba(255,255,255,.9),transparent),
+    radial-gradient(2px 2px at 70% 18%,rgba(180,140,255,.9),transparent),
+    radial-gradient(1.6px 1.6px at 88% 46%,rgba(120,200,255,.9),transparent),
+    radial-gradient(1.6px 1.6px at 55% 8%,rgba(255,255,255,.7),transparent),
+    radial-gradient(1.4px 1.4px at 34% 62%,rgba(200,170,255,.7),transparent),
+    radial-gradient(1.4px 1.4px at 82% 72%,rgba(255,255,255,.6),transparent);
+  pointer-events:none}
+
+/* ---- spinning 3D cube behind the headline ---- */
+.hero-cube{position:absolute;z-index:0;top:50%;right:7%;transform:translateY(-50%);
+  width:240px;height:240px;display:grid;place-items:center;
+  perspective:900px;pointer-events:none}
+.hero-cube::before{content:"";position:absolute;width:230px;height:230px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(124,58,237,.4),rgba(56,189,248,.14),transparent 72%);
+  filter:blur(14px)}
+.cube3d{position:relative;width:170px;height:170px;transform-style:preserve-3d;
+  animation:spin3d 20s linear infinite}
+.cube-face{position:absolute;top:0;left:0;width:170px;height:170px;box-sizing:border-box;
+  display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);
+  gap:7px;padding:7px;background:#070a12;border-radius:14px}
+.cube-face i{border-radius:8px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.28),inset 0 -4px 7px rgba(0,0,0,.28),
+             inset 0 4px 8px rgba(255,255,255,.18)}
+.cf-front {transform:rotateY(0deg)   translateZ(85px)} .cf-front  i{background:#e6352b}
+.cf-back  {transform:rotateY(180deg) translateZ(85px)} .cf-back   i{background:#ff7a1a}
+.cf-right {transform:rotateY(90deg)  translateZ(85px)} .cf-right  i{background:#1667e0}
+.cf-left  {transform:rotateY(-90deg) translateZ(85px)} .cf-left   i{background:#2fbf3f}
+.cf-top   {transform:rotateX(90deg)  translateZ(85px)} .cf-top    i{background:#f4f6f8}
+.cf-bottom{transform:rotateX(-90deg) translateZ(85px)} .cf-bottom i{background:#ffd21f}
+@keyframes spin3d{
+  0%  {transform:rotateX(-22deg) rotateY(0deg)}
+  50% {transform:rotateX(18deg)  rotateY(180deg)}
+  100%{transform:rotateX(-22deg) rotateY(360deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .cube3d{animation:none;transform:rotateX(-24deg) rotateY(-32deg)}
+}
+
+/* ================= SEARCH ================= */
+.searchbar{display:flex;align-items:center;gap:12px;margin:20px 0 22px;
+  padding:0 20px;height:58px;border-radius:16px;
+  background:var(--surface);border:1px solid var(--border)}
+.searchbar .ico{width:20px;height:20px;color:var(--faint);flex:none}
+.searchbar input{flex:1;background:none;border:none;outline:none;color:var(--text);
+  font-size:15px}
+.searchbar input::placeholder{color:var(--faint)}
+
+/* ================= LAYOUT ================= */
+.layout{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start}
+.col-main{display:flex;flex-direction:column;gap:26px;min-width:0}
+.col-side{display:flex;flex-direction:column;gap:18px;position:sticky;top:14px}
+
+/* section headers */
+.block-head{display:flex;align-items:baseline;justify-content:space-between;
+  margin-bottom:16px}
+.block-head h2{font-size:20px;font-weight:800}
+.view-all{color:var(--blue-2);font-size:14px;font-weight:600}
+
+/* ================= LEARN BY TOPIC ================= */
+.topic-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.topic{padding:16px 14px 14px;display:flex;flex-direction:column;
+  transition:transform .15s ease,border-color .15s ease}
+.topic:hover{transform:translateY(-3px);border-color:var(--border-2)}
+.topic .mini-cube{width:58px;height:58px;margin-bottom:14px}
+.topic h3{font-size:15px;font-weight:700}
+.topic p{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.35;flex:1}
+.topic-foot{margin-top:14px}
+.bar{display:block;height:3px;border-radius:2px;background:rgba(255,255,255,.1);
+  position:relative;overflow:hidden}
+.bar::after{content:"";position:absolute;inset:0;width:var(--p);border-radius:2px;
+  background:linear-gradient(90deg,var(--blue),var(--purple))}
+.cnt{display:block;margin-top:9px;font-size:11.5px;font-weight:600;color:var(--muted)}
+
+/* ================= FEATURED TUTORIALS ================= */
+.tut-list{list-style:none;display:flex;flex-direction:column;gap:6px}
+.tut{display:flex;align-items:center;gap:15px;padding:10px 4px;
+  border-bottom:1px solid rgba(255,255,255,.05)}
+.tut:last-child{border-bottom:none}
+.thumb{position:relative;width:104px;height:66px;border-radius:11px;flex:none;
+  overflow:hidden;background:#111726}
+.thumb .dur{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.78);
+  color:#fff;font-size:11px;font-weight:700;padding:2px 6px;border-radius:5px}
+.tut-body{flex:1;min-width:0}
+.tut-body h3{font-size:16px;font-weight:700}
+.tut-body p{margin-top:4px;font-size:13px;color:var(--muted)}
+.tut-meta{margin-top:8px;display:flex;align-items:center;gap:8px;font-size:12px;
+  color:var(--muted)}
+.tut-meta .dot{color:var(--faint)}
+.tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;
+  border:1px solid transparent}
+.tag.beginner{color:#37d6b0;background:rgba(55,214,176,.1);border-color:rgba(55,214,176,.3)}
+.tag.intermediate{color:#5aa9ff;background:rgba(90,169,255,.1);border-color:rgba(90,169,255,.3)}
+.tag.advanced{color:#b794ff;background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.34)}
+.play{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;
+  border:1.5px solid rgba(139,92,246,.55);background:rgba(139,92,246,.08);
+  color:#c4b0ff;transition:background .15s ease,transform .15s ease}
+.play:hover{background:rgba(139,92,246,.22);transform:scale(1.06)}
+.play .tri{width:16px;height:16px;fill:currentColor;stroke:none}
+.play.sm{width:34px;height:34px}
+.play.sm .tri{width:13px;height:13px}
+.browse-all{width:100%;margin-top:14px;height:52px;border-radius:14px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);
+  font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;
+  gap:8px;position:relative}
+.browse-all .ico{width:18px;height:18px;position:absolute;right:18px;color:var(--muted)}
+.browse-all:hover{border-color:var(--border-2);background:var(--surface-2)}
+
+/* ================= POPULAR ALGORITHMS ================= */
+.algo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.algo{padding:16px 14px;display:flex;flex-direction:column;align-items:center;
+  text-align:center}
+.algo h3{font-size:14px;font-weight:700}
+.algo .moves{font-size:11.5px;font-weight:600;color:var(--muted);
+  display:inline-block;margin-top:3px;line-height:1.3}
+.algo .face{margin:16px 0 12px}
+.algo .use{font-size:12px;color:var(--muted);min-height:32px;display:flex;
+  align-items:center}
+.algo-foot{margin-top:8px;display:flex;align-items:center;gap:10px}
+
+/* ================= AFFILIATE STRIP + CAROUSEL ================= */
+.affiliate-strip{position:relative;display:flex;flex-direction:column;gap:16px;
+  padding:22px;overflow:hidden;
+  background:
+    radial-gradient(400px 200px at 0% 0%,rgba(139,92,246,.28),transparent 70%),
+    linear-gradient(100deg,rgba(76,29,149,.55),rgba(23,16,46,.6));
+  border-color:rgba(139,92,246,.3)}
+.aff-tag{position:absolute;top:0;left:0;background:rgba(139,92,246,.9);color:#fff;
+  font-size:10px;font-weight:800;letter-spacing:1px;padding:4px 10px;
+  border-radius:0 0 10px 0}
+.aff-head{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding-top:6px}
+.aff-copy h3{font-size:20px;font-weight:800}
+.aff-copy p{margin-top:5px;font-size:13px;color:#c3b8dd}
+.btn-grad{width:100%;height:52px;border-radius:14px;background:var(--grad-cta);
+  color:#fff;font-size:15px;font-weight:700;
+  box-shadow:0 10px 26px rgba(124,58,237,.4);transition:filter .15s ease,transform .15s ease}
+.btn-grad:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.aff-head .shop{width:auto;flex:none;padding:0 26px;height:46px}
+
+/* carousel */
+.aff-carousel{position:relative;min-width:0}
+.aff-viewport{min-width:0;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+  scrollbar-width:none;-ms-overflow-style:none}
+.aff-viewport::-webkit-scrollbar{display:none}
+.aff-track{display:flex;gap:12px;padding:2px}
+.prod-card{scroll-snap-align:start;flex:0 0 148px;display:flex;flex-direction:column;
+  color:var(--text);border-radius:14px;overflow:hidden;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
+  transition:transform .15s ease,border-color .15s ease}
+.prod-card:hover{transform:translateY(-3px);border-color:rgba(196,176,255,.5)}
+.pc-img{height:92px;display:grid;place-items:center;position:relative}
+.pc-ico{width:38px;height:38px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round}
+.pc-img.t-blue  {background:linear-gradient(135deg,rgba(46,166,255,.28),rgba(10,16,28,.5));color:#8fd0ff}
+.pc-img.t-slate {background:linear-gradient(135deg,rgba(190,200,220,.28),rgba(10,16,28,.5));color:#dfe6f2}
+.pc-img.t-purple{background:linear-gradient(135deg,rgba(139,92,246,.3),rgba(10,16,28,.5));color:#c4b0ff}
+.pc-img.t-red   {background:linear-gradient(135deg,rgba(230,53,43,.28),rgba(10,16,28,.5));color:#ff9b93}
+.pc-img.t-green {background:linear-gradient(135deg,rgba(52,208,88,.28),rgba(10,16,28,.5));color:#8ee9a6}
+.pc-img.t-cyan  {background:linear-gradient(135deg,rgba(56,189,248,.3),rgba(10,16,28,.5));color:#8fe3ff}
+.pc-body{padding:10px 12px 12px}
+.pc-name{display:block;font-size:13px;font-weight:700}
+.pc-price{display:block;margin-top:3px;font-size:13.5px;font-weight:800;color:#c9b8ff}
+.aff-dots{display:flex;justify-content:center;gap:7px;margin-top:13px}
+.aff-dots button{width:7px;height:7px;padding:0;border:none;border-radius:50%;
+  background:rgba(255,255,255,.26);cursor:pointer;transition:width .2s ease,background .2s ease}
+.aff-dots button.on{width:20px;border-radius:4px;background:#c4b0ff}
+
+/* ================= SIDEBAR: PROGRESS ================= */
+.progress-body{display:flex;align-items:center;gap:18px;margin:6px 0 20px}
+.ring{--val:64;position:relative;width:106px;height:106px;flex:none;border-radius:50%;
+  display:grid;place-items:center;
+  background:conic-gradient(from -90deg,var(--blue) 0,var(--purple) calc(var(--val)*1%),
+    rgba(255,255,255,.08) calc(var(--val)*1%) 100%)}
+.ring::before{content:"";position:absolute;inset:9px;border-radius:50%;background:#0b0f18}
+.ring-num{position:relative;font-size:24px;font-weight:800}
+.progress-stats{display:flex;flex-direction:column;gap:14px}
+.progress-stats dt{font-size:13px;color:var(--muted)}
+.progress-stats dd{font-size:19px;font-weight:800;margin-top:2px}
+
+/* ================= SIDEBAR: PRODUCT ================= */
+.product-card{position:relative;overflow:hidden}
+.aff-tag.corner{top:0;right:0;left:auto;border-radius:0 0 0 10px}
+.product-top{display:flex;gap:10px;margin-bottom:18px}
+.product-info{flex:1}
+.product-info h2{font-size:21px;font-weight:800}
+.product-name{margin-top:10px;font-size:13.5px;color:var(--muted);line-height:1.4}
+.stars-row{display:flex;align-items:center;gap:8px;margin-top:12px}
+.stars5{--r:4.5;width:92px;height:16px;display:inline-block;
+  background:linear-gradient(90deg,var(--gold) calc(var(--r)/5*100%),
+    rgba(255,255,255,.18) calc(var(--r)/5*100%));
+  -webkit-mask:repeat-x left/18.4px 16px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 18l-6.1 3.6L7 14.9l-5-4.8 6.9-.9z'/%3E%3C/svg%3E");
+  mask:repeat-x left/18.4px 16px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath d='M12 2l3 6.3 6.9.9-5 4.8 1.2 6.8L12 18l-6.1 3.6L7 14.9l-5-4.8 6.9-.9z'/%3E%3C/svg%3E")}
+.rating{font-size:14px;font-weight:700}
+.reviews{margin-top:6px;font-size:13px;color:var(--muted)}
+.price{margin-top:10px;font-size:22px;font-weight:800;white-space:nowrap}
+.price .prime{font-size:13px;font-weight:700;color:#39a0ff;margin-left:6px;white-space:nowrap}
+.mini-cube.stand{width:96px;height:110px;flex:none}
+
+/* ================= SIDEBAR: PREMIUM ================= */
+.premium-head{display:flex;align-items:center;gap:12px}
+.crown{width:30px;height:30px;fill:var(--gold);stroke:var(--gold);stroke-width:1.5;
+  stroke-linejoin:round;filter:drop-shadow(0 2px 8px rgba(245,185,66,.5))}
+.premium-head h2{font-size:22px;font-weight:800}
+.premium-sub{margin:6px 0 16px;font-size:14px;color:var(--muted)}
+.premium-list{list-style:none;display:flex;flex-direction:column;gap:13px;margin-bottom:20px}
+.premium-list li{display:flex;align-items:center;gap:11px;font-size:14px;color:#d6dcea}
+.chk{width:18px;height:18px;flex:none;fill:none;stroke:#a855f7;stroke-width:2.6;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* ================= MINI CUBES (3D isometric) ================= */
+.mini-cube{position:relative;display:inline-grid;place-items:center}
+.iso{width:100%;height:100%;overflow:visible}
+
+/* flat 3x3 face grids (algorithms) */
+.face3{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+  width:56px;height:56px;padding:4px;border-radius:8px;background:#0a0e17;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.face3 span{border-radius:3px;background:#2a3040}
+.face3 span.y{background:var(--yellow);box-shadow:0 0 6px rgba(255,210,31,.35)}
+.face3 span.g{background:#3a4256}
+
+/* ================= BOTTOM NAV ================= */
+.nav-spacer{height:96px}
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:20;
+  display:flex;align-items:flex-start;justify-content:space-around;
+  padding:12px 8px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(8,11,19,.92);backdrop-filter:blur(18px);
+  border-top:1px solid rgba(255,255,255,.07)}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:5px;
+  font-size:11px;font-weight:600;color:var(--faint);flex:1;padding-top:2px}
+.nav-item .ico{width:24px;height:24px}
+.nav-item.active{color:#b794ff}
+.nav-item.active .ico{stroke:#b794ff;
+  filter:drop-shadow(0 0 10px rgba(139,92,246,.7))}
+.home-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  width:135px;height:5px;border-radius:3px;background:rgba(255,255,255,.85)}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width:820px){
+  .layout{grid-template-columns:1fr}
+  .col-side{position:static;flex-direction:row;flex-wrap:wrap}
+  .col-side>section{flex:1 1 260px}
+}
+@media (max-width:680px){
+  .hero{min-height:300px;padding:28px 24px}
+  .hero-copy{max-width:100%}
+  .hero::after{background:linear-gradient(180deg,rgba(9,12,20,.35) 0%,
+    rgba(9,12,20,.72) 55%,rgba(9,12,20,.9) 100%)}
+  .hero-cube{top:auto;bottom:-26px;right:-24px;transform:scale(.82);
+    width:190px;height:190px;opacity:.62}
+  .hero-title{font-size:34px}
+  .topic-grid,.algo-grid{grid-template-columns:repeat(2,1fr)}
+  .aff-head{flex-direction:column;align-items:stretch;gap:14px}
+  .aff-head .shop{width:100%;height:50px}
+  .col-side{flex-direction:column}
+}
+@media (max-width:440px){
+  .frame{padding:14px 12px 0}
+  .hero{padding:24px 20px}
+  .hero-title{font-size:30px}
+  .tut-body p{display:none}
+  .thumb{width:88px;height:58px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+</style>
+</head>
+<body>
+  <!-- Ambient background orbs -->
+  <div class="orb orb-a" aria-hidden="true"></div>
+  <div class="orb orb-b" aria-hidden="true"></div>
+  <div class="orb orb-c" aria-hidden="true"></div>
+
+  <div class="frame">
+    <!-- ================= TOP HEADER ================= -->
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Cube Lab 3D home">
+        <span class="brand-logo" aria-hidden="true">
+          <span class="logo-cube">
+            <span class="lc-face lcf-front"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-back"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-right"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-left"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-top"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="lc-face lcf-bottom"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </span>
+        </span>
+        <span class="brand-word">CUBE LAB <span class="brand-3d">3D</span></span>
+      </a>
+
+      <nav class="top-actions" aria-label="Quick actions">
+        <button class="icon-btn" aria-label="Search">
+          <svg viewBox="0 0 24 24" class="ico"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+        <button class="icon-btn bell" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" class="ico"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="badge">3</span>
+        </button>
+        <button class="avatar" aria-label="Your profile">
+          <span class="avatar-cube">
+            <span class="logo-cube">
+              <span class="lc-face lcf-front"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-back"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-right"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-left"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-top"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="lc-face lcf-bottom"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            </span>
+          </span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- ================= HERO ================= -->
+    <section class="hero card">
+      <div class="stars" aria-hidden="true"></div>
+      <!-- spinning 3D cube behind the headline -->
+      <div class="hero-cube" aria-hidden="true">
+        <div class="cube3d">
+          <div class="cube-face cf-front"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-back"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-right"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-left"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-top"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="cube-face cf-bottom"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <div class="hero-copy">
+        <p class="eyebrow">LEARN. PRACTICE. MASTER.</p>
+        <h1 class="hero-title">Learn to Solve<br>Like a <span class="grad">Pro</span></h1>
+        <p class="hero-sub">Step-by-step guides, animations and algorithms to take your skills to the next level.</p>
+        <ul class="hero-feats">
+          <li>
+            <span class="hf-ico purple"><svg viewBox="0 0 24 24" class="ico"><path d="M4 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H4z"/><path d="M20 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H20z"/></svg></span>
+            <span>Beginner<br>Friendly</span>
+          </li>
+          <li>
+            <span class="hf-ico blue"><svg viewBox="0 0 24 24" class="ico"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg></span>
+            <span>Visual &amp;<br>Interactive</span>
+          </li>
+          <li>
+            <span class="hf-ico pink"><svg viewBox="0 0 24 24" class="ico"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 8-10c1.5 1.5 3 4.5 3 9a22 22 0 0 1-8 4z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+            <span>Progress<br>Tracking</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================= SEARCH ================= -->
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24" class="ico"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="search" placeholder="Search topics, algorithms or guides..." aria-label="Search topics, algorithms or guides" />
+    </div>
+
+    <!-- ================= MAIN GRID ================= -->
+    <div class="layout">
+      <!-- ---------- LEFT / MAIN COLUMN ---------- -->
+      <main class="col-main">
+
+        <!-- Learn by Topic -->
+        <section class="block">
+          <div class="block-head">
+            <h2>Learn by Topic</h2>
+            <a class="view-all" href="#">View All</a>
+          </div>
+          <div class="topic-grid">
+            <a class="topic card" href="/cube-notation">
+              <span class="mini-cube" data-cube="getting-started"></span>
+              <h3>Getting Started</h3>
+              <p>The basics you need to know</p>
+              <div class="topic-foot"><span class="bar" style="--p:35%"></span><span class="cnt">6 Lessons</span></div>
+            </a>
+            <a class="topic card" href="#">
+              <span class="mini-cube" data-cube="beginner"></span>
+              <h3>Beginner Method</h3>
+              <p>Layer-by-layer for 3x3</p>
+              <div class="topic-foot"><span class="bar" style="--p:55%"></span><span class="cnt">12 Lessons</span></div>
+            </a>
+            <a class="topic card" href="#">
+              <span class="mini-cube" data-cube="cfop"></span>
+              <h3>CFOP Method</h3>
+              <p>The most popular speedcubing method</p>
+              <div class="topic-foot"><span class="bar" style="--p:20%"></span><span class="cnt">23 Lessons</span></div>
+            </a>
+            <a class="topic card" href="#">
+              <span class="mini-cube" data-cube="oll"></span>
+              <h3>OLL</h3>
+              <p>Orientation of the Last Layer</p>
+              <div class="topic-foot"><span class="bar" style="--p:15%"></span><span class="cnt">57 Algorithms</span></div>
+            </a>
+          </div>
+        </section>
+
+        <!-- Featured Tutorials -->
+        <section class="block card pad">
+          <div class="block-head">
+            <h2>Featured Tutorials</h2>
+            <a class="view-all" href="#">View All</a>
+          </div>
+          <ul class="tut-list">
+            <li class="tut">
+              <span class="thumb" data-cube="t1"><span class="dur">5:24</span></span>
+              <div class="tut-body">
+                <h3>How the 3x3 Cube Works</h3>
+                <p>Understand the pieces, faces, and basic moves.</p>
+                <div class="tut-meta"><span class="tag beginner">Beginner</span><span class="dot">•</span><span>5:24</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+            <li class="tut">
+              <span class="thumb" data-cube="t2"><span class="dur">6:31</span></span>
+              <div class="tut-body">
+                <h3>Beginner Method — Cross</h3>
+                <p>Learn how to solve the first layer cross.</p>
+                <div class="tut-meta"><span class="tag beginner">Beginner</span><span class="dot">•</span><span>6:31</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+            <li class="tut">
+              <span class="thumb" data-cube="t3"><span class="dur">7:18</span></span>
+              <div class="tut-body">
+                <h3>F2L — First Two Layers</h3>
+                <p>Solve the middle layer the easy way.</p>
+                <div class="tut-meta"><span class="tag beginner">Beginner</span><span class="dot">•</span><span>7:18</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+            <li class="tut">
+              <span class="thumb" data-cube="t4"><span class="dur">24:10</span></span>
+              <div class="tut-body">
+                <h3>OLL — All Cases</h3>
+                <p>Learn all 57 OLL cases with easy animations.</p>
+                <div class="tut-meta"><span class="tag advanced">Advanced</span><span class="dot">•</span><span>24:10</span></div>
+              </div>
+              <button class="play" aria-label="Play tutorial"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button>
+            </li>
+          </ul>
+          <button class="browse-all">Browse All Tutorials <svg viewBox="0 0 24 24" class="ico"><polyline points="9 6 15 12 9 18"/></svg></button>
+        </section>
+
+        <!-- Popular Algorithms -->
+        <section class="block">
+          <div class="block-head">
+            <h2>Popular Algorithms</h2>
+            <a class="view-all" href="#">View All</a>
+          </div>
+          <div class="algo-grid">
+            <div class="algo card">
+              <h3>The Sexy Move<br><span class="moves">(R U R' U')</span></h3>
+              <div class="face" data-face="sexy"></div>
+              <p class="use">Use: Sune / Anti-Sune</p>
+              <div class="algo-foot"><span class="tag beginner">Beginner</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+            <div class="algo card">
+              <h3>Sledgehammer<br><span class="moves">(R' F R F')</span></h3>
+              <div class="face" data-face="sledge"></div>
+              <p class="use">Use: OLL Case</p>
+              <div class="algo-foot"><span class="tag intermediate">Intermediate</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+            <div class="algo card">
+              <h3>T Perm<br><span class="moves">(R U R' U' R' F R2 U' R' U' R U R' F')</span></h3>
+              <div class="face" data-face="tperm"></div>
+              <p class="use">Use: PLL</p>
+              <div class="algo-foot"><span class="tag advanced">Advanced</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+            <div class="algo card">
+              <h3>Y Perm<br><span class="moves">(F R U' R' U' R U R' F' R U R' U' R' F R F')</span></h3>
+              <div class="face" data-face="yperm"></div>
+              <p class="use">Use: PLL</p>
+              <div class="algo-foot"><span class="tag advanced">Advanced</span><button class="play sm" aria-label="Play"><svg viewBox="0 0 24 24" class="tri"><polygon points="8,5 19,12 8,19"/></svg></button></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Affiliate strip: auto-rotating, swipeable product carousel -->
+        <section class="affiliate-strip card">
+          <span class="aff-tag">AFFILIATE</span>
+          <div class="aff-head">
+            <div class="aff-copy">
+              <h3>Everything a cuber needs!</h3>
+              <p>Mats, timers, lubes, bags and more.</p>
+            </div>
+            <button class="btn-grad shop">Shop Now</button>
+          </div>
+
+          <div class="aff-carousel" data-carousel aria-roledescription="carousel" aria-label="Featured products">
+            <div class="aff-viewport">
+              <div class="aff-track">
+                <a class="prod-card" href="#"><span class="pc-img t-blue"><svg viewBox="0 0 24 24" class="pc-ico"><circle cx="12" cy="14" r="7"/><path d="M12 14V10"/><path d="M9 2h6"/><path d="M12 2v3"/><path d="M18.5 7.5l1.3-1.3"/></svg></span><span class="pc-body"><span class="pc-name">Speed Timer Pro</span><span class="pc-price">$24.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-slate"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M9.5 2h5v2.5l1 2.5v11a2 2 0 0 1-2 2h-3a2 2 0 0 1-2-2V7l1-2.5z"/><path d="M9 11h6"/></svg></span><span class="pc-body"><span class="pc-name">Cube Lube 10ml</span><span class="pc-price">$8.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-purple"><svg viewBox="0 0 24 24" class="pc-ico"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7.5 5v14M12 5v14M16.5 5v14"/></svg></span><span class="pc-body"><span class="pc-name">Pro Timer Mat</span><span class="pc-price">$19.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-red"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg></span><span class="pc-body"><span class="pc-name">Cube Carry Bag</span><span class="pc-price">$14.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-green"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M4 20h16"/><path d="M12 5l6 11H6z"/></svg></span><span class="pc-body"><span class="pc-name">Display Stand</span><span class="pc-price">$6.99</span></span></a>
+                <a class="prod-card" href="#"><span class="pc-img t-cyan"><svg viewBox="0 0 24 24" class="pc-ico"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg></span><span class="pc-body"><span class="pc-name">GAN 13 Maglev</span><span class="pc-price">$59.95</span></span></a>
+              </div>
+            </div>
+            <div class="aff-dots" aria-label="Choose product"></div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ---------- RIGHT / SIDEBAR ---------- -->
+      <aside class="col-side">
+        <!-- Your Progress -->
+        <section class="card pad progress-card">
+          <div class="block-head">
+            <h2>Your Progress</h2>
+            <a class="view-all" href="#">View Stats</a>
+          </div>
+          <div class="progress-body">
+            <div class="ring" data-ring="64">
+              <span class="ring-num">64%</span>
+            </div>
+            <dl class="progress-stats">
+              <div><dt>Lessons</dt><dd>18 / 28</dd></div>
+              <div><dt>Algorithms</dt><dd>24 / 57</dd></div>
+            </dl>
+          </div>
+          <button class="btn-grad">Continue Learning</button>
+        </section>
+
+        <!-- Affiliate product -->
+        <section class="card pad product-card">
+          <span class="aff-tag corner">AFFILIATE</span>
+          <div class="product-top">
+            <div class="product-info">
+              <h2>The World's<br>Best Cubes</h2>
+              <p class="product-name">GAN 13 Maglev UV<br>3x3 Speed Cube</p>
+              <div class="stars-row">
+                <span class="stars5" data-stars="4.5"></span>
+                <span class="rating">4.9</span>
+              </div>
+              <p class="reviews">(2,341)</p>
+              <p class="price">$59.95 <span class="prime">✓ prime</span></p>
+            </div>
+            <span class="mini-cube stand" data-cube="product"></span>
+          </div>
+          <button class="btn-grad">Shop Now</button>
+        </section>
+
+        <!-- Go Premium -->
+        <section class="card pad premium-card">
+          <div class="premium-head">
+            <svg viewBox="0 0 24 24" class="crown"><path d="M3 7l4 4 5-7 5 7 4-4v10H3z"/></svg>
+            <h2>Go Premium</h2>
+          </div>
+          <p class="premium-sub">Unlock unlimited learning</p>
+          <ul class="premium-list">
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Advanced tutorials &amp; methods</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Exclusive algorithms database</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Ad-free experience</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Custom practice sessions</li>
+            <li><svg viewBox="0 0 24 24" class="chk"><polyline points="4 12 10 18 20 6"/></svg>Track your progress in detail</li>
+          </ul>
+          <button class="btn-grad">Upgrade Now</button>
+        </section>
+      </aside>
+    </div>
+
+    <div class="nav-spacer" aria-hidden="true"></div>
+  </div>
+
+  <!-- ================= BOTTOM NAV ================= -->
+  <nav class="bottom-nav" aria-label="Primary">
+    <a href="/" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      <span>Home</span>
+    </a>
+    <a href="#" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5"/><path d="M12 12v10"/></svg>
+      <span>Play</span>
+    </a>
+    <a href="/solve" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span>Solvers</span>
+    </a>
+    <a href="/learn" class="nav-item active">
+      <svg viewBox="0 0 24 24" class="ico"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5"/></svg>
+      <span>Learn</span>
+    </a>
+    <a href="/profile" class="nav-item">
+      <svg viewBox="0 0 24 24" class="ico"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span>Profile</span>
+    </a>
+    <span class="home-indicator" aria-hidden="true"></span>
+  </nav>
+
+  <script>
+/* ==========================================================================
+   CUBE LAB 3D — LEARN PAGE  ·  visual generators
+   Renders the isometric cubes, flat OLL/PLL face grids, tutorial thumbnails
+   and the product cube as inline SVG so the whole page stays asset-free.
+   ========================================================================== */
+(function () {
+  "use strict";
+
+  // Sticker palette (matches the mockup / brand tokens)
+  var C = {
+    W: "#f4f6f8", Y: "#ffd21f", R: "#e6352b", O: "#ff7a1a",
+    B: "#1667e0", G: "#2fbf3f", X: "#182034"
+  };
+
+  /* ---- isometric 3x3 cube --------------------------------------------------
+     top/left/right are 9-element colour-key arrays read left→right, top→bottom
+     on each visible face. Returns a self-contained <svg> string.             */
+  function iso(top, left, right) {
+    var s = 24;                       // tile edge
+    var hx = s * 0.866, hy = s * 0.5; // isometric half-steps
+    var cx = 65, topY = 10;           // diamond apex
+    var R = { x: hx, y: hy };         // right-down axis
+    var L = { x: -hx, y: hy };        // left-down axis
+    var D = { x: 0, y: s };           // straight down
+    var apex = { x: cx, y: topY };
+
+    function add(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+    function mul(v, k) { return { x: v.x * k, y: v.y * k }; }
+    function quad(o, u, v, fill) {
+      var pts = [o, add(o, u), add(o, add(u, v)), add(o, v)]
+        .map(function (q) { return q.x.toFixed(1) + "," + q.y.toFixed(1); }).join(" ");
+      return '<polygon points="' + pts + '" fill="' + fill +
+        '" stroke="rgba(0,0,0,.5)" stroke-width="1.3" stroke-linejoin="round"/>';
+    }
+    function shade(key, k) {
+      var hex = C[key] || C.X;
+      if (k >= 1) return hex;
+      var n = parseInt(hex.slice(1), 16);
+      return "rgb(" + Math.round(((n >> 16) & 255) * k) + "," +
+        Math.round(((n >> 8) & 255) * k) + "," + Math.round((n & 255) * k) + ")";
+    }
+    function grid(origin, across, down, cells, k) {
+      var out = "";
+      for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++) {
+        out += quad(add(origin, add(mul(across, c), mul(down, r))), across, down,
+          shade(cells[r * 3 + c], k));
+      }
+      return out;
+    }
+
+    var leftCorner = add(apex, mul(L, 3));   // top of left face
+    var rightCorner = add(apex, mul(R, 3));  // top of right face
+
+    var svg = '<svg class="iso" viewBox="0 0 130 168" aria-hidden="true">';
+    svg += '<ellipse cx="65" cy="160" rx="40" ry="10" fill="rgba(0,0,0,.4)"/>';
+    svg += grid(apex, R, L, top, 1.0);          // TOP face
+    svg += grid(leftCorner, R, D, left, 0.82);  // LEFT face
+    svg += grid(rightCorner, L, D, right, 0.66); // RIGHT face
+    return svg + "</svg>";
+  }
+
+  /* ---- flat 3x3 face (algorithm cards) ---- */
+  function face(cells) {
+    var html = '<div class="face3">';
+    for (var i = 0; i < 9; i++) {
+      html += "<span class='" + (cells[i] || "") + "'></span>";
+    }
+    return html + "</div>";
+  }
+
+  /* ---- tutorial thumbnail (cube on gradient) ---- */
+  function thumb(top, left, right, bg) {
+    return '<span style="position:absolute;inset:0;background:' + bg +
+      ';display:grid;place-items:center">' +
+      '<span style="width:60px;height:66px;display:block">' + iso(top, left, right) +
+      "</span></span>";
+  }
+
+  /* ---------- cube definitions ---------- */
+  var W = "W", Y = "Y", R = "R", B = "B", G = "G";
+  var solid = function (c) { return [c, c, c, c, c, c, c, c, c]; };
+
+  var cubes = {
+    hero: iso(solid(W), solid(B), solid(R)),
+    avatar: iso([R, G, W, W, B, R, G, W, B], [B, R, G, W, B, R, G, W, B], [R, W, G, B, R, W, G, B, R]),
+    "getting-started": iso([W, R, W, G, W, R, W, G, W], [R, G, R, G, R, G, R, G, R], [G, W, G, W, G, W, G, W, G]),
+    beginner: iso([W, W, R, W, R, W, G, W, W], [B, R, B, R, B, R, B, R, B], [R, G, R, G, R, G, R, G, R]),
+    cfop: iso(solid(W), solid(G), solid(R)),
+    oll: iso(solid(Y), solid(B), solid(R)),
+    product: iso(solid(W), solid(B), solid(R))
+  };
+
+  var thumbs = {
+    t1: thumb(solid(W), [R, G, R, G, R, G, R, G, R], [G, W, G, W, G, W, G, W, G], "linear-gradient(135deg,#20304a,#0d1424)"),
+    t2: thumb([W, R, W, G, W, R, W, G, W], [G, R, G, W, B, R, G, W, B], [R, W, B, G, R, W, B, G, R], "linear-gradient(135deg,#2a2140,#0d1424)"),
+    t3: thumb([G, W, G, W, R, W, G, W, R], [R, W, G, B, R, W, G, B, R], [W, G, R, B, W, G, R, B, W], "linear-gradient(135deg,#102a2a,#0d1424)"),
+    t4: thumb(solid(Y), [B, R, B, R, B, R, B, R, B], [R, G, R, G, R, G, R, G, R], "linear-gradient(135deg,#2a2410,#0d1424)")
+  };
+
+  // OLL/PLL top-face patterns: "y" = oriented yellow, "g" = grey/other
+  var faces = {
+    sexy: ["y", "", "y", "", "y", "", "y", "", "y"],
+    sledge: ["", "y", "", "y", "y", "y", "", "y", ""],
+    tperm: ["y", "g", "y", "y", "y", "y", "g", "y", "g"],
+    yperm: ["g", "y", "g", "y", "y", "y", "y", "g", "y"]
+  };
+
+  /* ---------- mount everything ---------- */
+  document.querySelectorAll("[data-cube]").forEach(function (el) {
+    var key = el.getAttribute("data-cube");
+    if (cubes[key]) el.innerHTML = cubes[key];
+    else if (thumbs[key]) el.innerHTML = thumbs[key];
+  });
+  document.querySelectorAll("[data-face]").forEach(function (el) {
+    var key = el.getAttribute("data-face");
+    if (faces[key]) el.innerHTML = face(faces[key]);
+  });
+  document.querySelectorAll("[data-ring]").forEach(function (el) {
+    el.style.setProperty("--val", el.getAttribute("data-ring"));
+  });
+
+  // Cosmetic press feedback (no navigation in this static prototype)
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".play, .btn-grad, .browse-all, .topic, .tut");
+    if (!b || !b.animate) return;
+    b.animate([{ transform: "scale(1)" }, { transform: "scale(.97)" }, { transform: "scale(1)" }],
+      { duration: 150, easing: "ease-out" });
+  });
+
+  /* ---- affiliate product carousel: auto-rotate + swipe + dots ---- */
+  function initCarousel(root) {
+    var vp = root.querySelector(".aff-viewport");
+    var cards = root.querySelectorAll(".prod-card");
+    var dotsWrap = root.querySelector(".aff-dots");
+    if (!vp || !cards.length || !dotsWrap) return;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var idx = 0, timer = null;
+
+    cards.forEach(function (_, i) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("aria-label", "Show product " + (i + 1) + " of " + cards.length);
+      if (i === 0) { b.className = "on"; b.setAttribute("aria-current", "true"); }
+      b.addEventListener("click", function () { go(i); });
+      dotsWrap.appendChild(b);
+    });
+    var dots = dotsWrap.querySelectorAll("button");
+
+    function step() { return cards[0].getBoundingClientRect().width + 12; } // card + gap
+    function atEnd() { return vp.scrollLeft + vp.clientWidth >= vp.scrollWidth - 4; }
+    function go(i) { idx = (i + cards.length) % cards.length; vp.scrollTo({ left: idx * step(), behavior: "smooth" }); }
+    function next() { go(atEnd() ? 0 : idx + 1); }
+    function sync() {
+      var i = Math.round(vp.scrollLeft / step());
+      i = Math.max(0, Math.min(cards.length - 1, i));
+      idx = i;
+      dots.forEach(function (d, k) {
+        var on = k === i; d.classList.toggle("on", on);
+        if (on) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
+      });
+    }
+    vp.addEventListener("scroll", function () { window.requestAnimationFrame(sync); }, { passive: true });
+
+    function start() { if (reduce || timer) return; timer = setInterval(next, 2800); }
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    ["pointerenter", "focusin", "touchstart"].forEach(function (ev) { root.addEventListener(ev, stop, { passive: true }); });
+    ["pointerleave", "focusout", "touchend"].forEach(function (ev) { root.addEventListener(ev, start, { passive: true }); });
+    start();
+  }
+  document.querySelectorAll("[data-carousel]").forEach(initCarousel);
+})();
+
+</script>
+</body>
+</html>

@@ -77,6 +77,8 @@ The platform is expected to contain ordinary PostgreSQL tables for:
 - solves and solve statistics;
 - friendships and friend requests;
 - challenges and challenge attempts;
+- reusable scrambles and scramble attempts;
+- saved solver snapshots and cube-state memory;
 - leaderboard entries and ranking snapshots;
 - achievements and collections;
 - notifications and activity;
@@ -101,6 +103,31 @@ The browser is never trusted for privileged actions. Admin operations must:
 4. perform the action through a protected server route or server action;
 5. write an audit record;
 6. return only necessary information.
+
+### Admin platform (implemented — see ADR 0003)
+
+The `/admin` platform implements the boundary as concrete layers:
+
+```text
+components/admin/* , app/admin/**            (UI)
+        ↓
+app/admin/actions/* , app/api/admin/*        (protected server actions / routes)
+        ↓
+lib/admin/*                                  (administration services)
+        ↓
+lib/admin/service-client.ts                  (service-role adapter, server-only)
+        ↓
+Supabase / PostgreSQL / Auth
+```
+
+- Gate: `app/admin/layout.tsx` → `requireAdmin()`; each page → `requirePermission()`;
+  each action/route → `authorizeAction()`.
+- Authorization store: `admin_members` (never profile/user metadata).
+- Audit: append-only `admin_audit_log`, redacted before write.
+- Service-role key is server-only (`SUPABASE_SERVICE_ROLE_KEY`, never `NEXT_PUBLIC_*`)
+  and the layer fails closed when unconfigured.
+- Migration: `supabase/migrations/20260723_admin_platform.sql`.
+- Full detail in `docs/SECURITY.md`, `docs/ADMIN-PORTAL.md`, `docs/CODING-STANDARDS.md`.
 
 ## Structural change process
 
