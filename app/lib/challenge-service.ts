@@ -1,17 +1,17 @@
 import { getAccessToken, supabaseRequest } from "@/app/lib/supabase-rest";
 
 /*
- * Server-side application service for the first tracked challenge flow.
+ * Server-side application service for tracked solves, reusable scrambles, and
+ * account-to-account challenges.
  *
- * Visual pages and client components should call local API routes, and those
- * routes should call this service. Keeping Supabase REST details here protects
- * the architecture rule that UI code does not become tied to one provider.
+ * The database now separates three ideas that were previously bundled together:
+ * - scrambles: the reusable 3x3 start state a player chose or received;
+ * - solve_results: the user's private/account solve row;
+ * - scramble_attempts: the rankable public attempt against that scramble.
  *
- * Current prototype boundary:
- * - solve rows are written to the existing solve_results table;
- * - challenge rows use the existing Cube ID platform migration;
- * - anti-cheat, public leaderboard ranking, and durable validation columns are
- *   still future work documented in ADR 0002 and SOCIAL-AND-MULTIPLAYER.md.
+ * Replay data is still stored for audit/debugging, but leaderboard-critical
+ * fields are promoted into columns so test/admin overrides can be excluded by
+ * a normal query instead of JSON archaeology.
  */
 
 type AuthUser = { id: string; email?: string };
@@ -19,6 +19,7 @@ type AuthUser = { id: string; email?: string };
 export type SolvePayload = {
   puzzle_type?: string;
   scramble?: string;
+  scramble_id?: string | null;
   solve_time_ms?: number | null;
   move_count?: number | null;
   solved?: boolean;
@@ -34,14 +35,20 @@ type Profile = {
   public_slug?: string | null;
 };
 
+type ScrambleRow = {
+  id: string;
+};
+
 type ChallengeRow = {
   id: string;
   sender_id: string;
   recipient_id: string | null;
   puzzle_type: string;
   scramble: string;
+  scramble_id: string | null;
   sender_solve_id: string | null;
   sender_time_ms: number | null;
+  creator_move_count: number | null;
   recipient_solve_id: string | null;
   status: string;
   message: string | null;
@@ -61,7 +68,30 @@ type CreateChallengePayload = {
   scramble?: string;
   sender_solve_id?: string | null;
   sender_time_ms?: number | null;
+  move_count?: number | null;
   message?: string;
+};
+
+type SaveContext = {
+  challengeId?: string | null;
+  source?: "play" | "leaderboard" | "challenge" | "solver" | "admin" | "import";
+};
+
+type TrackingColumns = {
+  source: "play" | "leaderboard" | "challenge" | "solver" | "admin" | "import";
+  leaderboard_eligible: boolean;
+  is_test_data: boolean;
+  manual_time_override: boolean;
+  manual_tracking_override: boolean;
+  actual_time_ms: number | null;
+  actual_move_count: number | null;
+  actual_undo_count: number | null;
+  actual_touch_moves: number | null;
+  actual_button_moves: number | null;
+  reported_undo_count: number | null;
+  reported_touch_moves: number | null;
+  reported_button_moves: number | null;
+  assistance_flags: Record<string, unknown>;
 };
 
 function requireString(value: unknown, label: string) {
@@ -75,19 +105,89 @@ function displayName(profile: Profile | undefined, fallback = "Cube Solver") {
   return profile?.display_name || profile?.username || profile?.cube_tag || fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.round(value) : null;
+}
+
+function asBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : false;
+}
+
+function nestedRecord(root: Record<string, unknown>, key: string) {
+  const value = root[key];
+  return isRecord(value) ? value : {};
+}
+
+function normalizeSolveSource(value: unknown, fallback: TrackingColumns["source"] = "play") {
+  if (value === "leaderboard-daily") return "leaderboard";
+  if (value === "direct-challenge") return "challenge";
+  if (value === "play" || value === "leaderboard" || value === "challenge" || value === "solver" || value === "admin" || value === "import") {
+    return value;
+  }
+  return fallback;
+}
+
+function scrambleSourceFor(source: TrackingColumns["source"], replay: Record<string, unknown>, scramble: string) {
+  if (source === "leaderboard" && replay.official_scramble === scramble) return "daily";
+  if (source === "challenge") return "challenge";
+  if (source === "solver") return "solver";
+  if (source === "admin" || source === "import") return source;
+  return "player";
+}
+
+function trackingFromPayload(payload: SolvePayload, context: SaveContext = {}): TrackingColumns {
+  const replay = isRecord(payload.replay_data) ? payload.replay_data : {};
+  const actual = nestedRecord(replay, "actual_metrics");
+  const reported = nestedRecord(replay, "reported_metrics");
+  const assistance = nestedRecord(replay, "assistance_flags");
+  const source = normalizeSolveSource(replay.source, context.source ?? "play");
+  const manualTimeOverride = asBoolean(replay.manual_time_override);
+  const manualTrackingOverride = asBoolean(replay.manual_tracking_override);
+  const isTestData =
+    asBoolean(replay.is_test_data) ||
+    asBoolean(replay.test_solved_override) ||
+    manualTimeOverride ||
+    manualTrackingOverride;
+  const isDnf = payload.is_dnf ?? false;
+  const solved = payload.solved ?? false;
+
+  return {
+    source,
+    leaderboard_eligible: solved && !isDnf && !isTestData && !manualTimeOverride && !manualTrackingOverride,
+    is_test_data: isTestData,
+    manual_time_override: manualTimeOverride,
+    manual_tracking_override: manualTrackingOverride,
+    actual_time_ms: asNumber(replay.client_elapsed_ms),
+    actual_move_count: asNumber(actual.move_count),
+    actual_undo_count: asNumber(actual.undo_uses),
+    actual_touch_moves: asNumber(actual.touch_moves),
+    actual_button_moves: asNumber(actual.button_moves),
+    reported_undo_count: asNumber(reported.undo_uses),
+    reported_touch_moves: asNumber(reported.touch_moves),
+    reported_button_moves: asNumber(reported.button_moves),
+    assistance_flags: assistance,
+  };
+}
+
 function challengeSelect() {
   return [
     "id",
-    "sender_id",
+    "sender_id:creator_id",
     "recipient_id",
     "puzzle_type",
     "scramble",
-    "sender_solve_id",
-    "sender_time_ms",
+    "scramble_id",
+    "sender_solve_id:creator_solve_id",
+    "sender_time_ms:creator_time_ms",
+    "creator_move_count",
     "recipient_solve_id",
     "status",
     "message",
-    "share_token",
+    "share_token:share_code",
     "created_at",
     "completed_at",
   ].join(",");
@@ -117,7 +217,7 @@ async function resolveRecipient(token: string, senderId: string, recipientInput:
   /*
    * Prototype lookup is intentionally exact-match only. It keeps accidental
    * sends low while the friend picker, duplicate-name handling, blocking,
-   * rate limits, and moderation screens are not built yet.
+   * rate limits, and moderation screens are still coming together.
    */
   const exactFilter = encodeURIComponent(
     `(cube_tag.eq.${recipient},username.eq.${recipient},public_slug.eq.${recipient})`,
@@ -134,16 +234,111 @@ async function resolveRecipient(token: string, senderId: string, recipientInput:
   return match;
 }
 
-export async function saveSolveResult(token: string, userId: string, payload: SolvePayload) {
+async function findScramble(token: string, puzzleType: string, scramble: string) {
+  const params = new URLSearchParams();
+  params.set("puzzle_type", `eq.${puzzleType}`);
+  params.set("scramble", `eq.${scramble}`);
+  params.set("select", "id");
+  params.set("limit", "1");
+
+  const rows = await supabaseRequest<ScrambleRow[]>(`/rest/v1/scrambles?${params.toString()}`, {}, token);
+  return rows[0]?.id ?? null;
+}
+
+async function ensureScramble(
+  token: string,
+  userId: string,
+  puzzleType: string,
+  scramble: string,
+  tracking: TrackingColumns,
+  visibility: "public" | "link" | "private" = "public",
+) {
+  const existing = await findScramble(token, puzzleType, scramble);
+  if (existing) return existing;
+
+  try {
+    const rows = await supabaseRequest<ScrambleRow[]>(
+      "/rest/v1/scrambles?select=id",
+      {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          puzzle_type: puzzleType,
+          scramble,
+          source: scrambleSourceFor(tracking.source, {}, scramble),
+          visibility,
+          created_by: userId,
+          metadata: { first_seen_from: tracking.source },
+        }),
+      },
+      token,
+    );
+    return rows[0]?.id ?? null;
+  } catch (error) {
+    const retry = await findScramble(token, puzzleType, scramble);
+    if (retry) return retry;
+    throw error;
+  }
+}
+
+async function insertScrambleAttempt(
+  token: string,
+  userId: string,
+  payload: SolvePayload,
+  scrambleId: string,
+  solveId: string,
+  tracking: TrackingColumns,
+  context: SaveContext = {},
+) {
+  await supabaseRequest<Array<{ id: string }>>(
+    "/rest/v1/scramble_attempts?select=id",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        scramble_id: scrambleId,
+        user_id: userId,
+        solve_result_id: solveId,
+        challenge_id: context.challengeId ?? null,
+        source: tracking.source,
+        visibility: "public",
+        solve_time_ms: payload.solve_time_ms ?? null,
+        move_count: payload.move_count ?? null,
+        solved: payload.solved ?? false,
+        is_dnf: payload.is_dnf ?? false,
+        leaderboard_eligible: tracking.leaderboard_eligible,
+        is_test_data: tracking.is_test_data,
+        manual_time_override: tracking.manual_time_override,
+        manual_tracking_override: tracking.manual_tracking_override,
+        actual_time_ms: tracking.actual_time_ms,
+        actual_move_count: tracking.actual_move_count,
+        actual_undo_count: tracking.actual_undo_count,
+        actual_touch_moves: tracking.actual_touch_moves,
+        actual_button_moves: tracking.actual_button_moves,
+        reported_undo_count: tracking.reported_undo_count,
+        reported_touch_moves: tracking.reported_touch_moves,
+        reported_button_moves: tracking.reported_button_moves,
+        assistance_flags: tracking.assistance_flags,
+        replay_data: payload.replay_data ?? null,
+      }),
+    },
+    token,
+  );
+}
+
+export async function saveSolveResult(
+  token: string,
+  userId: string,
+  payload: SolvePayload,
+  context: SaveContext = {},
+) {
   const puzzleType = requireString(payload.puzzle_type, "puzzle_type");
   const scramble = requireString(payload.scramble, "scramble");
+  const tracking = trackingFromPayload(payload, context);
+  const scrambleId =
+    payload.scramble_id ||
+    (await ensureScramble(token, userId, puzzleType, scramble, tracking, context.challengeId ? "link" : "public"));
 
-  /*
-   * This function accepts replay_data because the current schema has no
-   * top-level assistance/test columns yet. Manual complete-time overrides and
-   * touch/button/undo tracking are stored there for the prototype, then must
-   * be promoted into explicit columns before public leaderboards trust them.
-   */
   const rows = await supabaseRequest<Array<{ id: string }>>(
     "/rest/v1/solve_results?select=id",
     {
@@ -153,10 +348,25 @@ export async function saveSolveResult(token: string, userId: string, payload: So
         user_id: userId,
         puzzle_type: puzzleType,
         scramble,
+        scramble_id: scrambleId,
+        source: tracking.source,
         solve_time_ms: payload.solve_time_ms ?? null,
         move_count: payload.move_count ?? null,
         solved: payload.solved ?? false,
         is_dnf: payload.is_dnf ?? false,
+        leaderboard_eligible: tracking.leaderboard_eligible,
+        is_test_data: tracking.is_test_data,
+        manual_time_override: tracking.manual_time_override,
+        manual_tracking_override: tracking.manual_tracking_override,
+        actual_time_ms: tracking.actual_time_ms,
+        actual_move_count: tracking.actual_move_count,
+        actual_undo_count: tracking.actual_undo_count,
+        actual_touch_moves: tracking.actual_touch_moves,
+        actual_button_moves: tracking.actual_button_moves,
+        reported_undo_count: tracking.reported_undo_count,
+        reported_touch_moves: tracking.reported_touch_moves,
+        reported_button_moves: tracking.reported_button_moves,
+        assistance_flags: tracking.assistance_flags,
         replay_data: payload.replay_data ?? null,
       }),
     },
@@ -165,7 +375,12 @@ export async function saveSolveResult(token: string, userId: string, payload: So
 
   const solveId = rows[0]?.id;
   if (!solveId) throw new Error("Solve was saved without a returned id.");
-  return solveId;
+
+  if (scrambleId) {
+    await insertScrambleAttempt(token, userId, payload, scrambleId, solveId, tracking, context);
+  }
+
+  return { solveId, scrambleId, tracking };
 }
 
 export async function createChallengeForRecipient(payload: CreateChallengePayload) {
@@ -176,26 +391,35 @@ export async function createChallengeForRecipient(payload: CreateChallengePayloa
   const recipient = await resolveRecipient(token, sender.id, requireString(payload.recipient, "recipient"));
   const puzzleType = payload.puzzle_type || "3x3";
   const scramble = requireString(payload.scramble, "scramble");
+  const tracking = trackingFromPayload({
+    puzzle_type: puzzleType,
+    scramble,
+    solve_time_ms: payload.sender_time_ms,
+    move_count: payload.move_count,
+    solved: Boolean(payload.sender_solve_id || payload.sender_time_ms != null),
+    is_dnf: false,
+  }, { source: "challenge" });
+  const scrambleId = await ensureScramble(token, sender.id, puzzleType, scramble, tracking, "link");
 
-  /*
-   * Player-chosen scrambles are saved directly on the challenge row for this
-   * prototype. The future ranked scramble library should normalize this into
-   * reusable scrambles plus attempt rows, so one good scramble can collect
-   * many players' results without duplicating the text on every challenge.
-   */
   const rows = await supabaseRequest<Array<{ id: string }>>(
     "/rest/v1/challenges?select=id",
     {
       method: "POST",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({
+        creator_id: sender.id,
         sender_id: sender.id,
         recipient_id: recipient.id,
         puzzle_type: puzzleType,
         scramble,
-        sender_solve_id: payload.sender_solve_id ?? null,
+        scramble_id: scrambleId,
+        creator_solve_id: payload.sender_solve_id ?? null,
+        creator_solved: Boolean(payload.sender_solve_id || payload.sender_time_ms != null),
+        creator_time_ms: payload.sender_time_ms ?? null,
+        creator_move_count: payload.move_count ?? null,
         sender_time_ms: payload.sender_time_ms ?? null,
-        status: "pending",
+        status: "open",
+        visibility: "link",
         message: payload.message?.slice(0, 220) ?? null,
       }),
     },
@@ -219,11 +443,7 @@ export async function getChallengeForCurrentUser(challengeId: string) {
     token,
   );
   const challenge = rows[0];
-  /*
-   * The challenge page is private for now: only the sender or exact recipient
-   * may load it. Public share tokens and guest attempts need their own access
-   * model so private account challenge rows are not exposed by accident.
-   */
+
   if (!challenge || ![challenge.sender_id, challenge.recipient_id].includes(user.id)) {
     throw new Error("Challenge not found for this account.");
   }
@@ -241,8 +461,9 @@ export async function listChallengesForCurrentUser() {
   if (!token) throw new Error("Sign in required.");
 
   const user = await getCurrentUser(token);
+  const filter = encodeURIComponent(`(creator_id.eq.${user.id},sender_id.eq.${user.id},recipient_id.eq.${user.id})`);
   const rows = await supabaseRequest<ChallengeRow[]>(
-    `/rest/v1/challenges?or=${encodeURIComponent(`(sender_id.eq.${user.id},recipient_id.eq.${user.id})`)}&select=${challengeSelect()}&order=created_at.desc&limit=40`,
+    `/rest/v1/challenges?or=${filter}&select=${challengeSelect()}&order=created_at.desc&limit=40`,
     {},
     token,
   );
@@ -270,17 +491,70 @@ export async function submitChallengeAttempt(challengeId: string, payload: Solve
     throw new Error("Challenge not found for this account.");
   }
 
-  const solveId = await saveSolveResult(token, user.id, payload);
+  const saved = await saveSolveResult(token, user.id, payload, { challengeId, source: "challenge" });
+  const tracking = saved.tracking;
+
+  const attemptRows = await supabaseRequest<Array<{ id: string }>>(
+    "/rest/v1/challenge_attempts?select=id",
+    {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        challenge_id: challengeId,
+        user_id: user.id,
+        solve_result_id: saved.solveId,
+        scramble_id: saved.scrambleId,
+        source: "challenge",
+        solve_time_ms: payload.solve_time_ms ?? null,
+        move_count: payload.move_count ?? null,
+        solved: payload.solved ?? false,
+        is_dnf: payload.is_dnf ?? false,
+        leaderboard_eligible: tracking.leaderboard_eligible,
+        is_test_data: tracking.is_test_data,
+        manual_time_override: tracking.manual_time_override,
+        manual_tracking_override: tracking.manual_tracking_override,
+        actual_time_ms: tracking.actual_time_ms,
+        actual_move_count: tracking.actual_move_count,
+        actual_undo_count: tracking.actual_undo_count,
+        actual_touch_moves: tracking.actual_touch_moves,
+        actual_button_moves: tracking.actual_button_moves,
+        reported_undo_count: tracking.reported_undo_count,
+        reported_touch_moves: tracking.reported_touch_moves,
+        reported_button_moves: tracking.reported_button_moves,
+        assistance_flags: tracking.assistance_flags,
+        replay_data: payload.replay_data ?? null,
+      }),
+    },
+    token,
+  );
+  const challengeAttemptId = attemptRows[0]?.id ?? null;
+
+  if (challengeAttemptId) {
+    await supabaseRequest<Array<{ id: string }>>(
+      `/rest/v1/scramble_attempts?solve_result_id=eq.${saved.solveId}&select=id`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ challenge_attempt_id: challengeAttemptId }),
+      },
+      token,
+    );
+  }
+
   const isSender = user.id === challenge.sender_id;
-  /*
-   * Existing schema stores sender_time_ms but not recipient_time_ms, so the
-   * recipient's detailed result currently lives in the linked solve_results
-   * row. Add explicit result-summary columns before building comparison cards
-   * or production leaderboard snapshots from challenge rows.
-   */
   const update = isSender
-    ? { sender_solve_id: solveId, sender_time_ms: payload.solve_time_ms ?? null }
-    : { recipient_solve_id: solveId, status: "completed", completed_at: new Date().toISOString() };
+    ? {
+        creator_solve_id: saved.solveId,
+        creator_solved: payload.solved ?? false,
+        creator_time_ms: payload.solve_time_ms ?? null,
+        creator_move_count: payload.move_count ?? null,
+        sender_time_ms: payload.solve_time_ms ?? null,
+      }
+    : {
+        recipient_solve_id: saved.solveId,
+        status: "completed",
+        completed_at: new Date().toISOString(),
+      };
 
   await supabaseRequest<ChallengeRow[]>(
     `/rest/v1/challenges?id=eq.${challengeId}&select=id`,
@@ -292,5 +566,5 @@ export async function submitChallengeAttempt(challengeId: string, payload: Solve
     token,
   );
 
-  return { solve_id: solveId };
+  return { solve_id: saved.solveId, scramble_id: saved.scrambleId, challenge_attempt_id: challengeAttemptId };
 }
