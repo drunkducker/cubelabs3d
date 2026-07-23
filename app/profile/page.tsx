@@ -19,7 +19,7 @@ type Solve = { id: string; puzzle_type: string; solve_time_ms: number | null; mo
 type Stats = { total_solves: number; solved_count: number; current_streak: number; longest_streak: number; best_times: Record<string, number> };
 type CollectionItem = { id: string; brand: string | null; model: string; puzzle_type: string; is_favorite: boolean };
 type Achievement = { achievement_id: string; unlocked_at: string; achievements?: { name: string; icon: string | null } | null };
-type Challenge = { id: string; puzzle_type: string; status: string; sender_time_ms: number | null; created_at: string };
+type Challenge = { id: string; puzzle_type: string; status: string; creator_time_ms: number | null; created_at: string };
 type Friendship = { id: string; status: string };
 
 function formatTime(milliseconds?: number | null) {
@@ -44,7 +44,7 @@ export default async function ProfilePage() {
     supabaseRequest<Stats[]>(`/rest/v1/user_stats?user_id=eq.${user.id}&select=total_solves,solved_count,current_streak,longest_streak,best_times`, {}, token),
     supabaseRequest<CollectionItem[]>(`/rest/v1/cube_collection?user_id=eq.${user.id}&select=id,brand,model,puzzle_type,is_favorite&order=is_favorite.desc,created_at.desc&limit=4`, {}, token),
     supabaseRequest<Achievement[]>(`/rest/v1/user_achievements?user_id=eq.${user.id}&select=achievement_id,unlocked_at,achievements(name,icon)&order=unlocked_at.desc&limit=4`, {}, token),
-    supabaseRequest<Challenge[]>(`/rest/v1/challenges?or=(sender_id.eq.${user.id},recipient_id.eq.${user.id})&select=id,puzzle_type,status,sender_time_ms,created_at&order=created_at.desc&limit=4`, {}, token),
+    supabaseRequest<Challenge[]>(`/rest/v1/challenges?or=(creator_id.eq.${user.id},sender_id.eq.${user.id},recipient_id.eq.${user.id})&select=id,puzzle_type,status,creator_time_ms,created_at&order=created_at.desc&limit=4`, {}, token),
     supabaseRequest<Friendship[]>(`/rest/v1/friendships?or=(requester_id.eq.${user.id},addressee_id.eq.${user.id})&status=eq.accepted&select=id,status`, {}, token),
   ]);
 
@@ -115,7 +115,7 @@ export default async function ProfilePage() {
 
           <div className="grid content-start gap-5">
             <DashboardSection title="Challenges" href="/profile/challenges">
-              {challenges.length ? challenges.map((challenge) => <article key={challenge.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><div className="flex justify-between gap-3"><strong>{challenge.puzzle_type} challenge</strong><span className="text-xs font-bold text-[var(--blue)]">{challenge.status}</span></div><p className="mt-2 text-sm text-[var(--muted)]">Target: {formatTime(challenge.sender_time_ms)}</p></article>) : <Empty text="Send a scramble and dare a friend to beat it." action="Create challenge" href="/profile/challenges" />}
+              {challenges.length ? challenges.map((challenge) => <article key={challenge.id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><div className="flex justify-between gap-3"><strong>{challenge.puzzle_type} challenge</strong><span className="text-xs font-bold text-[var(--blue)]">{challenge.status}</span></div><p className="mt-2 text-sm text-[var(--muted)]">Target: {formatTime(challenge.creator_time_ms)}</p></article>) : <Empty text="Send a scramble and dare a friend to beat it." action="Create challenge" href="/profile/challenges" />}
             </DashboardSection>
 
             <DashboardSection title="Achievements" href="/profile/achievements">
