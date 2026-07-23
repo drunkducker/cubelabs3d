@@ -21,8 +21,8 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | Pyraminx | Strong | Playable engine and solver with documented interaction and correctness work |
 | Social challenges | Prototype | Branch prototype exists; secure canonical integration is incomplete |
 | Leaderboards and multiplayer | Planned | Architecture recovered; production services are not complete |
-| Admin portal | Planned | Requirements documented; implementation not complete |
-| Ads and affiliates | Planned | Architecture documented; managed production system not complete |
+| Admin portal | Developing | Full platform coded + build/type/unit-test verified on `claude/cubelabs-admin-dashboard-4pe35q` (12 routes, server-side auth, RLS migration, audit, test isolation); migration/service-role/owner-bootstrap + browser/RLS verification pending |
+| Ads and affiliates | Developing | Admin-side campaign + affiliate management coded (DB-driven, disclosed, draft-by-default); public render components + tracking endpoints not yet built |
 | Camera scanner | Not started/early | No verified production scanner |
 | Automated testing | Needs improvement | Feature-specific evidence exists, but no complete release regression suite is verified |
 | Security and recovery | Developing | Rules documented; production security and restore rehearsals remain |

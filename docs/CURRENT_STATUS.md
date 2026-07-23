@@ -44,6 +44,17 @@ Keep this table current. Every active branch must have a purpose and a merge sta
 | `claude/cube-engine-centering-zb2e9m` | RootA | 3×3 manual entry, NxN timer | ✔ merged — safe to delete |
 | `supabase-auth-foundation` | RootA | Auth foundation | ✔ merged — safe to delete |
 | `test-cube-engine` | RootA | Early engine test | ✔ merged — safe to delete |
+| `claude/cubelabs-admin-dashboard-4pe35q` | RootA | Admin dashboard platform (`/admin`) | active — coded + build/test verified, unmerged; migration + service-role + browser/RLS verification pending |
+
+## Admin platform (2026-07-23)
+
+The `/admin` administration platform is coded and build/type/unit-test verified on
+`claude/cubelabs-admin-dashboard-4pe35q` (not merged, not deployed). It is **fail-closed**:
+without `SUPABASE_SERVICE_ROLE_KEY` and `supabase/migrations/20260723_admin_platform.sql`
+applied in production, admin routes still require an active `admin_members` row and the
+UI shows "Unavailable" rather than fake data. Before any admin item goes `[x]`: apply the
+migration, set the service-role key, run `select public.bootstrap_owner('…')`, and complete
+browser + RLS-advisor verification (`docs/SECURITY.md`). See ADR 0003.
 
 ## Verified completed work
 

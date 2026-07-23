@@ -2,6 +2,51 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-23 — Admin dashboard platform (Phase 1–6 build)
+
+**Checked**
+
+- [x] Verified real `main` state (`cd43130`): auth/Cube ID, Cube Labs Mail, solvers; **no** admin system and **no** scramble/challenge-attempt tables on `main` (that work lives on `claude/home-page-html-rebuild-q7qomi`, not `main`).
+- [x] Confirmed docs index referenced missing `SECURITY.md`, `AUTHENTICATION.md`, `ADS-AFFILIATES.md`, `CODING-STANDARDS.md`, `VISION.md`.
+- [x] Read auth actions, `supabase-rest`, schema, and migrations to reuse the HTTP-only-cookie + service-action pattern.
+
+**Completed**
+
+- [x] Migration `supabase/migrations/20260723_admin_platform.sql`: `admin_members`, append-only `admin_audit_log`, `admin_security_events`, `site_settings`, `feature_flags`, `test_runs`, `ad_campaigns`, `ad_carousels`, `ad_carousel_slides`, `affiliate_products`, `moderation_reports`; additive gameplay columns on `solve_results`/`challenges`; RLS enabled deny-by-default with narrow public policies; `bootstrap_owner()`.
+- [x] Server-only service layer `lib/admin/*`: service-role adapter (fails closed), permission matrix (owner-only enforced), `requireAdmin`/`requirePermission`/`authorizeAction`, redaction, audit + security-event writers, overview/users/security/settings/list services, pure campaign-selection + validation.
+- [x] Protected `/admin` layout + shell (mobile drawer / desktop sidebar) + 12 pages: overview, users (+detail), ads, carousels/affiliates, test-lab, leaderboards, challenges, content, security, audit, settings, exports; `/admin-denied`; loading/error states.
+- [x] Server actions with origin-check → permission → validate → operate → audit → revalidate for users, ads, test-lab, leaderboards, challenges, settings; owner-only audited CSV/JSON export route.
+- [x] Restored/created docs: `SECURITY.md`, `AUTHENTICATION.md`, `ADS-AFFILIATES.md`, `CODING-STANDARDS.md`, `VISION.md`; ADR 0003; updated ARCHITECTURE, ROADMAP §6/§7, ADMIN-PORTAL, PROJECT-HEALTH, CHANGELOG, CURRENT_STATUS.
+- [x] Test infra: Vitest + 27 unit tests (permissions, redaction, campaign selection, validation) — all pass. Made lint non-interactive (`.eslintrc.json`) — `npm run lint` exits 0.
+
+**Verified commands**
+
+- `npx tsc --noEmit` → clean.
+- `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` → compiles, 38 routes, 12 admin routes dynamic (`ƒ`); existing public pages unchanged.
+- `npm test` → 4 files, 27 tests passed.
+- `npm run lint` → exit 0 (warnings only, all in pre-existing files).
+
+**Blocked or unverified (do not mark `[x]`)**
+
+- [ ] `20260723_admin_platform.sql` not yet applied in production; `SUPABASE_SERVICE_ROLE_KEY` not set here → live admin data unavailable (UI shows "Unavailable", not fake zeros).
+- [ ] Owner bootstrap (`select public.bootstrap_owner('…')`) not run.
+- [ ] No browser/mobile QA, no two-account authorization test, no live RLS advisor verification.
+- [ ] Rate limiting on sensitive endpoints not implemented; Supabase leaked-password protection still a dashboard item.
+
+**Next priorities**
+
+1. Apply the migration, set the service-role key, bootstrap the owner, and browser-verify each role's access.
+2. Run the RLS checklist in `docs/SECURITY.md` against the live DB.
+3. Build public ad render components + impression/click tracking.
+
+**Commits / deployments / rollback notes**
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- Deployment: local build + unit tests only; not deployed/verified in production.
+- Rollback: revert this commit; the migration is additive — see its rollback block. Export real data before dropping any table.
+
+---
+
 ## 2026-07-22 — Promote to `main` + doc refresh
 
 ### Completed

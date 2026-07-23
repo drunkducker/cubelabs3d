@@ -1,0 +1,7 @@
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": ["node_modules/", ".next/", "lib/cube4-solver.ts", "lib/cube5-solver.ts"],
+  "rules": {
+    "react/no-unescaped-entities": "warn"
+  }
+}

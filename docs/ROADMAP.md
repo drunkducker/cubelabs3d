@@ -118,18 +118,30 @@ These rules keep this list trustworthy. Read them before checking any box.
 
 ## 6. Admin portal
 
+> **2026-07-23 (`claude/cubelabs-admin-dashboard-4pe35q`):** Admin platform coded and
+> build-verified (38 routes, `tsc` clean, 27 unit tests pass, lint non-interactive).
+> All items below are `[~]` — they require `20260723_admin_platform.sql` applied in
+> production, `SUPABASE_SERVICE_ROLE_KEY` set, owner bootstrap run, and browser/RLS
+> verification before any `[x]`. See ADR 0003 and `docs/SECURITY.md`.
+
 - [x] Admin portal requirements documented
-- [ ] Admin authentication and role enforcement
-- [ ] User search, suspension, deletion, and audit trail
-- [ ] Test-result override tools for controlled QA
-- [ ] Leaderboard moderation
-- [ ] Banner and carousel manager
-- [ ] Affiliate-link manager
-- [ ] Site configuration controls
-- [ ] Security dashboard and audit logs
-- [ ] Backup/export controls
+- [~] Admin authentication and role enforcement (`app/admin/layout.tsx`, `lib/admin/auth.ts`, `lib/admin/permissions.ts`; authorization unit-tested)
+- [~] User search, suspension, deletion, and audit trail (`app/admin/users/*`, `app/admin/actions/users.ts`)
+- [~] Test-result override tools for controlled QA (`app/admin/test-lab`, `app/admin/actions/test-lab.ts`)
+- [~] Leaderboard moderation, preserving originals (`app/admin/leaderboards`, `app/admin/actions/leaderboards.ts`)
+- [~] Challenge inspection and moderation (`app/admin/challenges`, `app/admin/actions/challenges.ts`)
+- [~] Banner and carousel manager (schema + affiliate/campaign create; slide editor UI pending)
+- [~] Affiliate-link manager (`app/admin/carousels`, `createAffiliateProduct`)
+- [~] Site configuration controls and feature flags (`app/admin/settings`, `app/admin/actions/settings.ts`)
+- [~] Security dashboard and audit logs (`app/admin/security`, `app/admin/audit`)
+- [~] Backup/export controls (`app/admin/exports`, `app/api/admin/export`; owner-only audit export)
 
 ## 7. Monetization
+
+> **2026-07-23:** Admin-side campaign/affiliate **management** (create, schedule,
+> publish, disclose) is coded as part of the admin portal (§6). The public-facing
+> render components (`AdSlot`, `ManagedCarousel`, `AffiliateProductCard`) and
+> impression/click tracking endpoints are still to build — items below stay `[ ]`.
 
 - [x] Ads and affiliate architecture documented
 - [ ] Managed ad slots outside gameplay controls

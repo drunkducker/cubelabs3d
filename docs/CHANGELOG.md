@@ -2,6 +2,17 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-23 — Admin dashboard platform (coded, build-verified)
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- Added a protected, mobile-first `/admin` platform with a separate admin layout and 12 areas: overview, users (+detail), ads, carousels/affiliates, test-lab, leaderboards, challenges, content, security, audit, settings/flags, exports.
+- Security model (ADR 0003, `docs/SECURITY.md`): server-side `requireAdmin`/`requirePermission`/`authorizeAction`; authorization stored in `admin_members` (not profiles/metadata); centralized permission matrix with an enforced owner-only set; service-role key server-only (`SUPABASE_SERVICE_ROLE_KEY`), used only after auth passes, fails closed; append-only redacted audit log; origin checks + safe-URL/size validation; typed-phrase + reason on destructive actions.
+- Database: additive idempotent migration `supabase/migrations/20260723_admin_platform.sql` — 11 new tables (all RLS-enabled, deny-by-default with narrow public read policies), additive gameplay columns preserving originals, `bootstrap_owner()`.
+- Managed advertising is database-driven (no deploy to change content); drafts/expired never render; all sponsored/affiliate content disclosed. Test data is isolated (`is_test`, `test_run_id`, `leaderboard_eligible=false`) and excluded from public rankings.
+- Docs: created `SECURITY.md`, `AUTHENTICATION.md`, `ADS-AFFILIATES.md`, `CODING-STANDARDS.md`, `VISION.md` (index no longer points to missing files); ADR 0003; updated ARCHITECTURE, ROADMAP, ADMIN-PORTAL, PROJECT-HEALTH, CURRENT_STATUS, DAILY-LOG.
+- Tooling: added Vitest with 27 passing unit tests; made `next lint` non-interactive (`.eslintrc.json`) so it is CI-safe.
+- Testing: `tsc --noEmit` clean; `npm run build` passes (38 routes); `npm test` 27/27; `npm run lint` exit 0. **Not** deployed, browser-tested, or production-verified; migration not yet applied and service-role key not set.
+
 ## 2026-07-22 — Add reachable "Forgot your password?" entry on `/auth`
 
 - Branch: `claude/working-status-mumm9x`.

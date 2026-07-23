@@ -1,5 +1,35 @@
 # Cube Labs 3D Admin Portal
 
+## Implementation status (2026-07-23)
+
+Coded and build/type/unit-test verified on `claude/cubelabs-admin-dashboard-4pe35q`
+(see ADR 0003, `docs/SECURITY.md`, `docs/CODING-STANDARDS.md`). **Not** yet deployed
+or production-verified.
+
+| Route | Purpose | Permission |
+| --- | --- | --- |
+| `/admin` | Overview metrics + health | `admin.overview.read` |
+| `/admin/users` `/admin/users/[id]` | Search, detail, premium, suspend, note, reset, delete | `users.read` (+`users.suspend`, `users.premium.manage`, `users.delete`) |
+| `/admin/ads` | Managed campaigns (create/publish/pause/archive) | `ads.read` (+`ads.manage`, `ads.publish`) |
+| `/admin/carousels` | Carousels + affiliate products | `ads.read` (+`ads.manage`) |
+| `/admin/test-lab` | Grouped test-data generation + cleanup | `test_data.generate` (+`test_data.delete`) |
+| `/admin/leaderboards` | Ranking review + suspicious queue + audited corrections | `leaderboards.read` (+`leaderboards.moderate`) |
+| `/admin/challenges` | Challenge inspection + moderation | `challenges.read` (+`challenges.moderate`) |
+| `/admin/content` | Managed announcements/maintenance (structured) | `content.manage` |
+| `/admin/security` | Honest security checks + events | `security.read` |
+| `/admin/audit` | Append-only audit viewer | `audit.read` |
+| `/admin/settings` | Typed settings + feature flags | `settings.read` (+`settings.manage`, owner) |
+| `/admin/exports` | Audited CSV/JSON export + migration readiness | `exports.create` (+`migration.manage`, owner) |
+
+Enforcement: `app/admin/layout.tsx` → `requireAdmin()`; pages → `requirePermission()`;
+actions/routes → `authorizeAction()`. Authorization is stored in `admin_members`.
+Migration: `supabase/migrations/20260723_admin_platform.sql`. Owner bootstrap:
+`select public.bootstrap_owner('you@example.com')`.
+
+Remaining before `[x]`: apply migration in production, set `SUPABASE_SERVICE_ROLE_KEY`,
+bootstrap owner, browser + RLS verification, rate limiting, public ad render components,
+carousel slide editor, full content authoring workflow.
+
 ## Purpose
 
 The admin portal is the owner-operated control center for site content, advertising, users, testing, rankings, challenges, security, analytics, and audit history.
