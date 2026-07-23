@@ -2,6 +2,43 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Supabase scramble ranking and solver memory applied
+
+**Checked**
+
+- [x] Verified Supabase project access: `Cubelabs3d` is active and queryable.
+- [x] Inspected live `challenges`, `challenge_attempts`, and `solve_results` columns before changing schema.
+- [x] Ran Supabase security/performance advisors after the migration.
+
+**Completed**
+
+- [x] Applied live Supabase schema for `scrambles`, `scramble_attempts`, and `solver_memories`.
+- [x] Added explicit top-level test/admin tracking fields to `solve_results` and `challenge_attempts`.
+- [x] Added leaderboard eligibility fields so manual/admin override rows can be excluded from public ranking.
+- [x] Added internal scramble stat refresh trigger for play count, best time, and best move count.
+- [x] Added repo migration: `supabase/migrations/20260722_tracked_scrambles_solver_memory.sql`.
+- [x] Updated solve/challenge APIs so saved results create/reuse scramble rows and write rankable attempts.
+- [x] Added `/api/solver-memory` for signed-in saved cube-state history.
+
+**In progress**
+
+- [~] Solver memory has database/API support; individual solver pages still need auto-save and restore controls.
+- [~] Paid memory is marked structurally with `memory_tier`, but billing-aware limits are not wired yet.
+
+**Blocked or unverified**
+
+- [ ] Two-account browser test for challenge send/receive/submit is still needed.
+- [ ] Vercel deployment status is not verified.
+- [ ] Supabase Auth leaked-password protection remains disabled in dashboard settings.
+
+**Commits / deployments / rollback notes**
+
+- Test: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes, 31 app routes.
+- Live DB: schema applied through the Supabase connector.
+- Rollback: revert the migration/schema additions and API/service changes from this entry; preserve data first if real user attempts exist.
+
+---
+
 ## 2026-07-22 — Chosen scrambles, admin overrides, and solver memory requirements
 
 **Checked**
