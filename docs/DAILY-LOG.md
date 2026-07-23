@@ -2,6 +2,66 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Mobile profile layout branch
+
+**Checked**
+
+- [x] Reviewed the profile mockup, homepage shell, mobile leaderboard prototype, Learn rebuild notes, architecture rules, AI instructions, and social/multiplayer profile requirements.
+- [x] Created review branch `gpt/mobile-profile-page-20260722` from latest documented pushed head `33ff6ef`.
+- [x] Confirmed the local source snapshot had a broken `.git` worktree pointer, so branch source was staged in a clean local work folder for this task.
+
+**Completed**
+
+- [x] Rebuilt `/profile` as a mobile-first Cube ID dashboard matching the provided layout direction.
+- [x] Preserved existing Supabase reads for profile, solves, stats, cube collection, achievements, challenges, and friendships, with preview fallback data for empty accounts during layout approval.
+- [x] Added route shells for `/profile/settings`, `/profile/solves`, `/profile/collection`, `/profile/achievements`, and `/profile/friends`.
+- [x] Kept global rank as preview data until the real leaderboard service is built.
+
+**Still not working or unverified**
+
+- [ ] Profile subroutes are not full connected feature pages yet.
+- [ ] Production leaderboard/global-rank service is not wired.
+- [ ] Real mobile browser QA is not recorded.
+- [ ] Production/Vercel deployment is not confirmed.
+
+**Commits / deployments / rollback notes**
+
+- Test: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes, 36 app routes.
+- Rollback: revert the new profile dashboard, `ProfilePlaceholderPage`, new profile subroutes, and this documentation entry.
+
+---
+
+## 2026-07-22 — Site health and context-rot review
+
+**Checked**
+
+- [x] Confirmed the latest documented build result remains `npm run build` passing with 31 app routes.
+- [x] Reviewed route wiring for missing linked pages.
+- [x] Compared the roadmap/status wording against the live Supabase scramble and solver-memory work.
+- [x] Documented context-rot reductions from the session in a checkpoint.
+
+**Completed**
+
+- [x] Added `docs/checkpoints/2026-07-22-site-health-context-rot-review.md`.
+- [x] Indexed the new checkpoint from `docs/checkpoints/README.md`.
+- [x] Updated roadmap status for solver memory and scramble ranking so the docs say database/API exists while UI/browser proof remains pending.
+
+**Still not working or unverified**
+
+- [ ] `/learn`, `/profile/settings`, `/profile/solves`, `/profile/collection`, `/profile/achievements`, and `/leaderboard/player/[rank]` need real routes or disabled links.
+- [ ] `/leaderboard` still needs live data from `scramble_attempts`.
+- [ ] Two-account challenge send/receive/submit remains unverified.
+- [ ] Solver memory UI controls are not wired to `/api/solver-memory`.
+- [ ] `npm run lint` is not a usable non-interactive check yet.
+
+**Next priorities**
+
+1. Add route placeholders or real pages for missing clickable links.
+2. Build the live read-only scramble leaderboard service.
+3. Browser-test the two-account challenge flow and record Supabase row evidence.
+
+---
+
 ## 2026-07-22 — Supabase scramble ranking and solver memory applied
 
 **Checked**
@@ -58,19 +118,19 @@ Use this file for concise daily project check-ins. The newest entry goes first. 
 
 **In progress**
 
-- [~] Scramble library/ranking remains planned: needs `scrambles`, `scramble_attempts`, validation, and leaderboard filtering.
-- [~] Solver memory remains planned: needs saved-state schema, services, paid retention rules, privacy/export/delete, and UI.
+- [~] Superseded later on 2026-07-22: scramble library/ranking was planned at this checkpoint; `scrambles` and `scramble_attempts` were added in the later Supabase entry, while validation and live leaderboard filtering remain pending.
+- [~] Superseded later on 2026-07-22: solver memory was planned at this checkpoint; `solver_memories` and `/api/solver-memory` were added in the later Supabase entry, while paid retention rules, privacy/export/delete, and solver UI remain pending.
 
 **Blocked or unverified**
 
-- [ ] No production database migration added for scramble library or solver memory.
+- [ ] Superseded later on 2026-07-22: the production migration and live schema for scramble library and solver memory were added in the later Supabase entry.
 - [ ] No real mobile browser QA recorded.
 - [ ] End-to-end Supabase save/send/accept still needs two-account testing.
 
 **Next priorities**
 
 1. Deploy and mobile-test `/play/3x3` and `/leaderboard/3x3/play`.
-2. Design the scramble and solver-memory migrations with RLS before production use.
+2. Superseded later on 2026-07-22: scramble and solver-memory migrations were designed and applied; next work is browser proof, live leaderboard reads, and solver UI wiring.
 
 **Commits / deployments / rollback notes**
 
