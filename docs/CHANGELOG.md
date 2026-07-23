@@ -2,6 +2,17 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-23 — Roles editor, media library, premium billing, operator UX
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- **Migration** `20260725_media_and_billing.sql`: `media_assets`, `premium_plans` (seeded), `premium_subscriptions`; RLS deny-by-default with public read only for active plans and self-read for own subscription.
+- **Roles editor** (`/admin/roles`, owner-only): assign roles by email, deactivate, capability reference; audited; refuses to remove the last active Owner.
+- **Sortable DataTable** (`components/admin/DataTable.tsx`) with client filter + mobile card fallback; used on roles and billing.
+- **Operator UX:** header **notification bell** (unresolved security events + open reports), **⌘K command palette** (jump to sections / user search), and an **onboarding checklist** on the overview driven by real readiness signals.
+- **Media library** (`/admin/media` + `/api/admin/media`): image upload validated by **magic bytes** (not extension), 5 MB cap, stored in a private `admin-media` Storage bucket via the service role, metadata tracked in `media_assets`; audited. Signed-URL preview endpoint. Pure detector extracted to `lib/admin/image-detect.ts` and unit-tested.
+- **Premium billing** (`/admin/billing`, `lib/admin/billing.ts`): plans + subscriptions views; Stripe **checkout** route (`/api/billing/checkout`, no SDK) and **webhook** route (`/api/billing/webhook`) that verifies the Stripe signature via HMAC-SHA256 + timing-safe compare and syncs entitlement to auth metadata. Fails closed without `STRIPE_*` keys.
+- Testing: `tsc` clean; `npm run build` 42 routes; `npm test` **33/33** (adds image-detection tests); lint exit 0. Not deployed; migrations not applied; Stripe/Storage not configured here; not browser-verified.
+
 ## 2026-07-23 — Public ad/affiliate rendering + admin dashboard polish
 
 - Branch: `claude/cubelabs-admin-dashboard-4pe35q`.

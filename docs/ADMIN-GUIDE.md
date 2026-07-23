@@ -91,15 +91,45 @@ toggle once it ships.)
 
 ---
 
+## 3b. Adding staff (roles)
+
+**Where:** `/admin/roles` (Owner only). Enter the person's account **email**
+(they must have signed up first), pick a role, and Save. The page also shows a
+capability reference for every role, and it will refuse to deactivate the **last
+active Owner** so you can never lock yourself out.
+
+## 3c. Uploading images (media library)
+
+**Where:** `/admin/media`. Upload PNG/JPEG/GIF/WebP up to 5 MB. Files are checked
+by their actual content (magic bytes), not the extension, and stored in a private
+Supabase Storage bucket named `admin-media` (create it once in the Supabase
+dashboard with Public = off). Use these for ad/carousel/tutorial imagery.
+
+## 3d. Premium / no-ads billing
+
+**Where:** `/admin/billing`. Shows your plans, recent subscriptions, and whether
+Stripe is configured. To turn it on:
+1. Add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` in Vercel (server-only).
+2. In Stripe, create a webhook pointing at `https://yoursite/api/billing/webhook`.
+3. Put each plan's Stripe **price ID** on the matching row in `premium_plans`.
+Signed-in users buy via `/api/billing/checkout`; the **verified** webhook is what
+flips their premium flag — it can never be forged from the browser.
+
 ## 4. Day-to-day operations (quick reference)
 
 | Task | Where |
 |---|---|
 | See platform health at a glance | `/admin` (Overview) |
+| Jump anywhere fast | Press **⌘K / Ctrl-K** (command palette) |
+| See what needs attention | 🔔 bell in the header |
 | Find / manage a user, grant premium, suspend, reset password | `/admin/users` |
+| Add or remove staff / change roles | `/admin/roles` |
+| Upload and manage images | `/admin/media` |
+| Manage premium plans & subscriptions | `/admin/billing` |
 | Generate fake solves/challenges to test without a real cube | `/admin/test-lab` |
 | Review rankings, flag/exclude cheats, correct a time | `/admin/leaderboards` |
 | Inspect / moderate a challenge, resolve a dispute | `/admin/challenges` |
+| Preview what visitors see for ads/affiliates | `/admin/ads/preview` |
 | Post an announcement or maintenance notice | `/admin/content` + `/admin/settings` |
 | Check security status and events | `/admin/security` |
 | See who did what (append-only) | `/admin/audit` |

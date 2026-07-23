@@ -2,6 +2,30 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-23 — Roles editor, media, billing, operator UX
+
+**Completed**
+
+- [x] Migration `20260725_media_and_billing.sql` (media_assets, premium_plans seeded, premium_subscriptions; RLS).
+- [x] Roles editor `/admin/roles` (owner-only, audited, last-owner guard) + `lib/admin/roles.ts` + actions.
+- [x] Sortable `DataTable` component (filter + mobile cards); used on roles + billing.
+- [x] Operator UX: notification bell + ⌘K command palette in the shell; onboarding checklist on overview from real signals.
+- [x] Media library `/admin/media` + `/api/admin/media` (magic-byte validation, private Storage, signed preview) + `lib/admin/media.ts` / `image-detect.ts`.
+- [x] Premium billing `/admin/billing` + `lib/admin/billing.ts`; Stripe checkout (`/api/billing/checkout`) + signature-verified webhook (`/api/billing/webhook`).
+- [x] Unit tests for image magic-byte detection; docs updated (ADMIN-GUIDE, ADMIN-PORTAL, ROADMAP, CHANGELOG).
+
+**Verified**
+
+- `npx tsc --noEmit` clean; `npm run build` 42 routes; `npm test` 33/33; `npm run lint` exit 0.
+
+**Unverified (do not mark `[x]`)**
+
+- [ ] Migrations `20260723/24/25` not applied; `STRIPE_*` keys and `admin-media` Storage bucket not configured here.
+- [ ] No browser verification of role changes, uploads, checkout, or webhook delivery.
+- [ ] Rate limiting + admin 2FA still open (security track not chosen this round).
+
+---
+
 ## 2026-07-23 — Public ad rendering + admin polish + operator guide
 
 **Completed**

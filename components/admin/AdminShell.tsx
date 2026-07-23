@@ -5,6 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ADMIN_NAV } from "./nav";
 import { hasPermission, type AdminRole } from "@/lib/admin/permissions";
+import { NotificationBell } from "./NotificationBell";
+import { CommandPalette } from "./CommandPalette";
+import type { AdminNotification } from "@/lib/admin/notifications";
 
 /*
  * Mobile-first admin shell. Phones get a compact protected header + a
@@ -16,10 +19,12 @@ export function AdminShell({
   role,
   email,
   children,
+  notifications,
 }: {
   role: AdminRole;
   email: string | null;
   children: React.ReactNode;
+  notifications: { count: number | null; items: AdminNotification[] };
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -50,11 +55,13 @@ export function AdminShell({
           </Link>
         </div>
         <div className="flex items-center gap-2 text-right">
-          <div className="hidden text-xs leading-tight sm:block">
+          <CommandPalette items={items} />
+          <NotificationBell count={notifications.count} items={notifications.items} />
+          <div className="hidden text-xs leading-tight lg:block">
             <p className="font-bold">{email ?? "Administrator"}</p>
             <p className="text-[var(--muted)]">Signed in</p>
           </div>
-          <span className="rounded-full border border-[var(--border-2)] bg-black/20 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--blue)]">
+          <span className="hidden rounded-full border border-[var(--border-2)] bg-black/20 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--blue)] sm:inline-block">
             {role}
           </span>
           <Link href="/" className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] text-sm" aria-label="Exit admin">

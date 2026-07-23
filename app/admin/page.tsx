@@ -28,6 +28,8 @@ export default async function AdminOverviewPage() {
         </div>
       )}
 
+      <OnboardingChecklist readiness={overview.readiness} />
+
       <section aria-label="Key metrics" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <MetricCard label="Total users" metric={m.totalUsers ?? unavailable()} href="/admin/users" />
         <MetricCard label="New users (7d)" metric={m.newUsers7d ?? unavailable()} />
@@ -106,6 +108,43 @@ export default async function AdminOverviewPage() {
 
 function unavailable() {
   return { value: null, available: false, note: "Unavailable" };
+}
+
+/*
+ * Setup checklist from real signals. Hides itself once every step is done so it
+ * only nags during initial setup.
+ */
+function OnboardingChecklist({ readiness }: { readiness: { configured: boolean; hasOwner: boolean; hasCampaign: boolean; hasAudit: boolean } }) {
+  const steps = [
+    { done: readiness.configured, label: "Configure service-role key + run migrations", hint: "SUPABASE_SERVICE_ROLE_KEY + 20260723/24/25 migrations" },
+    { done: readiness.hasOwner, label: "Bootstrap an Owner account", hint: "select public.bootstrap_owner('you@example.com')" },
+    { done: readiness.hasAudit, label: "Perform a first privileged action", hint: "Any admin action writes to the audit log" },
+    { done: readiness.hasCampaign, label: "Create your first campaign or affiliate product", hint: "Ads → New campaign / Carousels → New product" },
+  ];
+  if (steps.every((s) => s.done)) return null;
+  const completed = steps.filter((s) => s.done).length;
+
+  return (
+    <div className="mb-5">
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-black">Getting started</h2>
+          <span className="text-sm font-bold text-[var(--muted)]">{completed} / {steps.length} done</span>
+        </div>
+        <ul className="grid gap-2">
+          {steps.map((s) => (
+            <li key={s.label} className="flex items-start gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
+              <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-xs ${s.done ? "bg-emerald-500/20 text-emerald-400" : "border border-[var(--border-2)] text-[var(--faint)]"}`}>{s.done ? "✓" : ""}</span>
+              <span className="min-w-0">
+                <span className={`block font-bold ${s.done ? "text-[var(--muted)] line-through" : ""}`}>{s.label}</span>
+                <span className="text-xs text-[var(--faint)]"><code>{s.hint}</code></span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </div>
+  );
 }
 
 function HealthRow({ label, status, note }: { label: string; status: string; note: string }) {

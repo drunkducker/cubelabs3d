@@ -14,8 +14,11 @@ export type AdminNavItem = {
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", permission: "admin.overview.read", icon: "▦" },
   { href: "/admin/users", label: "Users", permission: "users.read", icon: "◍" },
+  { href: "/admin/roles", label: "Roles & Access", permission: "roles.manage", icon: "◆" },
   { href: "/admin/ads", label: "Ads & Campaigns", permission: "ads.read", icon: "◈" },
   { href: "/admin/carousels", label: "Carousels & Affiliates", permission: "ads.read", icon: "▤" },
+  { href: "/admin/media", label: "Media Library", permission: "content.manage", icon: "▦" },
+  { href: "/admin/billing", label: "Premium & Billing", permission: "users.premium.manage", icon: "$" },
   { href: "/admin/test-lab", label: "Test Lab", permission: "test_data.generate", icon: "⚗" },
   { href: "/admin/leaderboards", label: "Leaderboards", permission: "leaderboards.read", icon: "▲" },
   { href: "/admin/challenges", label: "Challenges", permission: "challenges.read", icon: "⚔" },

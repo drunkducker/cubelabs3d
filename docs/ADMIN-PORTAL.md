@@ -20,6 +20,10 @@ or production-verified.
 | `/admin/audit` | Append-only audit viewer | `audit.read` |
 | `/admin/settings` | Typed settings + feature flags | `settings.read` (+`settings.manage`, owner) |
 | `/admin/exports` | Audited CSV/JSON export + migration readiness | `exports.create` (+`migration.manage`, owner) |
+| `/admin/roles` | Assign/deactivate admin roles; capability reference | `roles.manage` (owner) |
+| `/admin/media` | Upload/manage images (magic-byte validated, private Storage) | `content.manage` |
+| `/admin/billing` | Plans, subscriptions, Stripe status | `users.premium.manage` |
+| `/admin/ads/preview` | Live preview of published ad/affiliate content | `ads.read` |
 
 Enforcement: `app/admin/layout.tsx` → `requireAdmin()`; pages → `requirePermission()`;
 actions/routes → `authorizeAction()`. Authorization is stored in `admin_members`.

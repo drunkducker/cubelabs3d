@@ -135,6 +135,10 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Site configuration controls and feature flags (`app/admin/settings`, `app/admin/actions/settings.ts`)
 - [~] Security dashboard and audit logs (`app/admin/security`, `app/admin/audit`)
 - [~] Backup/export controls (`app/admin/exports`, `app/api/admin/export`; owner-only audit export)
+- [~] Roles & permissions editor UI (`app/admin/roles`; owner-only, audited, last-owner guard)
+- [~] Media library (`app/admin/media`, `app/api/admin/media`; magic-byte validation, private Storage)
+- [~] Premium & billing (`app/admin/billing`; Stripe checkout + verified webhook)
+- [~] Operator UX: notification bell, ⌘K command palette, onboarding checklist
 
 ## 7. Monetization
 
@@ -151,7 +155,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Banner and carousel campaigns (`ManagedCarousel`; admin create/publish + public render)
 - [~] Amazon affiliate integration and disclosures (`AffiliateProductGrid`; tagged links + `rel="sponsored nofollow"` + disclosure)
 - [ ] Conversion tracking
-- [ ] Premium/no-ads plan
+- [~] Premium/no-ads plan (`/admin/billing`, `premium_plans`/`premium_subscriptions`, Stripe checkout + signature-verified webhook; needs `STRIPE_*` keys + browser verify)
 - [ ] Theme or appearance packs
 - [ ] Revenue reporting and compliance review
 

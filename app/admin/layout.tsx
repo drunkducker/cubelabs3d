@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin/auth";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { getAdminNotifications } from "@/lib/admin/notifications";
 
 /*
  * The admin layout is the primary server-side gate: requireAdmin() validates
@@ -14,8 +15,9 @@ export const revalidate = 0;
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireAdmin();
+  const notifications = await getAdminNotifications();
   return (
-    <AdminShell role={ctx.role} email={ctx.email}>
+    <AdminShell role={ctx.role} email={ctx.email} notifications={notifications}>
       {children}
     </AdminShell>
   );

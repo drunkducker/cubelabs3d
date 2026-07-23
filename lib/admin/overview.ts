@@ -17,6 +17,7 @@ export type Overview = {
   metrics: Record<string, Metric>;
   recentActions: Array<{ id: string; action: string; actor_role: string | null; target_type: string | null; success: boolean; created_at: string }>;
   solveTrend: { available: boolean; points: TrendPoint[] };
+  readiness: { configured: boolean; hasOwner: boolean; hasCampaign: boolean; hasAudit: boolean };
 };
 
 function iso(daysAgo: number): string {
@@ -60,7 +61,13 @@ async function getSolveTrend(): Promise<Overview["solveTrend"]> {
 
 export async function getAdminOverview(): Promise<Overview> {
   if (!isAdminConfigured()) {
-    return { configured: false, metrics: {}, recentActions: [], solveTrend: { available: false, points: [] } };
+    return {
+      configured: false,
+      metrics: {},
+      recentActions: [],
+      solveTrend: { available: false, points: [] },
+      readiness: { configured: false, hasOwner: false, hasCampaign: false, hasAudit: false },
+    };
   }
 
   const [
@@ -102,9 +109,21 @@ export async function getAdminOverview(): Promise<Overview> {
 
   const solveTrend = await getSolveTrend();
 
+  const [ownerCount, campaignCount, auditCount] = await Promise.all([
+    adminCount(`/rest/v1/admin_members?role=eq.owner&is_active=eq.true`).catch(() => null),
+    adminCount(`/rest/v1/ad_campaigns?`).catch(() => null),
+    adminCount(`/rest/v1/admin_audit_log?`).catch(() => null),
+  ]);
+
   return {
     configured: true,
     solveTrend,
+    readiness: {
+      configured: true,
+      hasOwner: (ownerCount ?? 0) > 0,
+      hasCampaign: (campaignCount ?? 0) > 0,
+      hasAudit: (auditCount ?? 0) > 0,
+    },
     metrics: {
       totalUsers,
       newUsers7d,
