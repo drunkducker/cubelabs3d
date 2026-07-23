@@ -67,6 +67,24 @@ Each supported puzzle should expose a consistent logical result shape:
 - control/device classification;
 - validation metadata.
 
+## Solver memory target
+
+Logged-in users should be able to recover recent solver work. Paid users should receive deeper retained history and cross-device organization.
+
+The durable solver-memory shape should include:
+
+- user id and access tier;
+- puzzle type and size;
+- state schema version;
+- entered facelets or renderer-independent state;
+- scramble or setup history;
+- generated solution and verification status;
+- current playback step or resume point;
+- notes, title, and last-opened time;
+- privacy, export, and deletion support.
+
+Solver pages must use application services such as `getSolverMemory()` and `saveSolverSnapshot()` rather than calling Supabase directly. Guest/local memory may exist for convenience, but account memory and paid retention must be server-authorized.
+
 ## Solver status rule
 
 A playable puzzle, reset function, or move-history reversal is not automatically a general-purpose solver. A solver may be marked complete only when arbitrary supported input states are validated, solvability is checked, generated moves are verified, and regression fixtures pass.

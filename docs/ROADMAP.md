@@ -75,6 +75,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [x] Permanent cube-engine architecture and recovered branch findings documented
 - [~] 3×3 manual color entry with invalid-entry freeze fix (merged; `components/ManualSolver.tsx`; correctness fixtures pending)
 - [x] NxN timer, solved-state detection, and scramble history (merged; `app/NxNCubeGame.tsx`)
+- [~] Play-mode focus layout with collapsible controls for 3x3 (`/play/3x3`)
 - [~] 4×4 playable engine (merged)
 - [~] Arbitrary-state 4×4 reduction/edge-pairing solver (merged; `lib/cube4-solver.ts`; fixtures pending)
 - [~] Interim reduced-state 5×5 solver (merged; `lib/cube5-*.ts`; full deterministic path still WIP on `claude/more-cubelabs-yuom1x`)
@@ -82,6 +83,8 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [ ] 5×5 arbitrary-state manual input parity with the 3×3 workflow
 - [ ] 6×6 and larger solver strategy
 - [ ] Camera/photo/video state scanner
+- [ ] Logged-in solver memory for past cube states and generated solutions
+- [ ] Paid-user extended solver memory, folders, and cross-device resume
 - [ ] Solver correctness fixtures and regression suite (3×3, 4×4, 5×5)
 - [ ] Performance budgets for large cubes on real mobile devices
 
@@ -107,6 +110,8 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [ ] Versioned renderer-independent puzzle-state contract
 - [ ] Friends and friend requests
 - [~] Signed-in account-to-account pre-scrambled challenge links
+- [~] Player-selected 3x3 scramble save/send in the tracked challenge prototype
+- [~] Admin/test overrides for reported moves, undo count, touch/button moves, and solved status in replay metadata
 - [ ] Secure public/guest shareable pre-scrambled challenge links
 - [ ] Solved/unsolved challenge modes
 - [ ] Guest challenge attempts
@@ -114,6 +119,7 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [~] Daily shared 3x3 scramble wired to homepage and leaderboard challenge prototype
 - [ ] Production daily shared scramble service
 - [ ] Personal and global leaderboards
+- [ ] Scramble database and ranked scramble-attempt leaderboards
 - [ ] Anti-cheat and suspicious-result review
 - [ ] Ghost races
 - [ ] Live private multiplayer rooms

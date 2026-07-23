@@ -53,6 +53,28 @@ function parseTimeInput(value: string) {
   return Math.round((minutes * 60 + seconds) * 1000);
 }
 
+function parseNonNegativeInteger(value: string) {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function normalizeScrambleInput(value: string) {
+  const tokens = value.replace(/[,\n\r\t]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return null;
+
+  const normalized = tokens.map((token) => {
+    const match = token.match(/^([URFDLBurfdlb])([2'′]?)$/);
+    if (!match) return null;
+    const suffix = match[2] === "′" ? "'" : match[2];
+    return `${match[1].toUpperCase()}${suffix}`;
+  });
+
+  if (normalized.some((token) => token === null)) return null;
+  return normalized.join(" ");
+}
+
 export default function NxNCubeGame({
   size=10,
   variant="full",
@@ -80,6 +102,12 @@ export default function NxNCubeGame({
   const [undoUses,setUndoUses]=useState(0);
   const [moveLog,setMoveLog]=useState<MoveLogEntry[]>([]);
   const [manualTime,setManualTime]=useState("");
+  const [customScramble,setCustomScramble]=useState("");
+  const [testMoveOverride,setTestMoveOverride]=useState("");
+  const [testUndoOverride,setTestUndoOverride]=useState("");
+  const [testTouchOverride,setTestTouchOverride]=useState("");
+  const [testButtonOverride,setTestButtonOverride]=useState("");
+  const [testSolvedOverride,setTestSolvedOverride]=useState(false);
   const [recipient,setRecipient]=useState("");
   const [sendMessage,setSendMessage]=useState("");
   const [submitStatus,setSubmitStatus]=useState("");
@@ -95,6 +123,11 @@ export default function NxNCubeGame({
     setUndoUses(0);
     setMoveLog([]);
     setManualTime("");
+    setTestMoveOverride("");
+    setTestUndoOverride("");
+    setTestTouchOverride("");
+    setTestButtonOverride("");
+    setTestSolvedOverride(false);
     setSubmitStatus("");
     setSavedSolveId("");
     setChallengeLink("");
@@ -494,14 +527,43 @@ export default function NxNCubeGame({
     :"Swipe exact layers, rotate the cube, or switch to Move mode to position it anywhere inside the viewport.";
   const manualMs=manualTime.trim()?parseTimeInput(manualTime):null;
   const manualTimeInvalid=Boolean(manualTime.trim())&&manualMs===null;
+  const moveOverride=testMoveOverride.trim()?parseNonNegativeInteger(testMoveOverride):null;
+  const undoOverride=testUndoOverride.trim()?parseNonNegativeInteger(testUndoOverride):null;
+  const touchOverride=testTouchOverride.trim()?parseNonNegativeInteger(testTouchOverride):null;
+  const buttonOverride=testButtonOverride.trim()?parseNonNegativeInteger(testButtonOverride):null;
+  const trackingOverrideInvalid=Boolean(
+    (testMoveOverride.trim()&&moveOverride===null)||
+    (testUndoOverride.trim()&&undoOverride===null)||
+    (testTouchOverride.trim()&&touchOverride===null)||
+    (testButtonOverride.trim()&&buttonOverride===null)
+  );
   const reportedMs=manualMs??Math.round(elapsedMs);
-  const canSubmitAttempt=trackingEnabled&&attemptStarted&&scrambleSequence.length>0&&(isSolvedNow||manualMs!==null)&&!manualTimeInvalid;
+  const reportedMoves=moveOverride??moves;
+  const reportedUndoUses=undoOverride??undoUses;
+  const reportedTouchMoves=touchOverride??touchMoves;
+  const reportedButtonMoves=buttonOverride??buttonMoves;
+  const hasTrackingOverride=moveOverride!==null||undoOverride!==null||touchOverride!==null||buttonOverride!==null||testSolvedOverride;
+  const solvedForReport=isSolvedNow||testSolvedOverride||manualMs!==null;
+  const isTestData=manualMs!==null||hasTrackingOverride;
+  const canSubmitAttempt=trackingEnabled&&attemptStarted&&scrambleSequence.length>0&&solvedForReport&&!manualTimeInvalid&&!trackingOverrideInvalid;
+
+  const loadChosenScramble=()=>{
+    const normalized=normalizeScrambleInput(customScramble);
+    if(!normalized) {
+      setSubmitStatus("Use standard 3x3 moves like R U R' U' F2.");
+      return;
+    }
+    actionsRef.current?.applyScramble(normalized);
+    setCustomScramble(normalized);
+    setSubmitStatus("Chosen scramble loaded. Save or send will use this scramble.");
+  };
 
   const submitAttempt=async(intent:"save"|"send")=>{
     if(!trackingEnabled||!challengeMode) return;
     if(!scrambleSequence) { setSubmitStatus("Load a scramble before saving a result."); return; }
     if(manualTimeInvalid) { setSubmitStatus("Use seconds like 25.34 or clock time like 1:12.50."); return; }
-    if(!isSolvedNow&&manualMs===null) { setSubmitStatus("Solve the cube or enter a test complete time first."); return; }
+    if(trackingOverrideInvalid) { setSubmitStatus("Test tracking overrides must be whole numbers, 0 or higher."); return; }
+    if(!solvedForReport) { setSubmitStatus("Solve the cube or mark solved/test complete before saving."); return; }
     if(intent==="send"&&!recipient.trim()) { setSubmitStatus("Enter the other account's Cube Tag, username, or public slug."); return; }
 
     setSubmitting(true);
@@ -520,15 +582,31 @@ export default function NxNCubeGame({
       source:challengeMode.kind,
       challenge_id:challengeMode.challengeId??null,
       official_scramble:challengeMode.officialScramble??null,
+      chosen_scramble:scrambleSequence,
       client_elapsed_ms:Math.round(elapsedMs),
       reported_time_ms:reportedMs,
       solved_on_cube:isSolvedNow,
-      is_test_data:manualMs!==null,
+      solved_reported:solvedForReport,
+      is_test_data:isTestData,
       manual_time_override:manualMs!==null,
-      assistance_flags:{
+      manual_tracking_override:hasTrackingOverride,
+      test_solved_override:testSolvedOverride,
+      actual_metrics:{
+        move_count:moves,
         undo_uses:undoUses,
-        extra_button_moves:buttonMoves,
         touch_moves:touchMoves,
+        button_moves:buttonMoves,
+      },
+      reported_metrics:{
+        move_count:reportedMoves,
+        undo_uses:reportedUndoUses,
+        touch_moves:reportedTouchMoves,
+        button_moves:reportedButtonMoves,
+      },
+      assistance_flags:{
+        undo_uses:reportedUndoUses,
+        extra_button_moves:reportedButtonMoves,
+        touch_moves:reportedTouchMoves,
       },
       move_history:moveLog,
     };
@@ -543,8 +621,8 @@ export default function NxNCubeGame({
             puzzle_type:"3x3",
             scramble:scrambleSequence,
             solve_time_ms:reportedMs,
-            move_count:moves,
-            solved:true,
+            move_count:reportedMoves,
+            solved:solvedForReport,
             is_dnf:false,
             replay_data:replayData,
           }),
@@ -565,7 +643,7 @@ export default function NxNCubeGame({
             scramble:scrambleSequence,
             sender_solve_id:solveId,
             sender_time_ms:reportedMs,
-            move_count:moves,
+            move_count:reportedMoves,
             message:sendMessage.trim()||undefined,
             replay_data:replayData,
           }),
@@ -600,22 +678,38 @@ export default function NxNCubeGame({
 
     <div className="mt-3 grid grid-cols-3 gap-2 text-center">
       <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Time</p><p className="mt-1 font-mono text-lg font-black">{formatElapsed(reportedMs)}</p></div>
-      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Moves</p><p className="mt-1 text-lg font-black">{moves}</p></div>
-      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Undo</p><p className="mt-1 text-lg font-black">{undoUses}</p></div>
+      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Moves</p><p className="mt-1 text-lg font-black">{reportedMoves}</p></div>
+      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Undo</p><p className="mt-1 text-lg font-black">{reportedUndoUses}</p></div>
     </div>
 
     <div className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 p-3">
       <p className="text-[10px] font-black uppercase tracking-[.14em] text-[var(--muted)]">Official start state</p>
       <p className="mt-2 min-h-6 break-words font-mono text-xs leading-5 text-white">{challengeMode.officialScramble||scrambleSequence||"Use a scramble before recording a leaderboard run."}</p>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={()=>challengeMode.officialScramble?actionsRef.current?.applyScramble(challengeMode.officialScramble):actionsRef.current?.scramble()}
-        className="cta-green mt-3 min-h-11 w-full rounded-xl font-black disabled:opacity-40"
-      >
-        {challengeMode.officialScramble?"Load Official Scramble":"Generate Scramble"}
-      </button>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={()=>challengeMode.officialScramble?actionsRef.current?.applyScramble(challengeMode.officialScramble):actionsRef.current?.scramble()}
+          className="cta-green min-h-11 rounded-xl font-black disabled:opacity-40"
+        >
+          {challengeMode.officialScramble?"Official":"Generate"}
+        </button>
+        <button type="button" disabled={busy} onClick={()=>actionsRef.current?.scramble()} className="glass min-h-11 rounded-xl font-black disabled:opacity-40">Random</button>
+      </div>
     </div>
+
+    <details className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 p-3">
+      <summary className="cursor-pointer text-sm font-black text-white">Choose your own scramble</summary>
+      <textarea
+        value={customScramble}
+        onChange={(event)=>setCustomScramble(event.target.value)}
+        placeholder="R U R' U' F2 D L2"
+        rows={3}
+        className="mt-3 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 py-3 font-mono text-sm font-bold text-white outline-none"
+      />
+      <button type="button" disabled={busy} onClick={loadChosenScramble} className="cta-green mt-2 min-h-11 w-full rounded-xl font-black disabled:opacity-40">Load Chosen Scramble</button>
+      <p className="mt-2 text-[11px] leading-5 text-[var(--muted)]">Save or send uses the scramble currently loaded on the cube. Future database work will rank saved scrambles by attempts, difficulty, and best times.</p>
+    </details>
 
     <label className="mt-3 block text-xs font-black text-[var(--muted)]">
       Test/admin complete time
@@ -629,6 +723,23 @@ export default function NxNCubeGame({
     <p className={["mt-2 text-[11px] leading-5",manualTimeInvalid?"text-red-300":"text-[var(--muted)]"].join(" ")}>
       Manual times are saved as test/admin-tracked data in replay metadata, not clean public leaderboard proof.
     </p>
+
+    <details className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 p-3">
+      <summary className="cursor-pointer text-sm font-black text-white">Admin/test tracking overrides</summary>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="text-[11px] font-black text-[var(--muted)]">Moves<input value={testMoveOverride} onChange={(event)=>setTestMoveOverride(event.target.value)} inputMode="numeric" placeholder={`${moves}`} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 text-sm font-bold text-white outline-none"/></label>
+        <label className="text-[11px] font-black text-[var(--muted)]">Undo<input value={testUndoOverride} onChange={(event)=>setTestUndoOverride(event.target.value)} inputMode="numeric" placeholder={`${undoUses}`} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 text-sm font-bold text-white outline-none"/></label>
+        <label className="text-[11px] font-black text-[var(--muted)]">Touch moves<input value={testTouchOverride} onChange={(event)=>setTestTouchOverride(event.target.value)} inputMode="numeric" placeholder={`${touchMoves}`} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 text-sm font-bold text-white outline-none"/></label>
+        <label className="text-[11px] font-black text-[var(--muted)]">Button moves<input value={testButtonOverride} onChange={(event)=>setTestButtonOverride(event.target.value)} inputMode="numeric" placeholder={`${buttonMoves}`} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 text-sm font-bold text-white outline-none"/></label>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-xs font-bold text-[var(--muted)]">
+        <input type="checkbox" checked={testSolvedOverride} onChange={(event)=>setTestSolvedOverride(event.target.checked)} className="h-4 w-4 accent-[var(--purple)]"/>
+        Mark solved for test save/send
+      </label>
+      <p className={["mt-2 text-[11px] leading-5",trackingOverrideInvalid?"text-red-300":"text-[var(--muted)]"].join(" ")}>
+        Overrides are stored as reported metrics plus actual metrics. Public leaderboards must exclude these records by default.
+      </p>
+    </details>
 
     <div className="mt-3 grid grid-cols-2 gap-2">
       <button type="button" disabled={!canSubmitAttempt||submitting} onClick={()=>submitAttempt("save")} className="cta-blue min-h-12 rounded-xl font-black disabled:opacity-40">

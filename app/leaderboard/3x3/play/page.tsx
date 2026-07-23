@@ -15,7 +15,7 @@ export default function LeaderboardThreeByThreePlayPage() {
       challengeMode={{
         kind: "leaderboard-daily",
         title: "3x3 Daily Challenge",
-        subtitle: "Load the official scramble, solve it on the playable cube, save your tracked result, then send the same scramble to another account.",
+        subtitle: "Load the official scramble or choose your own, solve it on the playable cube, save your tracked result, then send the same scramble to another account.",
         officialScramble: DAILY_3X3_SCRAMBLE,
       }}
     />

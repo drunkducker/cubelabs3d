@@ -29,6 +29,8 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [~] A build-verified tracked 3x3 leaderboard challenge prototype exists at `/leaderboard/3x3/play`.
 - [~] `/play/3x3`, `/challenge/[id]`, and `/profile/challenges` now provide a first usable send/receive path for signed-in accounts.
 - [~] The challenge prototype records elapsed time, move count, touch/button move counts, undo use, replay metadata, and manual test/admin time overrides.
+- [~] Players can load a chosen 3x3 scramble and save/send that exact scramble in the prototype.
+- [~] Admin/test overrides can manipulate reported moves, undo count, touch/button moves, and solved status while preserving actual metrics in replay metadata.
 - [ ] Replace preview/test rows with a production `getLeaderboard()` application service.
 - [ ] Exclude admin/test data from public rankings by default.
 - [ ] Separate assisted and unassisted results before public ranking.
@@ -55,6 +57,7 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [~] Provide signed-in `/challenge/[id]` routes for direct account challenges.
 - [ ] Allow guest attempts without registration.
 - [~] Add first send-to-account action from the tracked 3x3 challenge page using exact Cube Tag / username / public slug lookup.
+- [~] Allow a player-selected 3x3 scramble for signed-in direct challenges.
 - [ ] Add copy-link, native share, QR, email, and text-message actions.
 - [~] Add sender target time to the recipient challenge page.
 - [ ] Add full sender/recipient comparison, including recipient time and move-count display from stored solve rows.
@@ -85,6 +88,8 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 ## Leaderboards
 
 - [ ] Challenge-specific leaderboards.
+- [ ] Scramble library and ranked scramble attempts.
+- [ ] Rank scrambles by attempts, completion rate, best time, average time, fewest moves, assisted/unassisted status, and validation state.
 - [ ] Friends, daily, weekly, monthly, seasonal, and all-time filters.
 - [ ] Separate puzzle types and cube sizes.
 - [ ] Separate assisted and unassisted results.

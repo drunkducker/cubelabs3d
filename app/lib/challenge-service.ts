@@ -177,6 +177,12 @@ export async function createChallengeForRecipient(payload: CreateChallengePayloa
   const puzzleType = payload.puzzle_type || "3x3";
   const scramble = requireString(payload.scramble, "scramble");
 
+  /*
+   * Player-chosen scrambles are saved directly on the challenge row for this
+   * prototype. The future ranked scramble library should normalize this into
+   * reusable scrambles plus attempt rows, so one good scramble can collect
+   * many players' results without duplicating the text on every challenge.
+   */
   const rows = await supabaseRequest<Array<{ id: string }>>(
     "/rest/v1/challenges?select=id",
     {

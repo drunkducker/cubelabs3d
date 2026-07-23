@@ -93,6 +93,8 @@ Keep this table current. Every active branch must have a purpose and a merge sta
 - [x] Initial Cube ID/profile foundation
 - [x] Social and multiplayer architecture consolidated into a permanent document
 - [~] Mobile leaderboard visual prototype and tracked 3x3 challenge prototype exist on `claude/home-page-html-rebuild-q7qomi` (preview/WIP; build verified, production verification pending)
+- [~] Player-chosen scramble save/send and admin/test tracking overrides exist on the preview branch; public leaderboard filtering/schema still pending
+- [~] Solver Memory is visible as a planned solver-hub feature; logged-in/pay-user saved-state database is not implemented
 - [~] Local community and challenge prototype exists on `feature/social-challenges-foundation` (RootB — manual port only)
 - [ ] Versioned renderer-independent puzzle-state contract
 - [ ] Production-ready friends system

@@ -2,6 +2,19 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Refine tracked 3x3 challenge controls
+
+- Branch: `claude/home-page-html-rebuild-q7qomi`.
+- Purpose: support player-chosen scrambles, make 3x3 play mode more cube-first, and document admin testing plus future scramble/solver-memory systems.
+- Added: chosen-scramble input on the tracked 3x3 challenge panel. Save/send now uses the scramble currently loaded on the cube.
+- Added: collapsed admin/test tracking overrides for reported moves, undo uses, touch moves, button moves, and solved status. Replay metadata preserves both actual and reported metrics and marks override records as test data.
+- Updated: `/play/3x3` now uses the focus layout so the cube takes most of the screen and controls remain collapsible.
+- Updated: `/solve` now shows planned Solver Memory for logged-in and paid users, without marking the database-backed system complete.
+- Documentation: updated roadmap, social/multiplayer, cube-engine, architecture, ADR 0002, and the next-steps checkpoint with scramble library/ranking and solver-memory requirements.
+- Data status: no new production migration was added. Future work still needs explicit `scrambles`, `scramble_attempts`, and solver-memory tables plus server-side authorization and retention rules.
+- Testing: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes (30 app routes).
+- Deployment status: local code/docs update only until pushed and deployed.
+
 ## 2026-07-22 — Add tracked 3x3 leaderboard challenge prototype
 
 - Branch: `claude/home-page-html-rebuild-q7qomi`.

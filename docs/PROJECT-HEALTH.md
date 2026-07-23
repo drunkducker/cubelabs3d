@@ -21,6 +21,7 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | Pyraminx | Strong | Playable engine and solver with documented interaction and correctness work |
 | Social challenges | Prototype | Tracked 3x3 account-to-account challenge prototype exists on the preview branch; secure production validation is incomplete |
 | Leaderboards and multiplayer | Prototype | Mobile `/leaderboard` visual prototype and 3x3 challenge entry exist; production ranking services are not complete |
+| Scramble library and solver memory | Planned | Chosen-scramble prototype exists; durable ranked scrambles and paid/logged-in solver memory need schema and services |
 | Admin portal | Planned | Requirements documented; implementation not complete |
 | Ads and affiliates | Planned | Architecture documented; managed production system not complete |
 | Camera scanner | Not started/early | No verified production scanner |
@@ -37,6 +38,7 @@ These figures reflect roadmap maturity, not lines of code:
 - Puzzle engine foundation: **approximately 75%**
 - Solver program across all intended puzzles: **approximately 40%**
 - Social and competition: **approximately 25%**
+- Scramble library and solver memory: **approximately 10%**
 - Admin and monetization: **approximately 10%**
 - Scanner and machine vision: **approximately 5%**
 - Overall product vision: **approximately 45–55%**
@@ -47,8 +49,10 @@ These figures reflect roadmap maturity, not lines of code:
 2. Solver labels may overstate what arbitrary-state input and verification actually support.
 3. Authentication email delivery and recovery may work inconsistently until SES and Supabase configuration are documented and retested.
 4. Social challenge prototypes currently need secure, versioned server persistence, explicit tracking columns, and validation.
-5. Large-cube performance needs repeatable real-phone budgets and regression checks.
-6. Documentation can become stale unless every feature closes the code/test/docs/changelog loop.
+5. Admin/test override data must never leak into public rankings without explicit test display mode.
+6. Paid-user solver memory needs server-side entitlement checks and user-data export/delete handling.
+7. Large-cube performance needs repeatable real-phone budgets and regression checks.
+8. Documentation can become stale unless every feature closes the code/test/docs/changelog loop.
 
 ## Immediate health priorities
 

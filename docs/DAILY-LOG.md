@@ -2,6 +2,46 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Chosen scrambles, admin overrides, and solver memory requirements
+
+**Checked**
+
+- [x] Re-read the Supabase safety guidance because the requested work touches challenge records, future ranking tables, and paid/logged-in saved state.
+- [x] Supabase current-doc fetch remained blocked, so no unverified production schema/RLS changes were added.
+
+**Completed**
+
+- [x] Added chosen-scramble loading to the tracked 3x3 challenge panel.
+- [x] Save/send now uses the scramble currently loaded on the cube, including a player-chosen scramble.
+- [x] Added collapsed admin/test overrides for reported moves, undo uses, touch moves, button moves, and solved status.
+- [x] Replay metadata now keeps actual metrics, reported metrics, manual override flags, and test-data flags.
+- [x] Changed `/play/3x3` to the focus layout so the cube takes most of the screen and controls stay collapsible.
+- [x] Added a planned Solver Memory card on `/solve` for logged-in and paid-user saved solver history.
+- [x] Updated roadmap/social/cube-engine/architecture/ADR/checkpoint docs for scramble databases, ranked scramble attempts, and solver memory.
+
+**In progress**
+
+- [~] Scramble library/ranking remains planned: needs `scrambles`, `scramble_attempts`, validation, and leaderboard filtering.
+- [~] Solver memory remains planned: needs saved-state schema, services, paid retention rules, privacy/export/delete, and UI.
+
+**Blocked or unverified**
+
+- [ ] No production database migration added for scramble library or solver memory.
+- [ ] No real mobile browser QA recorded.
+- [ ] End-to-end Supabase save/send/accept still needs two-account testing.
+
+**Next priorities**
+
+1. Deploy and mobile-test `/play/3x3` and `/leaderboard/3x3/play`.
+2. Design the scramble and solver-memory migrations with RLS before production use.
+
+**Commits / deployments / rollback notes**
+
+- Test: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes, 30 app routes.
+- Deployment: not confirmed until this follow-up is pushed and Vercel reports Ready.
+
+---
+
 ## 2026-07-22 — Tracked 3x3 leaderboard challenge prototype
 
 **Checked**

@@ -77,6 +77,8 @@ The platform is expected to contain ordinary PostgreSQL tables for:
 - solves and solve statistics;
 - friendships and friend requests;
 - challenges and challenge attempts;
+- reusable scrambles and scramble attempts;
+- saved solver snapshots and cube-state memory;
 - leaderboard entries and ranking snapshots;
 - achievements and collections;
 - notifications and activity;

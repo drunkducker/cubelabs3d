@@ -10,11 +10,11 @@ export default function PlayThreeByThreePage() {
   return (
     <NxNCubeGame
       size={3}
-      variant="full"
+      variant="focus"
       challengeMode={{
         kind: "free-play",
         title: "3x3 Tracked Play",
-        subtitle: "Scramble, solve, save a tracked result, or send the scramble to another Cube Labs account.",
+        subtitle: "Generate or choose a scramble, solve it, save the tracked result, or send that exact scramble to another Cube Labs account.",
       }}
     />
   );
