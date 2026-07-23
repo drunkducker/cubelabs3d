@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { DAILY_3X3_SCRAMBLE, DAILY_3X3_SOLVERS } from "@/lib/daily-challenge";
 
 type Card = { title: string; subtitle?: string; meta?: string; accent: string; art: string; sponsored?: boolean };
 type Rail = { title: string; icon: string; accent: string; cards: Card[] };
@@ -75,7 +76,7 @@ function RailSection({ rail }: { rail: Rail }) {
 }
 
 function DailyChallenge() {
-  return <section className="mt-4 rounded-[20px] border border-white/10 bg-black/20 p-3"><div className="mb-3 flex items-center justify-between"><h2 className="text-[14px] font-extrabold tracking-wide text-white"><span className="mr-2">🏆</span>DAILY CHALLENGE</h2><Link href="/leaderboard" className="text-xs font-semibold text-yellow-300">View Leaderboard ›</Link></div><div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0b111d] p-3 sm:grid-cols-[1fr_auto] sm:items-center"><div className="flex items-center gap-3"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white via-red-500 to-green-500 text-xl font-black text-black shadow-lg">3×3</div><div><p className="text-xs text-white/70">Today's Scramble</p><p className="mt-1 font-mono text-sm font-bold text-white">F R U R' U' F' U R U' R' F R2 U'</p><p className="mt-2 text-xs font-semibold text-lime-400">Your Best: 00:25.34</p><p className="text-xs font-semibold text-purple-400">Global Best: 00:04.35</p></div></div><div><button type="button" className="w-full rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-3 font-extrabold text-black">🏆 Start Challenge</button><p className="mt-2 text-center text-[10px] text-white/60">Solvers Today: 12,458</p></div></div></section>;
+  return <section className="mt-4 rounded-[20px] border border-white/10 bg-black/20 p-3"><div className="mb-3 flex items-center justify-between"><h2 className="text-[14px] font-extrabold tracking-wide text-white"><span className="mr-2">🏆</span>DAILY CHALLENGE</h2><Link href="/leaderboard" className="text-xs font-semibold text-yellow-300">View Leaderboard ›</Link></div><div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0b111d] p-3 sm:grid-cols-[1fr_auto] sm:items-center"><div className="flex items-center gap-3"><div className="grid h-20 w-20 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-white via-red-500 to-green-500 text-xl font-black text-black shadow-lg">3×3</div><div><p className="text-xs text-white/70">Today's Scramble</p><p className="mt-1 font-mono text-sm font-bold text-white">{DAILY_3X3_SCRAMBLE}</p><p className="mt-2 text-xs font-semibold text-lime-400">Your Best: 00:25.34</p><p className="text-xs font-semibold text-purple-400">Global Best: 00:04.35</p></div></div><div><Link href="/leaderboard/3x3/play" className="block w-full rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 px-5 py-3 text-center font-extrabold text-black">🏆 Start Challenge</Link><p className="mt-2 text-center text-[10px] text-white/60">Solvers Today: {DAILY_3X3_SOLVERS}</p></div></div></section>;
 }
 
 const learn = ["Beginner", "CFOP", "Roux", "ZZ", "One-Handed", "Blindfold"];

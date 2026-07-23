@@ -100,16 +100,19 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [x] Permanent social and multiplayer architecture consolidated
 - [~] Cube ID/profile foundation
 - [~] Mobile `/leaderboard` visual prototype on `claude/home-page-html-rebuild-q7qomi` (preview/test data only; production ranking service incomplete)
+- [~] Tracked 3x3 leaderboard challenge prototype on `claude/home-page-html-rebuild-q7qomi` (`/leaderboard/3x3/play`, `/challenge/[id]`, `/profile/challenges`; build-verified, production verification pending)
 - [~] Local social challenge prototype on `feature/social-challenges-foundation`
 - [~] Community, create-challenge, challenge-attempt, rematch, and browser-persistence prototype
 - [ ] Reconcile the prototype branch with current `main`
 - [ ] Versioned renderer-independent puzzle-state contract
 - [ ] Friends and friend requests
-- [ ] Secure shareable pre-scrambled challenge links
+- [~] Signed-in account-to-account pre-scrambled challenge links
+- [ ] Secure public/guest shareable pre-scrambled challenge links
 - [ ] Solved/unsolved challenge modes
 - [ ] Guest challenge attempts
 - [ ] Server-side challenge validation and result recording
-- [ ] Daily shared scramble
+- [~] Daily shared 3x3 scramble wired to homepage and leaderboard challenge prototype
+- [ ] Production daily shared scramble service
 - [ ] Personal and global leaderboards
 - [ ] Anti-cheat and suspicious-result review
 - [ ] Ghost races

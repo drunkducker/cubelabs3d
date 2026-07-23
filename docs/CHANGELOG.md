@@ -2,6 +2,20 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Add tracked 3x3 leaderboard challenge prototype
+
+- Branch: `claude/home-page-html-rebuild-q7qomi`.
+- Time: 2026-07-22 20:26 EDT.
+- Purpose: make the leaderboard lead into a playable tracked 3x3 attempt that can save a result and send the same scramble to another Cube Labs account.
+- Added: `/leaderboard/3x3/play`, `/play/3x3`, `/challenge/[id]`, `/profile/challenges`, `app/api/challenges`, `app/api/challenges/[id]/attempt`, `app/lib/challenge-service.ts`, and shared daily challenge constants.
+- Updated: `app/NxNCubeGame.tsx` now has 3x3 challenge mode with official scramble loading, elapsed time, move count, touch/button move tracking, undo count, replay metadata, manual test/admin complete-time override, save result, and send-to-account controls.
+- Wiring: homepage Daily Challenge "Start Challenge" and the leaderboard CTA now route to `/leaderboard/3x3/play`; `/play/3x3` now exists for the shared bottom nav.
+- Data status: solve results are saved through the existing `solve_results` table. Sent challenges use the existing `challenges` table from `20260722_cube_id_platform.sql`. Manual time overrides are marked in `replay_data` as `is_test_data` / `manual_time_override`; a future migration should add explicit top-level test/assistance columns before public ranking.
+- Testing: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes (30 app routes).
+- Deployment status: coded and build-verified locally; live Vercel deployment and real mobile QA are not confirmed.
+- Known issues: no production anti-cheat, no server-side cube-state validation, no real friend picker, no public leaderboard ranking service, exact-recipient lookup only, and production use requires the existing Cube ID/challenges migration to be run.
+- Rollback: remove the new challenge routes/API/service/shared constants, revert `app/NxNCubeGame.tsx`, `components/EcosystemSections.tsx`, and `app/leaderboard/page.tsx`, then remove this documentation entry.
+
 ## 2026-07-22 — Add mobile leaderboard visual prototype
 
 - Branch: `claude/home-page-html-rebuild-q7qomi` preview/deployment worktree at `388fa85`.

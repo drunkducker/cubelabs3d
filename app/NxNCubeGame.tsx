@@ -8,11 +8,22 @@ import SiteHeader from "@/components/SiteHeader";
 
 type Axis = "x" | "y" | "z";
 type Direction = 1 | -1;
-type Move = { axis: Axis; layer: number; direction: Direction; label: string; record?: boolean };
+type MoveSource = "touch" | "button" | "system";
+type Move = { axis: Axis; layer: number; direction: Direction; label: string; record?: boolean; source?: MoveSource };
 type Cubie = { mesh: THREE.Group; grid: THREE.Vector3; home: THREE.Vector3 };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; cubie: Cubie; normal: THREE.Vector3 };
 type ViewMode = "turn" | "move";
 type Gesture = { axis: Axis; layer: number; direction: Direction };
+type MoveLogEntry = { label: string; source: MoveSource; at_ms: number };
+type ChallengeMode = {
+  kind: "leaderboard-daily" | "direct-challenge" | "free-play";
+  title: string;
+  subtitle: string;
+  officialScramble?: string;
+  challengeId?: string;
+  opponentName?: string;
+  opponentTimeMs?: number | null;
+};
 
 const COLORS = { R: "#e52b3d", L: "#ff7a00", U: "#f5f1e8", D: "#ffd500", F: "#00a85a", B: "#1557d5", I: "#111319" };
 const axisVector = (axis: Axis) => axis === "x" ? new THREE.Vector3(1,0,0) : axis === "y" ? new THREE.Vector3(0,1,0) : new THREE.Vector3(0,0,1);
@@ -31,10 +42,29 @@ function formatElapsed(ms: number) {
   return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
 }
 
-export default function NxNCubeGame({ size=10, variant="full" }: { size?:number; variant?: "full" | "focus" }) {
+function parseTimeInput(value: string) {
+  const input = value.trim();
+  if (!input) return null;
+  const parts = input.split(":");
+  const secondsText = parts.pop();
+  const minutes = parts.length ? Number(parts.join(":")) : 0;
+  const seconds = Number(secondsText);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0) return null;
+  return Math.round((minutes * 60 + seconds) * 1000);
+}
+
+export default function NxNCubeGame({
+  size=10,
+  variant="full",
+  challengeMode,
+}: {
+  size?:number;
+  variant?: "full" | "focus";
+  challengeMode?: ChallengeMode;
+}) {
   const mountRef=useRef<HTMLDivElement>(null);
   const actionsRef=useRef<{
-    turn:(move:Move)=>void; scramble:()=>void; undo:()=>void; resetCube:()=>void; resetView:()=>void; setViewMode:(mode:ViewMode)=>void;
+    turn:(move:Move)=>void; scramble:()=>void; applyScramble:(sequence:string)=>void; undo:()=>void; resetCube:()=>void; resetView:()=>void; setViewMode:(mode:ViewMode)=>void;
   }|null>(null);
   const [busy,setBusy]=useState(false);
   const [status,setStatus]=useState(`${size}×${size} ready`);
@@ -44,6 +74,31 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
   const [isSolvedNow,setIsSolvedNow]=useState(true);
   const [scrambleSequence,setScrambleSequence]=useState("");
   const [elapsedMs,setElapsedMs]=useState(0);
+  const [attemptStarted,setAttemptStarted]=useState(false);
+  const [touchMoves,setTouchMoves]=useState(0);
+  const [buttonMoves,setButtonMoves]=useState(0);
+  const [undoUses,setUndoUses]=useState(0);
+  const [moveLog,setMoveLog]=useState<MoveLogEntry[]>([]);
+  const [manualTime,setManualTime]=useState("");
+  const [recipient,setRecipient]=useState("");
+  const [sendMessage,setSendMessage]=useState("");
+  const [submitStatus,setSubmitStatus]=useState("");
+  const [savedSolveId,setSavedSolveId]=useState("");
+  const [challengeLink,setChallengeLink]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const trackingEnabled=Boolean(challengeMode)&&size===3;
+
+  const resetTrackingState=()=>{
+    setAttemptStarted(false);
+    setTouchMoves(0);
+    setButtonMoves(0);
+    setUndoUses(0);
+    setMoveLog([]);
+    setManualTime("");
+    setSubmitStatus("");
+    setSavedSolveId("");
+    setChallengeLink("");
+  };
 
   // Same single-long-lived-interval-plus-refs timer as app/PyraminxGame.tsx
   // (see CUBE-ENGINE-NOTES.md) — start/stop/reset are plain functions over
@@ -234,18 +289,34 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         // move count and undo stack, since it isn't the player's own
         // solving effort (mirrors app/PyraminxGame.tsx's scramble/undo
         // model; see CUBE-ENGINE-NOTES.md).
-        if(move.record!==false) history.push({...move,record:true});
+        if(move.record!==false) {
+          const source=move.source??"touch";
+          const elapsedNow=segmentStartRef.current===null
+            ? accumulatedMsRef.current
+            : accumulatedMsRef.current+(performance.now()-segmentStartRef.current);
+          history.push({...move,record:true,source});
+          if(source==="button") setButtonMoves(value=>value+1);
+          if(source==="touch") setTouchMoves(value=>value+1);
+          setMoveLog(previous=>[...previous,{label:move.label,source,at_ms:Math.round(elapsedNow)}].slice(-300));
+        }
         setCanUndo(history.length>0); setMoves(history.length);
         const solvedNow=isSolved();
         setIsSolvedNow(solvedNow);
         setStatus(solvedNow?"Solved!":`${move.label} complete`);
-        if(solvedNow) stopTimer(); else startTimer();
+        if(solvedNow) stopTimer(); else if(move.record!==false) startTimer();
         active=false; setBusy(queue.length>0); runNext();
       };
       moveFrame=requestAnimationFrame(animate);
     };
 
-    const turn=(move:Move)=>{ queue.push({...move,record:move.record!==false}); runNext(); };
+    const turn=(move:Move)=>{
+      if(move.record!==false) {
+        setAttemptStarted(true);
+        if(!isSolved()) startTimer();
+      }
+      queue.push({...move,record:move.record!==false,source:move.source??"touch"});
+      runNext();
+    };
     // Scramble picks from EVERY layer along every axis, not just the six
     // outermost faces (R/L/U/D/F/B). The original version only ever queued
     // outer-layer turns, so on a 4x4+ cube the inner slices — most of a
@@ -261,6 +332,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
     const axes:Axis[]=["x","y","z"];
     const scramble=()=>{
       if(active) return;
+      resetTrackingState();
       let lastAxis:Axis|null=null,lastLayer:number|null=null;
       const moveCount=Math.max(16,size*4);
       const labels:string[]=[];
@@ -280,20 +352,53 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         // record:false — matches app/PyraminxGame.tsx: scramble moves don't
         // count toward the player's move total and aren't individually
         // undoable, so undo can't be used to unscramble one move at a time.
-        queue.push({axis,layer,direction,label,record:false});
+        queue.push({axis,layer,direction,label,record:false,source:"system"});
       }
       setScrambleSequence(labels.join(" "));
       setStatus(`Scrambling ${size}×${size}…`);
       history.length=0; setCanUndo(false); setMoves(0);
-      resetTimer(); startTimer();
+      setAttemptStarted(true);
+      resetTimer();
       runNext();
     };
-    const undo=()=>{ if(active||queue.length||!history.length) return; const previous=history.pop()!; setCanUndo(history.length>0); setMoves(history.length); queue.push({axis:previous.axis,layer:previous.layer,direction:(previous.direction*-1) as Direction,label:`Undo ${previous.label}`,record:false}); runNext(); };
+    const applyScramble=(sequence:string)=>{
+      if(active) return;
+      const tokens=sequence.trim().split(/\s+/).filter(Boolean);
+      if(!tokens.length) return;
+      queue.length=0; history.length=0; clearHighlight();
+      cubies.forEach(c=>{c.mesh.position.copy(c.home);c.mesh.quaternion.identity();c.grid.copy(c.home);});
+      resetTrackingState();
+      setCanUndo(false); setMoves(0); setIsSolvedNow(false);
+      const baseMoves:Record<string,Move>={
+        R:{axis:"x",layer:edge,direction:-1,label:"R",source:"system"},
+        L:{axis:"x",layer:-edge,direction:1,label:"L",source:"system"},
+        U:{axis:"y",layer:edge,direction:-1,label:"U",source:"system"},
+        D:{axis:"y",layer:-edge,direction:1,label:"D",source:"system"},
+        F:{axis:"z",layer:edge,direction:-1,label:"F",source:"system"},
+        B:{axis:"z",layer:-edge,direction:1,label:"B",source:"system"},
+      };
+      tokens.forEach(token=>{
+        const face=token[0]?.toUpperCase();
+        const base=baseMoves[face];
+        if(!base) return;
+        const turns=token.includes("2")?2:1;
+        const prime=token.includes("'")||token.includes("′");
+        const direction=(base.direction*(prime?-1:1)) as Direction;
+        for(let i=0;i<turns;i++) queue.push({...base,direction,label:token,record:false,source:"system"});
+      });
+      setScrambleSequence(sequence);
+      setStatus("Loading official scramble…");
+      setAttemptStarted(true);
+      resetTimer();
+      runNext();
+    };
+    const undo=()=>{ if(active||queue.length||!history.length) return; const previous=history.pop()!; setUndoUses(value=>value+1); setCanUndo(history.length>0); setMoves(history.length); queue.push({axis:previous.axis,layer:previous.layer,direction:(previous.direction*-1) as Direction,label:`Undo ${previous.label}`,record:false,source:"system"}); runNext(); };
     const resetCube=()=>{
       if(active||isSolved()) return;
       queue.length=0; history.length=0; clearHighlight();
       cubies.forEach(c=>{c.mesh.position.copy(c.home);c.mesh.quaternion.identity();c.grid.copy(c.home);});
       setCanUndo(false); setMoves(0); setScrambleSequence("");
+      resetTrackingState();
       stopTimer(); resetTimer();
       setIsSolvedNow(true);
       setStatus(`${size}×${size} reset`);
@@ -309,7 +414,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       renderer.domElement.style.cursor=mode==="move"?"grab":"default";
       setStatus(mode==="move"?"Move mode: drag the cube anywhere":"Turn mode: swipe stickers to move layers");
     };
-    actionsRef.current={turn,scramble,undo,resetCube,resetView,setViewMode:setMode};
+    actionsRef.current={turn,scramble,applyScramble,undo,resetCube,resetView,setViewMode:setMode};
 
     const setPointerFromEvent=(event:PointerEvent)=>{ const rect=renderer.domElement.getBoundingClientRect(); pointer.x=((event.clientX-rect.left)/rect.width)*2-1; pointer.y=-((event.clientY-rect.top)/rect.height)*2+1; raycaster.setFromCamera(pointer,camera); };
     const projectedScreenDirection=(worldDirection:THREE.Vector3)=>{ const origin=new THREE.Vector3(0,0,0).project(camera); const endpoint=worldDirection.clone().project(camera); return new THREE.Vector2(endpoint.x-origin.x,-(endpoint.y-origin.y)).normalize(); };
@@ -350,7 +455,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       if(!pointerStart||event.pointerId!==pointerStart.pointerId){ if(activePointers===0) controls.enabled=true; return; }
       const start=pointerStart; pointerStart=null;
       const dx=event.clientX-start.clientX,dy=event.clientY-start.clientY;
-      if(Math.hypot(dx,dy)>=34&&!active){ const g=previewGesture??resolveGesture(start,dx,dy); turn({...g,label:moveLabel(g.axis,g.layer,edge,g.direction)}); }
+      if(Math.hypot(dx,dy)>=34&&!active){ const g=previewGesture??resolveGesture(start,dx,dy); turn({...g,label:moveLabel(g.axis,g.layer,edge,g.direction),source:"touch"}); }
       else { clearHighlight(); setStatus(isSolved()?"Solved!":`${size}×${size} ready`); }
       controls.enabled=activePointers===0;
     };
@@ -387,6 +492,172 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
   const description=isPlayableCore
     ?"Swipe stickers first. Buttons stay tucked away for backup moves, undo, scramble, and view control."
     :"Swipe exact layers, rotate the cube, or switch to Move mode to position it anywhere inside the viewport.";
+  const manualMs=manualTime.trim()?parseTimeInput(manualTime):null;
+  const manualTimeInvalid=Boolean(manualTime.trim())&&manualMs===null;
+  const reportedMs=manualMs??Math.round(elapsedMs);
+  const canSubmitAttempt=trackingEnabled&&attemptStarted&&scrambleSequence.length>0&&(isSolvedNow||manualMs!==null)&&!manualTimeInvalid;
+
+  const submitAttempt=async(intent:"save"|"send")=>{
+    if(!trackingEnabled||!challengeMode) return;
+    if(!scrambleSequence) { setSubmitStatus("Load a scramble before saving a result."); return; }
+    if(manualTimeInvalid) { setSubmitStatus("Use seconds like 25.34 or clock time like 1:12.50."); return; }
+    if(!isSolvedNow&&manualMs===null) { setSubmitStatus("Solve the cube or enter a test complete time first."); return; }
+    if(intent==="send"&&!recipient.trim()) { setSubmitStatus("Enter the other account's Cube Tag, username, or public slug."); return; }
+
+    setSubmitting(true);
+    setSubmitStatus(intent==="send"?"Saving result, then creating challenge…":"Saving result…");
+    setChallengeLink("");
+
+    /*
+     * Replay metadata is the prototype tracking envelope. It keeps the exact
+     * client-side evidence for this attempt without pretending these fields
+     * are production leaderboard columns yet. Manual/admin complete-time
+     * entries are flagged here so future getLeaderboard() work can exclude
+     * them by default while still letting the owner test win/loss flows.
+     */
+    const replayData={
+      schema_version:1,
+      source:challengeMode.kind,
+      challenge_id:challengeMode.challengeId??null,
+      official_scramble:challengeMode.officialScramble??null,
+      client_elapsed_ms:Math.round(elapsedMs),
+      reported_time_ms:reportedMs,
+      solved_on_cube:isSolvedNow,
+      is_test_data:manualMs!==null,
+      manual_time_override:manualMs!==null,
+      assistance_flags:{
+        undo_uses:undoUses,
+        extra_button_moves:buttonMoves,
+        touch_moves:touchMoves,
+      },
+      move_history:moveLog,
+    };
+
+    try {
+      const saveResponse=await fetch(
+        challengeMode.challengeId?`/api/challenges/${challengeMode.challengeId}/attempt`:"/api/solves",
+        {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            puzzle_type:"3x3",
+            scramble:scrambleSequence,
+            solve_time_ms:reportedMs,
+            move_count:moves,
+            solved:true,
+            is_dnf:false,
+            replay_data:replayData,
+          }),
+        },
+      );
+      const saveResult=await saveResponse.json();
+      if(!saveResponse.ok) throw new Error(saveResult.error||"Unable to save result.");
+      const solveId=saveResult.id||saveResult.solve_id;
+      if(solveId) setSavedSolveId(solveId);
+
+      if(intent==="send") {
+        const challengeResponse=await fetch("/api/challenges",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            recipient:recipient.trim(),
+            puzzle_type:"3x3",
+            scramble:scrambleSequence,
+            sender_solve_id:solveId,
+            sender_time_ms:reportedMs,
+            move_count:moves,
+            message:sendMessage.trim()||undefined,
+            replay_data:replayData,
+          }),
+        });
+        const challengeResult=await challengeResponse.json();
+        if(!challengeResponse.ok) throw new Error(challengeResult.error||"Unable to create challenge.");
+        const url=`${window.location.origin}/challenge/${challengeResult.id}`;
+        setChallengeLink(url);
+        setSubmitStatus(`Challenge sent to ${challengeResult.recipient_name||recipient.trim()}.`);
+      } else {
+        setSubmitStatus(challengeMode.challengeId?"Challenge attempt submitted.":"Solve saved to your account.");
+      }
+    } catch(error) {
+      setSubmitStatus(error instanceof Error?error.message:"Unable to save this attempt.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const challengePanel=trackingEnabled&&challengeMode ? <section className="glass mt-3 rounded-[18px] p-4">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <p className="text-[11px] font-extrabold uppercase tracking-[.16em] text-[var(--green)]">{challengeMode.kind==="leaderboard-daily"?"Leaderboard run":"Challenge run"}</p>
+        <h2 className="mt-1 text-xl font-black text-white">{challengeMode.title}</h2>
+        <p className="mt-1 text-sm leading-5 text-[var(--muted)]">{challengeMode.subtitle}</p>
+      </div>
+      {challengeMode.opponentTimeMs ? <div className="rounded-xl border border-[rgba(245,185,66,.35)] bg-[rgba(245,185,66,.08)] px-3 py-2 text-right">
+        <p className="text-[10px] font-black uppercase tracking-wide text-[var(--gold)]">Target</p>
+        <p className="font-mono text-sm font-black text-white">{formatElapsed(challengeMode.opponentTimeMs)}</p>
+      </div> : null}
+    </div>
+
+    <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Time</p><p className="mt-1 font-mono text-lg font-black">{formatElapsed(reportedMs)}</p></div>
+      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Moves</p><p className="mt-1 text-lg font-black">{moves}</p></div>
+      <div className="rounded-xl border border-[var(--border)] bg-black/20 px-2 py-3"><p className="text-[10px] font-bold text-[var(--muted)]">Undo</p><p className="mt-1 text-lg font-black">{undoUses}</p></div>
+    </div>
+
+    <div className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 p-3">
+      <p className="text-[10px] font-black uppercase tracking-[.14em] text-[var(--muted)]">Official start state</p>
+      <p className="mt-2 min-h-6 break-words font-mono text-xs leading-5 text-white">{challengeMode.officialScramble||scrambleSequence||"Use a scramble before recording a leaderboard run."}</p>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={()=>challengeMode.officialScramble?actionsRef.current?.applyScramble(challengeMode.officialScramble):actionsRef.current?.scramble()}
+        className="cta-green mt-3 min-h-11 w-full rounded-xl font-black disabled:opacity-40"
+      >
+        {challengeMode.officialScramble?"Load Official Scramble":"Generate Scramble"}
+      </button>
+    </div>
+
+    <label className="mt-3 block text-xs font-black text-[var(--muted)]">
+      Test/admin complete time
+      <input
+        value={manualTime}
+        onChange={(event)=>setManualTime(event.target.value)}
+        placeholder="25.34 or 1:12.50"
+        className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 font-mono text-sm font-bold text-white outline-none"
+      />
+    </label>
+    <p className={["mt-2 text-[11px] leading-5",manualTimeInvalid?"text-red-300":"text-[var(--muted)]"].join(" ")}>
+      Manual times are saved as test/admin-tracked data in replay metadata, not clean public leaderboard proof.
+    </p>
+
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      <button type="button" disabled={!canSubmitAttempt||submitting} onClick={()=>submitAttempt("save")} className="cta-blue min-h-12 rounded-xl font-black disabled:opacity-40">
+        {challengeMode.challengeId?"Submit Attempt":"Save Result"}
+      </button>
+      {!challengeMode.challengeId ? <Link href="/profile/challenges" className="glass grid min-h-12 place-items-center rounded-xl text-center text-sm font-black">Inbox</Link> : <Link href="/profile/challenges" className="glass grid min-h-12 place-items-center rounded-xl text-center text-sm font-black">My Challenges</Link>}
+    </div>
+
+    {!challengeMode.challengeId ? <div className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 p-3">
+      <p className="text-sm font-black text-white">Send to another account</p>
+      <input
+        value={recipient}
+        onChange={(event)=>setRecipient(event.target.value)}
+        placeholder="CubeTag#1234, username, or public slug"
+        className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 text-sm font-bold text-white outline-none"
+      />
+      <input
+        value={sendMessage}
+        onChange={(event)=>setSendMessage(event.target.value)}
+        placeholder="Optional dare message"
+        className="mt-2 min-h-12 w-full rounded-xl border border-[var(--border)] bg-black/30 px-3 text-sm font-bold text-white outline-none"
+      />
+      <button type="button" disabled={!canSubmitAttempt||submitting} onClick={()=>submitAttempt("send")} className="cta-purple mt-2 min-h-12 w-full rounded-xl font-black disabled:opacity-40">Save + Send Challenge</button>
+    </div> : null}
+
+    {submitStatus ? <p className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 p-3 text-sm font-bold text-[var(--muted)]">{submitStatus}</p> : null}
+    {savedSolveId ? <p className="mt-2 break-all text-[11px] text-[var(--faint)]">Solve id: {savedSolveId}</p> : null}
+    {challengeLink ? <p className="mt-2 break-all text-xs font-bold text-[var(--green)]">Share link: {challengeLink}</p> : null}
+  </section> : null;
 
   if(variant==="focus") return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-4 pb-[calc(18px+env(safe-area-inset-bottom))] pt-[14px]">
     <div className="orb orb-a"/><div className="orb orb-b"/>
@@ -405,6 +676,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
         <div ref={mountRef} className={`${focusStageClass} w-full touch-none`}/>
         <div className="pointer-events-none absolute bottom-4 left-1/2 z-[4] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{status}</div>
       </section>
+      {challengePanel}
 
       <details className="glass mt-3 rounded-[18px] p-3">
         <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Controls if needed</summary>
@@ -413,7 +685,7 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
           <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Move Cube</button>
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2"><button disabled={busy} onClick={()=>actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button><button disabled={busy||!canUndo} onClick={()=>actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button><button onClick={()=>actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button></div>
-        <div className="mt-2 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+        <div className="mt-2 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn({...move,source:"button"})} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
         {scrambleSequence && <p className="mt-3 break-words text-xs leading-5 text-[var(--muted)]"><strong className="text-[var(--text)]">Scramble:</strong> {scrambleSequence}</p>}
       </details>
     </div>
@@ -438,11 +710,12 @@ export default function NxNCubeGame({ size=10, variant="full" }: { size?:number;
       </section>
 
       <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleSequence || "Tap Scramble to start a timed attempt."}</p></section>
+      {challengePanel}
 
       {isPlayableCore ? <details className="glass mt-3 rounded-[18px] p-3">
         <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Face buttons</summary>
-        <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
-      </details> : <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn(move)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>}
+        <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn({...move,source:"button"})} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
+      </details> : <div className="mt-3 grid grid-cols-3 gap-2">{Object.entries(faceMoves).map(([label,move])=><button key={label} disabled={busy||viewMode==="move"} onClick={()=>actionsRef.current?.turn({...move,source:"button"})} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>}
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button onClick={()=>changeMode("turn")} className={`${viewMode==="turn"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Turn Cube</button>
         <button onClick={()=>changeMode("move")} className={`${viewMode==="move"?"cta-purple":"glass"} min-h-12 rounded-xl font-extrabold`}>Move Cube</button>

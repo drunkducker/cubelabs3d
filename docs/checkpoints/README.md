@@ -6,6 +6,7 @@ Checkpoint files preserve what was believed, planned, or completed at a particul
 
 ## Known historical records to preserve
 
+- `2026-07-22-tracked-3x3-challenge-next-steps.md` — tracked 3x3 leaderboard challenge prototype handoff and production gap list.
 - `cubelabs3d-project-status.md` — July 20, 2026 early project and business checkpoint; now substantially outdated.
 - `PROJECT_STATUS_2026-07-21_0246.md` — July 21, 2026 at 02:46 checkpoint.
 - `CURRENT-SITE-STATE-2026-07-22.md` — July 22, 2026 branch, auth, and production-baseline checkpoint.

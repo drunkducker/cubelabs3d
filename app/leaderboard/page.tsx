@@ -323,10 +323,10 @@ function ClimbCard() {
           </p>
         </div>
         <Link
-          href="/solve"
+          href="/leaderboard/3x3/play"
           className="col-span-2 mt-4 inline-flex items-center justify-center gap-2 rounded-[8px] bg-[linear-gradient(95deg,var(--purple),var(--blue-2))] px-5 py-3 text-[15px] font-black text-white shadow-[0_0_24px_rgba(139,92,246,.35)] min-[390px]:col-span-1 min-[390px]:mt-0"
         >
-          Start Solving
+          Start 3x3
           <CubeIcon className="h-5 w-5" />
         </Link>
       </div>

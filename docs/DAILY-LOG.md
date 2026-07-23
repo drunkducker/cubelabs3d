@@ -2,6 +2,53 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-22 — Tracked 3x3 leaderboard challenge prototype
+
+**Checked**
+
+- [x] Read the documentation index, constitution, architecture, AI instructions, social/multiplayer plan, changelog, and ADR 0001 before coding.
+- [x] Confirmed the active worktree is `claude/home-page-html-rebuild-q7qomi`.
+- [x] Confirmed the existing `challenges` table can support sender/recipient challenge rows, but does not yet have explicit top-level test-data or recipient-time columns.
+
+**Completed**
+
+- [x] Added `/leaderboard/3x3/play` as the mobile-first playable 3x3 leaderboard challenge.
+- [x] Added `/play/3x3` so the shared bottom nav Play route no longer dead-ends.
+- [x] Added `/challenge/[id]` for sent challenge attempts and `/profile/challenges` as a basic inbox.
+- [x] Added challenge API routes and a provider-isolated challenge service.
+- [x] Extended `app/NxNCubeGame.tsx` with 3x3 challenge tracking: official scramble loading, elapsed time, move count, touch/button move counts, undo count, replay metadata, save result, send-to-account, and manual test/admin time override.
+- [x] Wired homepage Daily Challenge "Start Challenge" and the leaderboard CTA to `/leaderboard/3x3/play`.
+
+**In progress**
+
+- [~] This is a coded, build-verified challenge prototype, not a production-trusted competition system.
+- [~] Manual time overrides are marked inside solve `replay_data`; public ranking still needs explicit schema columns, filtering, validation, and admin review.
+
+**Blocked or unverified**
+
+- [ ] Live Vercel deployment is not confirmed.
+- [ ] Real mobile browser QA is not recorded.
+- [ ] End-to-end Supabase challenge send/receive is not verified against production data.
+- [ ] Production use requires `20260722_cube_id_platform.sql` to be run because it creates the `challenges` table.
+
+**Next priorities**
+
+1. Browser-test `/leaderboard/3x3/play` on mobile.
+2. Sign in with two accounts and verify save/send/accept/submit against Supabase.
+3. Add explicit challenge/solve tracking columns for test data, assistance flags, recipient time, and validation status.
+4. Build the real `getLeaderboard()` service only after test-data exclusion and anti-cheat review exist.
+
+**Commits / deployments / rollback notes**
+
+- Branch/worktree: `claude/home-page-html-rebuild-q7qomi`.
+- Commit: not created in this session.
+- Deployment: local build verified only.
+- Test: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes, 30 app routes.
+- Known issues: no anti-cheat, no server-side cube-state validation, exact recipient lookup only, and no production leaderboard ranking service.
+- Rollback: remove the new challenge routes/API/service/shared constants and revert the NxN cube, homepage, leaderboard, and documentation edits from this entry.
+
+---
+
 ## 2026-07-22 — Leaderboard mobile prototype
 
 **Checked**

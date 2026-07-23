@@ -19,8 +19,8 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | 4×4 puzzle and solver | Developing | Arbitrary-state solver merged to `main`; correctness fixtures not yet added |
 | 5×5 puzzle and solver | Early | Interim reduced-state solver merged; full deterministic path still WIP on `claude/more-cubelabs-yuom1x` |
 | Pyraminx | Strong | Playable engine and solver with documented interaction and correctness work |
-| Social challenges | Prototype | Branch prototype exists; secure canonical integration is incomplete |
-| Leaderboards and multiplayer | Prototype | Mobile `/leaderboard` visual prototype exists; production ranking services are not complete |
+| Social challenges | Prototype | Tracked 3x3 account-to-account challenge prototype exists on the preview branch; secure production validation is incomplete |
+| Leaderboards and multiplayer | Prototype | Mobile `/leaderboard` visual prototype and 3x3 challenge entry exist; production ranking services are not complete |
 | Admin portal | Planned | Requirements documented; implementation not complete |
 | Ads and affiliates | Planned | Architecture documented; managed production system not complete |
 | Camera scanner | Not started/early | No verified production scanner |
@@ -36,7 +36,7 @@ These figures reflect roadmap maturity, not lines of code:
 - Authentication and Cube ID: **approximately 65%**
 - Puzzle engine foundation: **approximately 75%**
 - Solver program across all intended puzzles: **approximately 40%**
-- Social and competition: **approximately 20%**
+- Social and competition: **approximately 25%**
 - Admin and monetization: **approximately 10%**
 - Scanner and machine vision: **approximately 5%**
 - Overall product vision: **approximately 45–55%**
@@ -46,7 +46,7 @@ These figures reflect roadmap maturity, not lines of code:
 1. Merged-but-unverified work may be mistaken for production-complete: `/profile` and `/profile/mail` will error until both `20260722_*.sql` migrations are run in production.
 2. Solver labels may overstate what arbitrary-state input and verification actually support.
 3. Authentication email delivery and recovery may work inconsistently until SES and Supabase configuration are documented and retested.
-4. Social challenge prototypes currently need secure, versioned server persistence and validation.
+4. Social challenge prototypes currently need secure, versioned server persistence, explicit tracking columns, and validation.
 5. Large-cube performance needs repeatable real-phone budgets and regression checks.
 6. Documentation can become stale unless every feature closes the code/test/docs/changelog loop.
 
