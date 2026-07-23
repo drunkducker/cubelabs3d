@@ -10,10 +10,13 @@ import { adminCount, adminRequest, isAdminConfigured } from "./service-client";
 
 export type Metric = { value: number | null; available: boolean; note?: string };
 
+export type TrendPoint = { label: string; value: number };
+
 export type Overview = {
   configured: boolean;
   metrics: Record<string, Metric>;
   recentActions: Array<{ id: string; action: string; actor_role: string | null; target_type: string | null; success: boolean; created_at: string }>;
+  solveTrend: { available: boolean; points: TrendPoint[] };
 };
 
 function iso(daysAgo: number): string {
@@ -30,9 +33,34 @@ async function metric(pathWithFilters: string): Promise<Metric> {
   }
 }
 
+/*
+ * Real 7-day daily solve counts (production solves only). Seven bounded count
+ * queries — small and honest. Returns available:false if any bucket fails so we
+ * never chart fabricated data.
+ */
+async function getSolveTrend(): Promise<Overview["solveTrend"]> {
+  const days = 7;
+  const buckets = await Promise.all(
+    Array.from({ length: days }).map(async (_, i) => {
+      const start = new Date();
+      start.setUTCHours(0, 0, 0, 0);
+      start.setUTCDate(start.getUTCDate() - (days - 1 - i));
+      const end = new Date(start);
+      end.setUTCDate(end.getUTCDate() + 1);
+      const label = start.toLocaleDateString(undefined, { weekday: "short" });
+      const value = await adminCount(
+        `/rest/v1/solve_results?is_test=eq.false&created_at=gte.${start.toISOString()}&created_at=lt.${end.toISOString()}`,
+      ).catch(() => null);
+      return { label, value };
+    }),
+  );
+  if (buckets.some((b) => b.value === null)) return { available: false, points: [] };
+  return { available: true, points: buckets.map((b) => ({ label: b.label, value: b.value as number })) };
+}
+
 export async function getAdminOverview(): Promise<Overview> {
   if (!isAdminConfigured()) {
-    return { configured: false, metrics: {}, recentActions: [] };
+    return { configured: false, metrics: {}, recentActions: [], solveTrend: { available: false, points: [] } };
   }
 
   const [
@@ -72,8 +100,11 @@ export async function getAdminOverview(): Promise<Overview> {
     recentActions = [];
   }
 
+  const solveTrend = await getSolveTrend();
+
   return {
     configured: true,
+    solveTrend,
     metrics: {
       totalUsers,
       newUsers7d,

@@ -138,15 +138,18 @@ These rules keep this list trustworthy. Read them before checking any box.
 
 ## 7. Monetization
 
-> **2026-07-23:** Admin-side campaign/affiliate **management** (create, schedule,
-> publish, disclose) is coded as part of the admin portal (§6). The public-facing
-> render components (`AdSlot`, `ManagedCarousel`, `AffiliateProductCard`) and
-> impression/click tracking endpoints are still to build — items below stay `[ ]`.
+> **2026-07-23:** Admin-side management (create/schedule/publish/disclose) **and**
+> the public render components (`AdSlot`, `ManagedCarousel`, `AffiliateProductCard`)
+> + impression/click tracking (`/api/ads/track`, SECURITY DEFINER counters) are now
+> coded and build-verified (`claude/cubelabs-admin-dashboard-4pe35q`). Preview at
+> `/admin/ads/preview`. Remaining: wire the components into chosen public pages,
+> affiliate activation toggle + slide editor, conversion tracking. Items stay `[~]`
+> until applied + browser-verified in production.
 
 - [x] Ads and affiliate architecture documented
-- [ ] Managed ad slots outside gameplay controls
-- [ ] Banner and carousel campaigns
-- [ ] Amazon affiliate integration and disclosures
+- [~] Managed ad slots outside gameplay controls (`components/ads/AdSlot.tsx`; drop-in ready)
+- [~] Banner and carousel campaigns (`ManagedCarousel`; admin create/publish + public render)
+- [~] Amazon affiliate integration and disclosures (`AffiliateProductGrid`; tagged links + `rel="sponsored nofollow"` + disclosure)
 - [ ] Conversion tracking
 - [ ] Premium/no-ads plan
 - [ ] Theme or appearance packs

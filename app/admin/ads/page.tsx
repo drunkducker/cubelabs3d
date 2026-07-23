@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { requirePermission } from "@/lib/admin/auth";
 import { hasPermission } from "@/lib/admin/permissions";
 import { listRows } from "@/lib/admin/list";
 import { isAdminConfigured } from "@/lib/admin/service-client";
 import { Card, EmptyState, Notice, PageHeader, StatusPill } from "@/components/admin/ui";
+import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { createCampaign, setCampaignStatus } from "@/app/admin/actions/ads";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +34,11 @@ export default async function AdminAdsPage({ searchParams }: { searchParams: { m
 
   return (
     <div>
-      <PageHeader title="Ads & Campaigns" subtitle="Database-driven managed advertising. Content changes never require a deploy. Sponsored/affiliate content is always disclosed." />
+      <PageHeader
+        title="Ads & Campaigns"
+        subtitle="Database-driven managed advertising. Content changes never require a deploy. Sponsored/affiliate content is always disclosed."
+        action={<Link href="/admin/ads/preview" className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-extrabold">Live preview →</Link>}
+      />
       {searchParams.message && <div className="mb-4"><Notice tone="info">{searchParams.message}</Notice></div>}
       {searchParams.error && <div className="mb-4"><Notice tone="danger">{searchParams.error}</Notice></div>}
       {!configured && <div className="mb-4"><Notice tone="warning">Admin service not configured — campaign management disabled until the migration and service-role key are in place.</Notice></div>}
@@ -84,7 +90,7 @@ export default async function AdminAdsPage({ searchParams }: { searchParams: { m
                   <div className="flex flex-wrap gap-2">
                     {c.status !== "active" && canPublish && <StatusButton id={c.id} status="active" label="Publish" tone="bg-emerald-600 text-white" />}
                     {c.status === "active" && <StatusButton id={c.id} status="paused" label="Pause" tone="bg-amber-600 text-white" />}
-                    {c.status !== "archived" && <StatusButton id={c.id} status="archived" label="Archive" tone="border border-[var(--border)]" />}
+                    {c.status !== "archived" && <StatusButton id={c.id} status="archived" label="Archive" tone="border border-[var(--border)]" confirm />}
                   </div>
                 )}
               </div>
@@ -96,12 +102,23 @@ export default async function AdminAdsPage({ searchParams }: { searchParams: { m
   );
 }
 
-function StatusButton({ id, status, label, tone }: { id: string; status: string; label: string; tone: string }) {
+function StatusButton({ id, status, label, tone, confirm }: { id: string; status: string; label: string; tone: string; confirm?: boolean }) {
   return (
     <form action={setCampaignStatus}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="status" value={status} />
-      <button className={`min-h-[40px] rounded-xl px-3 text-sm font-extrabold ${tone}`}>{label}</button>
+      {confirm ? (
+        <ConfirmSubmit
+          label={label}
+          title={`Archive this campaign?`}
+          message="Archiving removes the campaign from all placements immediately. You can leave it archived or recreate it later."
+          confirmLabel="Archive campaign"
+          tone="primary"
+          className={`min-h-[40px] rounded-xl px-3 text-sm font-extrabold ${tone}`}
+        />
+      ) : (
+        <button className={`min-h-[40px] rounded-xl px-3 text-sm font-extrabold ${tone}`}>{label}</button>
+      )}
     </form>
   );
 }

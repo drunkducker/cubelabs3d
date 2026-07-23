@@ -2,6 +2,27 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-23 — Public ad rendering + admin polish + operator guide
+
+**Completed**
+
+- [x] Public render components: `AdSlot`, `AffiliateProductGrid`, `ManagedCarousel` (`components/ads/*`) + anon read layer `lib/ads/public.ts`. Fail soft; disclosures + `rel="sponsored nofollow"` enforced.
+- [x] Tracking: `/api/ads/track` beacon + `supabase/migrations/20260724_ad_rendering.sql` (SECURITY DEFINER counters, granted to anon).
+- [x] Owner live preview at `/admin/ads/preview` (mobile/desktop frames), linked from `/admin/ads`.
+- [x] Admin polish: dark-theme SVG charts (`components/admin/Charts.tsx`) + real 7-day solve trend on overview; accessible confirm dialog (`ConfirmSubmit`) on test-run cleanup and campaign archive.
+- [x] Operator how-to `docs/ADMIN-GUIDE.md` (Amazon affiliate links, ads, day-to-day); updated ADS-AFFILIATES/ROADMAP/CHANGELOG.
+
+**Verified**
+
+- `npx tsc --noEmit` clean; `npm run build` 39 routes; `npm test` 27/27; `npm run lint` exit 0.
+
+**Unverified (do not mark `[x]`)**
+
+- [ ] `20260724_ad_rendering.sql` not applied; components not yet placed on public pages (product decision); no browser verification.
+- [ ] Affiliate activation toggle + carousel slide editor UI still to build; rate limiting + admin 2FA still open.
+
+---
+
 ## 2026-07-23 — Admin dashboard platform (Phase 1–6 build)
 
 **Checked**

@@ -113,14 +113,29 @@ toggle once it ships.)
 
 ---
 
-## 5. What still needs building (honest gaps)
+## 5. Seeing your ads/affiliates on the site
 
-- **Public rendering of ads/affiliates** — the `AdSlot`, `ManagedCarousel`, and
-  `AffiliateProductCard` components that actually paint your entered content onto
-  the homepage/solver/leaderboard pages, plus impression/click tracking.
+Public rendering now exists. To preview exactly what visitors see, open
+**`/admin/ads/preview`** — it shows each placement in mobile and desktop frames
+using your live (published) content. Draft items stay invisible there, just like
+on the real site.
+
+To place content on an actual page, add the one-line component where you want it:
+- Banner: `<AdSlot placement="home_top_banner" />`
+- Affiliate grid: `<AffiliateProductGrid placement="solver_product_carousel" />`
+- Carousel: `<ManagedCarousel placement="home_carousel" />`
+
+They render nothing when no content is live, and every click is tracked
+(impressions/clicks show back in `/admin/ads`).
+
+## 6. What still needs building (honest gaps)
+
 - **Activation toggles** for affiliate products and a carousel slide editor
-  (reorder/preview) in the UI.
+  (reorder/preview) in the UI. (You can still activate a product by setting
+  `is_active = true` on the row today.)
+- Deciding **which** public pages get which placements (a product choice — the
+  components are ready to drop in).
 - **Rate limiting** on sensitive endpoints and admin 2FA.
-- Applying the migration + browser/RLS verification in production.
+- Applying the migrations + browser/RLS verification in production.
 
 See `ROADMAP.md` §6/§7 and `SECURITY.md` for the tracked list.

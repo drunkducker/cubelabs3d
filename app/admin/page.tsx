@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/admin/auth";
 import { getAdminOverview } from "@/lib/admin/overview";
 import { Card, MetricCard, Notice, PageHeader, StatusPill } from "@/components/admin/ui";
+import { BarChart, Donut } from "@/components/admin/Charts";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,32 @@ export default async function AdminOverviewPage() {
         <MetricCard label="Test-data solves" metric={m.testSolves ?? unavailable()} href="/admin/test-lab" />
       </section>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_.6fr]">
+        <Card>
+          <h2 className="mb-3 text-lg font-black">Solves — last 7 days</h2>
+          {overview.solveTrend.available ? (
+            <BarChart data={overview.solveTrend.points} label="Production solves per day, last 7 days" />
+          ) : (
+            <p className="py-8 text-center text-sm font-bold text-amber-400">Trend unavailable — apply the migration and configure the service-role key.</p>
+          )}
+        </Card>
+        <Card>
+          <h2 className="mb-3 text-lg font-black">Challenge completion</h2>
+          {m.challengesCreated?.available && m.challengesCompleted?.available ? (
+            <div className="flex items-center gap-4">
+              <Donut value={m.challengesCompleted.value ?? 0} total={m.challengesCreated.value ?? 0} label="Challenges completed" />
+              <div className="text-sm">
+                <p className="tabular-nums"><strong>{(m.challengesCompleted.value ?? 0).toLocaleString()}</strong> completed</p>
+                <p className="tabular-nums text-[var(--muted)]">of {(m.challengesCreated.value ?? 0).toLocaleString()} created</p>
+              </div>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm font-bold text-amber-400">Unavailable</p>
+          )}
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-lg font-black">Recent administrative actions</h2>
           {overview.recentActions.length === 0 ? (

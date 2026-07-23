@@ -3,6 +3,7 @@ import { hasPermission } from "@/lib/admin/permissions";
 import { listRows } from "@/lib/admin/list";
 import { isAdminConfigured } from "@/lib/admin/service-client";
 import { Card, EmptyState, Notice, PageHeader, StatusPill, TestBadge } from "@/components/admin/ui";
+import { ConfirmSubmit } from "@/components/admin/ConfirmSubmit";
 import { generateTestSolves, cleanupTestRun } from "@/app/admin/actions/test-lab";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +74,13 @@ export default async function TestLabPage({ searchParams }: { searchParams: { me
                 {canDelete && r.status === "active" && (
                   <form action={cleanupTestRun}>
                     <input type="hidden" name="run_id" value={r.id} />
-                    <button className="min-h-[40px] rounded-xl bg-rose-600 px-3 text-sm font-extrabold text-white">Clean up run</button>
+                    <ConfirmSubmit
+                      label="Clean up run"
+                      title="Delete this test run?"
+                      message={`This permanently deletes only the solves generated under "${r.name}". Real data is not affected. This cannot be undone.`}
+                      confirmLabel="Delete test data"
+                      className="min-h-[40px] rounded-xl bg-rose-600 px-3 text-sm font-extrabold text-white"
+                    />
                   </form>
                 )}
               </div>

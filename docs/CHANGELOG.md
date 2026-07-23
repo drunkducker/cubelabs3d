@@ -2,6 +2,16 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-23 — Public ad/affiliate rendering + admin dashboard polish
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- **Public rendering (closes the display gap):** `components/ads/AdSlot`, `AffiliateProductCard`/`AffiliateProductGrid`, `ManagedCarousel` render live managed content on any page via the anon key (RLS exposes only active/in-window rows); fail soft to null. `lib/ads/public.ts` is the read layer. Affiliate links use `rel="sponsored nofollow"` and always show a disclosure.
+- **Tracking:** `/api/ads/track` records impressions/clicks with `navigator.sendBeacon` → narrow SECURITY DEFINER RPCs (`bump_ad_impression`/`bump_ad_click`/`bump_affiliate_click`, `supabase/migrations/20260724_ad_rendering.sql`) that increment one counter on a live row and grant no other access.
+- **Owner preview:** `/admin/ads/preview` renders the real components per placement in mobile + desktop frames (linked from `/admin/ads`).
+- **Admin UI polish:** dependency-free dark-theme SVG charts (`components/admin/Charts.tsx` — Bar/Donut/Sparkline) on the overview with a real 7-day production-solve trend; accessible native-`<dialog>` confirm control (`ConfirmSubmit`) on destructive one-click actions (test-run cleanup, campaign archive). Chose hand-built charts over Tremor to avoid conflicting with the dark design system (Constitution §visual-frameworks).
+- **Docs:** added `ADMIN-GUIDE.md` (operator how-to: Amazon affiliate links, ads, day-to-day); updated `ADS-AFFILIATES.md`, `ROADMAP.md` §7, `ADMIN-GUIDE.md` gaps.
+- Testing: `tsc --noEmit` clean; `npm run build` passes (39 routes; adds `/admin/ads/preview`, `/api/ads/track`); `npm test` 27/27; lint exit 0. Not deployed; migrations not applied; not browser-verified.
+
 ## 2026-07-23 — Admin dashboard platform (coded, build-verified)
 
 - Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
