@@ -2,6 +2,20 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Add tracked scramble database and solver memory
+
+- Branch: `claude/home-page-html-rebuild-q7qomi`.
+- Purpose: promote chosen scrambles, challenge attempts, admin/test tracking, and solver memory from documented future work into the live Supabase schema and server APIs.
+- Added migration: `supabase/migrations/20260722_tracked_scrambles_solver_memory.sql`.
+- Added live tables: `scrambles`, `scramble_attempts`, and `solver_memories`.
+- Updated live tables: `solve_results`, `challenges`, and `challenge_attempts` now have explicit scramble IDs, leaderboard eligibility, test-data flags, manual override flags, actual/reported tracking metrics, and assistance flags.
+- Added API: `/api/solver-memory` for signed-in solver-state save/load.
+- Updated API/service: solve saves and challenge attempts now create/reuse scramble rows and write rankable `scramble_attempts` records instead of relying only on `replay_data`.
+- Security: RLS is enabled on new tables; solver memories are owner-only; public leaderboard reads are limited to `leaderboard_eligible` attempts; the old public executable profile trigger warning was fixed by revoking direct API execute.
+- Supabase advisors: security advisor now only reports leaked password protection disabled in Auth settings; performance advisor mostly reports expected unused-index notices on this new/low-data project.
+- Testing: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes (31 app routes).
+- Remaining work: wire individual solver pages to auto-save through `/api/solver-memory`, add billing-aware paid memory limits, and browser-test two-account challenge submission end to end.
+
 ## 2026-07-22 — Refine tracked 3x3 challenge controls
 
 - Branch: `claude/home-page-html-rebuild-q7qomi`.
