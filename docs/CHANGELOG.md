@@ -2,6 +2,18 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-22 — Add mobile profile dashboard layout
+
+- Branch: `gpt/mobile-profile-page-20260722`.
+- Purpose: rebuild `/profile` from the owner-provided mobile mockup while preserving the latest homepage, leaderboard, learn, and challenge work.
+- Updated: `/profile` now uses the compact Cube Labs app shell with branded header, profile hero, stat tiles, quick-action tabs, recent solves, favorite cubes, achievements, challenge invite, and a centered Play bottom nav.
+- Added: placeholder routes for `/profile/settings`, `/profile/solves`, `/profile/collection`, `/profile/achievements`, and `/profile/friends` so profile dashboard links no longer 404 during layout review.
+- Data status: `/profile` still reads the existing Supabase profile, solve, stats, collection, achievements, challenges, and friendship rows where available. Empty accounts use preview fallback rows for layout approval. Global rank remains a preview hook until the production leaderboard service exists.
+- Testing: `HOME=/tmp NPM_CONFIG_CACHE=/tmp/npm-cache npm run build` passes (36 app routes).
+- Deployment status: branch created for review; production deployment and real mobile QA are not confirmed.
+- Known issues: settings, solve history, collection, achievements, and friends pages are route shells only; final actions should be wired through app services after the profile layout is approved.
+- Rollback: revert the profile page replacement, remove `components/ProfilePlaceholderPage.tsx`, remove the new profile subroutes, and revert these documentation entries.
+
 ## 2026-07-22 — Add tracked scramble database and solver memory
 
 - Branch: `claude/home-page-html-rebuild-q7qomi`.
