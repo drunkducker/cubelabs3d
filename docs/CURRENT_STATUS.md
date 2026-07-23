@@ -93,8 +93,8 @@ Keep this table current. Every active branch must have a purpose and a merge sta
 - [x] Initial Cube ID/profile foundation
 - [x] Social and multiplayer architecture consolidated into a permanent document
 - [~] Mobile leaderboard visual prototype and tracked 3x3 challenge prototype exist on `claude/home-page-html-rebuild-q7qomi` (preview/WIP; build verified, production verification pending)
-- [~] Player-chosen scramble save/send and admin/test tracking overrides exist on the preview branch; public leaderboard filtering/schema still pending
-- [~] Solver Memory is visible as a planned solver-hub feature; logged-in/pay-user saved-state database is not implemented
+- [~] Player-chosen scramble save/send, reusable scramble database, ranked attempt rows, and admin/test tracking columns are implemented on the preview branch and applied in Supabase; two-account browser verification is still pending
+- [~] Solver Memory database and `/api/solver-memory` are implemented for signed-in saved cube states; individual solver UI auto-save and paid-tier limits are still pending
 - [~] Local community and challenge prototype exists on `feature/social-challenges-foundation` (RootB — manual port only)
 - [ ] Versioned renderer-independent puzzle-state contract
 - [ ] Production-ready friends system
@@ -105,11 +105,11 @@ Keep this table current. Every active branch must have a purpose and a merge sta
 
 ## Current priorities
 
-1. Confirm the two Supabase migrations are run and verify `/profile` + `/profile/mail` in the browser.
-2. Verify password-reset + SES delivery end-to-end in production and write the runbook.
-3. Add solver correctness fixtures for 3×3/4×4/5×5 before claiming any solver `[x]`.
-4. Delete the six merged branches (owner action — deletion is blocked in the agent session).
-5. Decide whether to port the RootB homepage/solver-playback/social work.
+1. Browser-test the new 3x3 save/send flow with two accounts and confirm `scrambles`, `solve_results`, `scramble_attempts`, `challenges`, and `challenge_attempts` rows are created together.
+2. Wire solver pages to `/api/solver-memory`, then add billing-aware paid memory limits.
+3. Confirm the two earlier Supabase migrations are run and verify `/profile` + `/profile/mail` in the browser.
+4. Verify password-reset + SES delivery end-to-end in production and write the runbook.
+5. Add solver correctness fixtures for 3×3/4×4/5×5 before claiming any solver `[x]`.
 
 ## Status labels
 
