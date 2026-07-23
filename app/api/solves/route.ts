@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAccessToken, supabaseRequest } from "@/app/lib/supabase-rest";
+import { saveSolveResult } from "@/app/lib/challenge-service";
 
 type AuthUser = { id: string };
 type SolvePayload = {
@@ -24,26 +25,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "puzzle_type and scramble are required." }, { status: 400 });
     }
 
-    const rows = await supabaseRequest<Array<{ id: string }>>(
-      "/rest/v1/solve_results?select=id",
-      {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({
-          user_id: user.id,
-          puzzle_type: body.puzzle_type,
-          scramble: body.scramble,
-          solve_time_ms: body.solve_time_ms ?? null,
-          move_count: body.move_count ?? null,
-          solved: body.solved ?? false,
-          is_dnf: body.is_dnf ?? false,
-          replay_data: body.replay_data ?? null,
-        }),
-      },
-      token,
-    );
+    const saved = await saveSolveResult(token, user.id, body);
 
-    return NextResponse.json({ id: rows[0]?.id }, { status: 201 });
+    return NextResponse.json({ id: saved.solveId, scramble_id: saved.scrambleId }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to save solve.";
     return NextResponse.json({ error: message }, { status: 400 });
