@@ -12,14 +12,15 @@
  * the *starting* cube is produced differs. Manual entry never builds one of
  * our own permutation-based CubeState values (lib/cube-engine.ts's cp/co/
  * ep/eo) at all: a raw 54-color facelet string is sufficient input for both
- * cubejs's solver (Cube.fromString) and SolverCube3D's playback (it turns
- * physical cubie matrices directly and never calls back into our engine),
- * so there's no facelet->CubeState reconstruction to write or maintain.
+ * the solver (Cube.fromString, lib/cube3x3-solver.ts) and SolverCube3D's
+ * playback (it turns physical cubie matrices directly and never calls back
+ * into our engine), so there's no facelet->CubeState reconstruction to write
+ * or maintain.
  */
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Cube from "cubejs";
+import Cube, { type Cube3x3 } from "@/lib/cube3x3-solver";
 import { applySequence, isSolved, randomScramble, solved, toFacelets, toFaceletString, type CubeState } from "@/lib/cube-engine";
 import { NET_COLS, NET_FACES, NET_ROWS, netCellAt } from "@/lib/cube-net-layout";
 
@@ -54,17 +55,17 @@ function permutationParity(perm: number[]) {
 }
 
 /**
- * cubejs's Cube.fromString() reads sticker colors positionally with no
- * validity check at all — it just matches each corner/edge's observed
- * colors against known piece color-triples/pairs. A single misread sticker
- * (an easy, likely mistake when a person is typing in their own physical
- * cube) produces an impossible permutation that still parses "successfully"
- * into defined cp/co/ep/eo arrays. Calling solve() on that isn't a fast
- * failure — cubejs's iterative-deepening search has no way to recognize
- * "this coset is empty," so it explores every depth up to its bound
- * (22) synchronously on the main thread, which in practice means the page
- * freezes for a long time (confirmed: 15+ seconds and counting on a single
- * two-sticker swap) rather than erroring out.
+ * Cube.fromString() reads sticker colors positionally with no validity check
+ * at all — it just matches each corner/edge's observed colors against known
+ * piece color-triples/pairs. A single misread sticker (an easy, likely
+ * mistake when a person is typing in their own physical cube) produces an
+ * impossible permutation that still parses "successfully" into defined
+ * cp/co/ep/eo arrays. Calling solve() on that isn't a fast failure — the
+ * two-phase search has no way to recognize "this coset is empty," so it
+ * explores every depth up to its bound (22) synchronously on the main
+ * thread, which in practice means the page freezes for a long time
+ * (confirmed: 15+ seconds and counting on a single two-sticker swap) rather
+ * than erroring out.
  *
  * The three checks below are the standard, complete solvability conditions
  * for a Rubik's cube (not a heuristic — any state failing one of these is
@@ -75,7 +76,7 @@ function permutationParity(perm: number[]) {
  * permutations' parities must match. Checking this is O(20) array work —
  * always fast — so it runs before solve() ever gets a chance to hang.
  */
-function isLegalCubeState(cube: Cube) {
+function isLegalCubeState(cube: Cube3x3) {
   const isPermutation = (perm: number[], size: number) =>
     perm.length === size && new Set(perm).size === size && perm.every((v) => Number.isInteger(v) && v >= 0 && v < size);
   if (!isPermutation(cube.cp, 8) || !isPermutation(cube.ep, 12)) return false;
@@ -177,12 +178,10 @@ export default function ManualSolver() {
 
   const solveCube = () => {
     if (!ready) return;
-    // cubejs's solve() doesn't special-case an already-solved input — it
-    // still runs its upright/reorient step and returns a padded, non-empty
-    // move sequence that happens to leave the cube solved rather than
-    // recognizing 0 moves is the answer. Short-circuiting here (same guard
-    // app/PyraminxGame.tsx uses before calling its own solver) avoids
-    // showing a confusing multi-move "solution" for a cube that's already done.
+    // Short-circuit before ever building a facelet string or touching the
+    // solver (same guard app/PyraminxGame.tsx uses before calling its own
+    // solver) — skips the work entirely and shows a clearer status than a
+    // generic "Verified solution — 0 moves".
     if (isSolved(cube)) { setPlaying(false); setSolution([]); setStep(0); setTime(0); setStatus("Already solved"); return; }
     const start = performance.now();
     try {
@@ -212,8 +211,7 @@ export default function ManualSolver() {
     }
     // Same already-solved short-circuit as solveCube() above — a player
     // legitimately might enter a cube that's already solved (testing the
-    // tool, or it really is solved), and cubejs's solve() doesn't handle
-    // that input cleanly on its own.
+    // tool, or it really is solved).
     if (parsed.isSolved()) { setPlaying(false); setSolution([]); setStep(0); setTime(0); setStatus("Already solved"); return; }
     const start = performance.now();
     try {

@@ -6,7 +6,7 @@
  * Full arbitrary 5x5 reduction (centers + edge triplets) is still in
  * development (see 5X5_SOLVER_HANDOFF.md), so this ships the honest slice that
  * works today: any *reduced* 5x5 — centers solved, edge triplets paired — is
- * sampled to a 3x3, solved by the same cubejs engine as the 3x3 page, and the
+ * sampled to a 3x3, solved by the same engine as the 3x3 page, and the
  * solution is verified move-for-move on the full 5x5. States that aren't
  * reduced are scored and clearly labelled, never pretend-solved.
  *
@@ -16,7 +16,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Cube from "cubejs";
+import Cube, { type Cube3x3 } from "@/lib/cube3x3-solver";
 import {
   buildFastModel,
   applyFastSeq,
@@ -84,7 +84,7 @@ function fullScramble(count = 50): string[] {
   return out;
 }
 
-// Standard 3x3 solvability check — must run before cubejs.solve(), which
+// Standard 3x3 solvability check — must run before solve(), which
 // otherwise hangs the tab on an illegal state (same guard the 3x3 page uses).
 function permutationParity(perm: number[]) {
   const seen = Array(perm.length).fill(false);
@@ -97,7 +97,7 @@ function permutationParity(perm: number[]) {
   }
   return parity % 2;
 }
-function isLegal3x3(cube: Cube) {
+function isLegal3x3(cube: Cube3x3) {
   const isPerm = (p: number[], n: number) => p.length === n && new Set(p).size === n && p.every((v) => v >= 0 && v < n);
   if (!isPerm(cube.cp, 8) || !isPerm(cube.ep, 12)) return false;
   if (cube.co.reduce((a: number, b: number) => a + b, 0) % 3 !== 0) return false;

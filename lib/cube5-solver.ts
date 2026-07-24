@@ -6,7 +6,7 @@
  * hand off to cubejs → concatenate and verify the whole solution on the real
  * 5x5 before returning it.
  */
-import Cube from "cubejs";
+import Cube from "./cube3x3-solver";
 import { MODEL_5, reduce5 } from "./cube5-reduction";
 import {
   applyFastSeq,

@@ -6,7 +6,7 @@
  * replies with a verified solution or an error. cubejs's pruning tables are
  * built once, lazily, on the first solve.
  */
-import Cube from "cubejs";
+import Cube from "../lib/cube3x3-solver";
 import { solveState } from "../lib/cube4-solver";
 
 let ready = false;

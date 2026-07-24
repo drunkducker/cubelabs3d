@@ -3,7 +3,7 @@
 /** 2×2 solver: corner-only display, verified with the existing cubie engine. */
 import dynamic from "next/dynamic";
 import {useCallback,useEffect,useRef,useState} from "react";
-import Cube from "cubejs";
+import Cube from "@/lib/cube3x3-solver";
 import {applySequence,isSolved,randomScramble,solved,toFaceletString} from "@/lib/cube-engine";
 
 const PocketCube3D=dynamic(()=>import("./PocketCube3D"),{ssr:false,loading:()=> <div className="grid h-full place-items-center text-sm text-[var(--faint)]">Loading 2×2 cube…</div>});

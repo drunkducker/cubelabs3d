@@ -8,7 +8,7 @@
  * final move list is replayed on the original cube before it is returned, so
  * a returned solution is always a verified solve.
  */
-import Cube from "cubejs";
+import Cube from "./cube3x3-solver";
 import {
   MODEL_4,
   reduce4,
