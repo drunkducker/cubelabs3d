@@ -151,9 +151,9 @@ These rules keep this list trustworthy. Read them before checking any box.
 > until applied + browser-verified in production.
 
 - [x] Ads and affiliate architecture documented
-- [~] Managed ad slots outside gameplay controls (`components/ads/AdSlot.tsx`; drop-in ready)
-- [~] Banner and carousel campaigns (`ManagedCarousel`; admin create/publish + public render)
-- [~] Amazon affiliate integration and disclosures (`AffiliateProductGrid`; tagged links + `rel="sponsored nofollow"` + disclosure)
+- [~] Managed ad slots outside gameplay controls (`AdSlot` placed on solver 2×2/3×3/4×4/5×5 pages)
+- [~] Banner and carousel campaigns (`ManagedCarousel` placed on the homepage between features and ecosystem)
+- [~] Amazon affiliate integration and disclosures (`AffiliateProductGrid` on `/solve` + each solver page; tagged links + `rel="sponsored nofollow"` + disclosure)
 - [ ] Conversion tracking
 - [~] Premium/no-ads plan (`/admin/billing`, `premium_plans`/`premium_subscriptions`, Stripe checkout + signature-verified webhook; needs `STRIPE_*` keys + browser verify)
 - [ ] Theme or appearance packs

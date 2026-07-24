@@ -11,8 +11,13 @@ import Hero from "@/components/Hero";
 import CarouselDots from "@/components/CarouselDots";
 import FeatureGrid from "@/components/FeatureGrid";
 import EcosystemSections from "@/components/EcosystemSections";
+import ManagedCarousel from "@/components/ads/ManagedCarousel";
 
-export default function Home() {
+// Cache the ads read for 60s so public homepage traffic doesn't hammer the
+// database; managed content can still change without a redeploy.
+export const revalidate = 60;
+
+export default async function Home() {
   return (
     <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
       <div className="orb orb-a" />
@@ -23,6 +28,9 @@ export default function Home() {
         <Hero />
         <CarouselDots />
         <FeatureGrid />
+        {/* Managed carousel placement. Renders nothing when no live slides
+            exist, so the approved layout is unchanged until an owner publishes. */}
+        <ManagedCarousel placement="home_carousel" className="mt-6" />
         <EcosystemSections />
       </div>
     </main>

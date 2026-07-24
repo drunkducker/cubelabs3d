@@ -2,6 +2,26 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-23 — Ad / affiliate components placed on public pages
+
+**Completed**
+
+- [x] `ManagedCarousel` between `FeatureGrid` and `EcosystemSections` on the homepage.
+- [x] `AdSlot` (`solver_top_banner`) and `AffiliateProductGrid` (`solver_product_carousel`) on `/solver/2x2`, `/solver/3x3`, `/solver/4x4`, `/solver/5x5`.
+- [x] `AffiliateProductGrid` on the `/solve` hub.
+- [x] `revalidate = 60` per page. Approved layouts untouched — components return null when nothing is published.
+- [x] ROADMAP §7 promoted for the placements; CHANGELOG entry.
+
+**Verified**
+
+- `tsc --noEmit` clean; `npm run build` 43 routes; `npm test` 33/33; lint exit 0.
+
+**Unverified**
+
+- [ ] Nothing is publicly visible until the owner publishes a campaign/carousel/product in `/admin`. Not browser-verified.
+
+---
+
 ## 2026-07-23 — Security hardening (CVE bump, headers/CSP, rate limits, admin 2FA, CI scanners, RLS tests)
 
 **Completed**

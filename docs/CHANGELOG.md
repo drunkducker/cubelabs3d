@@ -2,6 +2,18 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-23 — Place ad / affiliate components on public pages
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- Placements (all render nothing when no live content exists — approved layouts are unchanged until an owner publishes):
+  - Homepage `app/page.tsx`: `<ManagedCarousel placement="home_carousel" />` between `FeatureGrid` and `EcosystemSections`. Hero + header untouched.
+  - `/solve` hub: `<AffiliateProductGrid placement="solver_product_carousel" />` above the "more coming" card.
+  - `/solver/{2x2,3x3,4x4,5x5}`: `<AdSlot placement="solver_top_banner" />` between title and solver, and `<AffiliateProductGrid placement="solver_product_carousel" />` below the solver.
+  - `/solver/pyraminx` deliberately skipped (full-screen game layout).
+- `export const revalidate = 60` on each page so content refreshes without a deploy but public traffic doesn't hammer the anon Supabase reads. Homepage moves from static to dynamic — the trade-off is intentional.
+- Docs: ROADMAP §7 items updated to reflect placement.
+- Testing: `tsc --noEmit` clean; `npm run build` 43 routes; `npm test` 33/33; lint exit 0. Not deployed; nothing shows publicly until an owner publishes at `/admin/ads` or `/admin/carousels`.
+
 ## 2026-07-23 — Security hardening pass
 
 - Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
