@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePermission } from "@/lib/admin/auth";
 import { getSecuritySummary } from "@/lib/admin/security";
 import { Card, PageHeader, StatusPill } from "@/components/admin/ui";
@@ -15,7 +16,11 @@ export default async function SecurityPage() {
 
   return (
     <div>
-      <PageHeader title="Security center" subtitle="Best-available status. Findings are labelled Passed, Warning, Failed, Unavailable, or Manual check required — we never claim automated verification where only a manual check was possible." />
+      <PageHeader
+        title="Security center"
+        subtitle="Best-available status. Findings are labelled Passed, Warning, Failed, Unavailable, or Manual check required — we never claim automated verification where only a manual check was possible."
+        action={<Link href="/admin/security/mfa" className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-extrabold">Two-factor →</Link>}
+      />
 
       <div className="mb-4 flex flex-wrap gap-2">
         {(["passed", "warning", "failed", "manual", "unavailable"] as const).map((s) => (

@@ -166,13 +166,15 @@ These rules keep this list trustworthy. Read them before checking any box.
 - [x] AI contributor rules documented
 - [x] Architecture decision records started
 - [x] Branch-document recovery and classification process established
-- [ ] Complete automated test suite
+- [~] Complete automated test suite (Vitest 33/33; broader e2e still needed)
 - [ ] Production security review
-- [ ] Row-level security verification
-- [ ] Rate limiting and abuse controls
+- [~] Row-level security verification (`supabase/tests/rls_assertions.sql` — automated script; must be run in production)
+- [~] Rate limiting and abuse controls (`20260726_rate_limiting.sql` + `lib/admin/rate-limit.ts`; wired into sign-in, reset, admin actions, media, checkout, mfa, ad-track)
 - [ ] Disaster-recovery rehearsal
 - [ ] Database export and restore rehearsal
-- [ ] Dependency and secret scanning
+- [~] Dependency and secret scanning (`.github/workflows/security.yml` — Gitleaks + OSV-Scanner + CodeQL + npm audit)
+- [~] Admin two-factor authentication (`/admin/security/mfa`, `lib/admin/mfa.ts`; optional via `ADMIN_REQUIRE_MFA`)
+- [~] Security response headers + report-only CSP (`next.config.mjs`)
 - [ ] Accessibility audit
 - [ ] Cross-device release checklist
 

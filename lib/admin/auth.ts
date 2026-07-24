@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { ACCESS_COOKIE, getSupabaseConfig } from "@/app/lib/supabase-rest";
 import { adminRequest, isAdminConfigured } from "./service-client";
 import { hasPermission, type AdminRole, type Permission } from "./permissions";
+import { checkRateLimit } from "./rate-limit";
+import { MFA_REQUIRED, currentAal } from "./mfa";
 
 /*
  * The server-side security boundary for the admin platform.
@@ -116,6 +118,13 @@ export async function requireAdmin(): Promise<AdminContext> {
 
 export async function requirePermission(permission: Permission): Promise<AdminContext> {
   const ctx = await requireAdmin();
+  // Optional step-up 2FA: when ADMIN_REQUIRE_MFA is on, every functional admin
+  // page requires an aal2 (MFA-completed) session. The MFA enrollment/step-up
+  // page uses requireAdmin only (not requirePermission), so it stays reachable
+  // at aal1 and this never loops.
+  if (MFA_REQUIRED && currentAal() !== "aal2") {
+    redirect("/admin/security/mfa?reason=required");
+  }
   if (!hasPermission(ctx.role, permission)) {
     redirect("/admin-denied?reason=permission");
   }
@@ -131,6 +140,12 @@ export async function authorizeAction(permission: Permission): Promise<AdminCont
   const ctx = await resolveAdmin();
   if (!hasPermission(ctx.role, permission)) {
     throw new AdminAuthError("forbidden", `Missing permission: ${permission}`);
+  }
+  // Throttle privileged mutations per administrator so a stolen admin token
+  // cannot be used to hammer the API. Fails open if the limiter is unavailable.
+  const allowed = await checkRateLimit(`admin_action:${ctx.userId}`, 80, 60);
+  if (!allowed) {
+    throw new AdminAuthError("forbidden", "Rate limit exceeded. Slow down and retry shortly.");
   }
   return ctx;
 }

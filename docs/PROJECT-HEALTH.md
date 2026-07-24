@@ -26,7 +26,7 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | Monetization / billing | Developing | Premium plans + Stripe checkout + signature-verified webhook + `/admin/billing` coded; needs `STRIPE_*` keys + browser verify |
 | Camera scanner | Not started/early | No verified production scanner |
 | Automated testing | Needs improvement | Feature-specific evidence exists, but no complete release regression suite is verified |
-| Security and recovery | Developing | Rules documented; production security and restore rehearsals remain |
+| Security and recovery | Developing | Hardening pass shipped: Next CVE bump, security headers + report-only CSP, DB-backed rate limiting/lockout, admin TOTP 2FA, CI scanners (Gitleaks/OSV/CodeQL), RLS assertion script; migration/production verification and CSP enforce-mode still remain |
 
 ## Directional completion
 

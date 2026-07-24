@@ -2,6 +2,18 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-23 — Security hardening pass
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- **Dependency bump:** `next` 14.2.15 → **14.2.35** (patched-CVE line); `eslint-config-next` matched. `npm audit --audit-level=high` gate in CI.
+- **Security response headers** (`next.config.mjs`): HSTS (2y + preload), `X-Frame-Options: DENY`, nosniff, strict Referrer-Policy, restrictive Permissions-Policy, DNS-prefetch off, `poweredByHeader: false`, and a **Content-Security-Policy in Report-Only** (default-src 'self', connect-src Supabase + api.stripe.com, frame-ancestors 'none', object-src 'none').
+- **Rate limiting** (`supabase/migrations/20260726_rate_limiting.sql`): `rate_limits` table + `check_rate_limit` SECURITY DEFINER RPC + `lib/admin/rate-limit.ts`. Wired into sign-in (per-IP + per-email lockout), password reset, privileged admin actions, media upload, billing checkout, MFA verify, and the public ad-tracking beacon. Fails **open** on user-facing paths so a limiter outage cannot lock users out.
+- **Admin 2FA (TOTP)** via Supabase MFA: `/admin/security/mfa` enrollment page + `MfaSetup` component + `/api/admin/mfa` (enroll/verify/unenroll, rate-limited, audited) + `lib/admin/mfa.ts`. Optional strict enforcement gated by `ADMIN_REQUIRE_MFA`: `requirePermission` demands aal2 while the MFA page itself uses `requireAdmin` so an aal1 admin can always complete enrollment. Security center surfaces MFA status.
+- **CI security scanners** (`.github/workflows/`): Gitleaks (secret scan), OSV-Scanner (dependency CVEs), CodeQL (JS/TS SAST) on push, PR, and weekly. `ci.yml` runs typecheck / lint / unit tests / build / `npm audit`.
+- **RLS assertion script** (`supabase/tests/rls_assertions.sql`): a wrapped-in-ROLLBACK SQL that runs the RLS checklist against `anon` and `authenticated`; every regression raises.
+- Docs: SECURITY.md gains a "Hardening applied" section; ROADMAP §8 items move to `[~]`; DAILY-LOG entry.
+- Testing: `tsc --noEmit` clean; `npm run build` **43 routes**; `npm test` 33/33; `npm run lint` exit 0. Not deployed; migrations not applied; MFA/CSP tightening pending production verification.
+
 ## 2026-07-23 — Roles editor, media library, premium billing, operator UX
 
 - Branch: `claude/cubelabs-admin-dashboard-4pe35q`.

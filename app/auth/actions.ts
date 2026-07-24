@@ -8,6 +8,7 @@ import {
   setAuthCookies,
   supabaseRequest,
 } from "@/app/lib/supabase-rest";
+import { checkRateLimit, clientIp } from "@/lib/admin/rate-limit";
 
 /*
  * Origin used for Supabase email links (password reset, signup confirmation).
@@ -72,6 +73,20 @@ export async function signIn(formData: FormData) {
   const email = value(formData, "email");
   const password = value(formData, "password");
   const { url, key } = getSupabaseConfig();
+
+  /*
+   * Login lockout. Fixed windows keyed by IP and by email so neither a single
+   * host nor a single account can be brute-forced. Fails OPEN if the limiter is
+   * unavailable (e.g. migration not yet applied) so real users are never locked
+   * out by an infrastructure gap; it activates automatically once the
+   * 20260726_rate_limiting migration is in place.
+   */
+  const ip = clientIp();
+  const ipOk = await checkRateLimit(`signin:ip:${ip}`, 15, 300);
+  const emailOk = email ? await checkRateLimit(`signin:email:${email.toLowerCase()}`, 8, 900) : true;
+  if (!ipOk || !emailOk) {
+    redirect(authErrorUrl("Too many sign-in attempts. Please wait a few minutes and try again."));
+  }
 
   const response = await fetch(`${url}/auth/v1/token?grant_type=password`, {
     method: "POST",
@@ -138,6 +153,13 @@ export async function signUp(formData: FormData) {
 export async function requestPasswordReset(formData: FormData) {
   const email = value(formData, "email");
   if (!email) redirect("/auth?error=Enter%20your%20email%20before%20requesting%20a%20reset.");
+
+  // Throttle reset requests so the endpoint can't be used to spam a mailbox.
+  const resetOk = await checkRateLimit(`reset:${email.toLowerCase()}`, 4, 900);
+  const ipResetOk = await checkRateLimit(`reset:ip:${clientIp()}`, 12, 900);
+  if (!resetOk || !ipResetOk) {
+    redirect("/auth?message=If%20that%20email%20exists%2C%20a%20reset%20link%20is%20on%20its%20way.");
+  }
 
   const { url, key } = getSupabaseConfig();
   const response = await fetch(`${url}/auth/v1/recover`, {

@@ -84,7 +84,39 @@ verification where only a manual check was possible. RLS-enabled state, storage
 policies, and the leaked-password setting are **manual** because they cannot be
 introspected through the REST API.
 
-## Hardening applied
+## Hardening applied (2026-07-23)
+
+- **Dependency bump:** `next` 14.2.15 → **14.2.35** (patched-CVE line); `npm audit --audit-level=high` enforced in CI.
+- **Security response headers** (`next.config.mjs`, applied to every path):
+  HSTS (2y, includeSubDomains, preload), `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
+  `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self)`,
+  `X-DNS-Prefetch-Control: off`, `poweredByHeader: false`.
+  **Content-Security-Policy** ships in **Report-Only** first (default-src 'self',
+  connect-src to Supabase + api.stripe.com, `frame-ancestors 'none'`, `object-src 'none'`).
+  Tighten to enforcing once report data has been reviewed.
+- **Rate limiting / login lockout** (`20260726_rate_limiting.sql`): fixed-window
+  counter + `check_rate_limit` SECURITY DEFINER RPC. Wired into: sign-in
+  (per-IP 15/5min + per-email 8/15min), password reset (4/15min per email, 12/15min per IP),
+  privileged admin actions (80/min per admin), media upload (30/min per admin),
+  billing checkout (8/min per user), MFA verify (8/5min per admin), ad tracking
+  beacon (240/min per IP). Fails **open** on limiter outage for user-facing paths
+  so a limiter failure never locks users out; fails **closed** where wrapped.
+- **Admin 2FA (TOTP)** via Supabase MFA (`/admin/security/mfa`, `/api/admin/mfa`,
+  `lib/admin/mfa.ts`): enrol → QR/secret → verify → done. Optional but strict
+  enforcement gated by `ADMIN_REQUIRE_MFA=true`: `requirePermission` demands an
+  aal2 session; the MFA enrollment page uses `requireAdmin` only so it stays
+  reachable at aal1 (no lock-out loop). MFA verify attempts are rate-limited and
+  audited; secrets/codes are never logged.
+- **CI security scanners** (`.github/workflows/`):
+  Gitleaks (secret scan), OSV-Scanner (dependency CVEs), CodeQL
+  (JavaScript/TypeScript SAST) on push + PR + a weekly Monday sweep; plus a
+  `ci.yml` running typecheck / lint / unit tests / build / `npm audit`.
+- **RLS assertion script** (`supabase/tests/rls_assertions.sql`): runs the
+  RLS checklist as executable SQL against `anon` and `authenticated`; wrapped in
+  ROLLBACK so it is safe to run in production and any policy regression raises.
+
+## Prior hardening
 
 - `force-dynamic` + `no-store` on all admin routes (never statically cached).
 - Origin check (`assertSameOrigin`) on privileged mutations (defense in depth on
@@ -95,7 +127,8 @@ introspected through the REST API.
 
 ## Known open items
 
-- Rate limiting on sensitive endpoints is **not yet implemented** (tracked in
-  ROADMAP §8). Origin checks and size limits are in place.
-- Production RLS/advisor verification must be run and recorded once the migration
-  is applied (see checklist above).
+- Production RLS/advisor verification must be run and recorded once the migrations
+  are applied (see checklist above); the RLS assertion SQL script now automates it.
+- CSP is Report-Only. Review 1–2 weeks of reports, remove `unsafe-inline`/`unsafe-eval`
+  behind a nonce, then flip the header to enforcing.
+- WebAuthn / passkeys as a second admin factor option beyond TOTP.

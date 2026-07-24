@@ -5,6 +5,7 @@ import { adminRequest, isAdminConfigured } from "@/lib/admin/service-client";
 import { detectImageType, recordAsset, MEDIA_BUCKET, MAX_UPLOAD_BYTES } from "@/lib/admin/media";
 import { handleActionError } from "@/app/admin/actions/shared";
 import { normalizeText } from "@/lib/admin/validation";
+import { checkRateLimit } from "@/lib/admin/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,11 @@ export async function POST(request: Request) {
   try {
     if (!isAdminConfigured()) return NextResponse.json({ error: "Admin service not configured." }, { status: 503 });
     const ctx = await authorizeAction("content.manage");
+
+    // Cap uploads per admin (fails open if limiter unavailable).
+    if (!(await checkRateLimit(`media_upload:${ctx.userId}`, 30, 60))) {
+      return NextResponse.json({ error: "Too many uploads. Please wait a moment." }, { status: 429 });
+    }
 
     const form = await request.formData();
     const file = form.get("file");

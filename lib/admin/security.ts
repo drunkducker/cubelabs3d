@@ -1,6 +1,7 @@
 import "server-only";
 
 import { adminCount, adminRequest, isAdminConfigured } from "./service-client";
+import { MFA_REQUIRED, hasVerifiedFactor } from "./mfa";
 
 /*
  * Protected security-check routine. It reports the BEST AVAILABLE truth and is
@@ -109,6 +110,40 @@ export async function getSecuritySummary(): Promise<{ checks: SecurityCheck[]; e
     label: "Supabase leaked-password protection enabled",
     status: "manual",
     detail: "Dashboard-only Auth setting. Prior review recorded this as disabled — verify and enable in Supabase Auth settings.",
+  });
+
+  // Admin 2FA: enforcement flag + whether the acting admin has a verified factor.
+  const mfaOwn = await hasVerifiedFactor().catch(() => false);
+  checks.push({
+    id: "admin_mfa_enforced",
+    label: "Admin two-factor enforcement",
+    status: MFA_REQUIRED ? "passed" : "warning",
+    detail: MFA_REQUIRED
+      ? "ADMIN_REQUIRE_MFA is on. Admins must complete an MFA challenge (aal2) to reach privileged pages."
+      : "ADMIN_REQUIRE_MFA is off. Enrol at /admin/security/mfa, then set ADMIN_REQUIRE_MFA=true to require it for every admin.",
+  });
+  checks.push({
+    id: "admin_mfa_enrolled",
+    label: "Your account has a verified authenticator",
+    status: mfaOwn ? "passed" : "warning",
+    detail: mfaOwn ? "You have a verified TOTP factor." : "Open /admin/security/mfa to enrol an authenticator app.",
+  });
+
+  // Rate limiting: activates when the 20260726 migration is applied.
+  checks.push({
+    id: "rate_limits",
+    label: "Rate limiting active on sensitive routes",
+    status: "manual",
+    detail: "Sign-in lockout, password-reset throttling, admin-action throttling, media upload, checkout, and ad tracking all call check_rate_limit. Fails open until 20260726_rate_limiting.sql is applied; then it silently activates.",
+  });
+
+  // Security headers ship in next.config.mjs; the RESPONSE cannot be introspected
+  // from here, so this is a labelled-manual check pointing at the real config.
+  checks.push({
+    id: "security_headers",
+    label: "Security response headers configured",
+    status: "manual",
+    detail: "HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, and a report-only CSP are set in next.config.mjs. Verify with curl -I on production.",
   });
 
   // Required env inventory (presence only, never values).

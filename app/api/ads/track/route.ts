@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseRequest } from "@/app/lib/supabase-rest";
+import { checkRateLimit, clientIp } from "@/lib/admin/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,11 @@ export async function POST(request: Request) {
   if (!fn || !body.id || !UUID.test(body.id)) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+
+  // Best-effort abuse control on the public beacon (fails open so a limiter
+  // outage never blocks page rendering). 240 events/min/IP is generous.
+  const allowed = await checkRateLimit(`ad_track:${clientIp()}`, 240, 60);
+  if (!allowed) return NextResponse.json({ ok: true, throttled: true });
 
   const arg = fn === "bump_affiliate_click" ? { product: body.id } : { campaign: body.id };
   try {

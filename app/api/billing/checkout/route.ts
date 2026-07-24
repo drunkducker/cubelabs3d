@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAccessToken, getSupabaseConfig } from "@/app/lib/supabase-rest";
+import { checkRateLimit } from "@/lib/admin/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,11 @@ export async function POST(request: Request) {
   const userRes = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` }, cache: "no-store" });
   if (!userRes.ok) return NextResponse.json({ error: "Invalid session." }, { status: 401 });
   const user = (await userRes.json()) as { id: string; email?: string };
+
+  // Throttle checkout-session creation per user.
+  if (!(await checkRateLimit(`checkout:${user.id}`, 8, 60))) {
+    return NextResponse.json({ error: "Too many attempts. Please wait a moment." }, { status: 429 });
+  }
 
   let body: { price_id?: string; plan_id?: string };
   try {

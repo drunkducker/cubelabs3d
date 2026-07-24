@@ -2,6 +2,28 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-23 — Security hardening (CVE bump, headers/CSP, rate limits, admin 2FA, CI scanners, RLS tests)
+
+**Completed**
+
+- [x] Bumped `next` 14.2.15 → 14.2.35 (patched-CVE line) + matching `eslint-config-next`.
+- [x] Security response headers + report-only CSP in `next.config.mjs`.
+- [x] Rate limiting: migration `20260726_rate_limiting.sql` + `lib/admin/rate-limit.ts`; wired into sign-in lockout, reset throttle, `authorizeAction`, media upload, checkout, MFA verify, ad tracking.
+- [x] Admin 2FA (TOTP) via Supabase MFA: `/admin/security/mfa` + `MfaSetup` + `/api/admin/mfa` + `lib/admin/mfa.ts`; optional `ADMIN_REQUIRE_MFA` step-up in `requirePermission`; security center surfaces status.
+- [x] CI: `.github/workflows/ci.yml` (typecheck/lint/test/build/audit) + `security.yml` (Gitleaks/OSV/CodeQL, weekly).
+- [x] `supabase/tests/rls_assertions.sql` — self-contained RLS regression script.
+- [x] Docs: SECURITY hardening section; ROADMAP §8 promoted; CHANGELOG entry.
+
+**Verified**
+
+- `npx tsc --noEmit` clean; `npm run build` 43 routes; `npm test` 33/33; `npm run lint` exit 0.
+
+**Unverified (do not mark `[x]`)**
+
+- [ ] `20260726_rate_limiting.sql` not applied; CSP still Report-Only; `ADMIN_REQUIRE_MFA` off; RLS assertions and CI scanners not yet exercised in this repo's Actions.
+
+---
+
 ## 2026-07-23 — Roles editor, media, billing, operator UX
 
 **Completed**
