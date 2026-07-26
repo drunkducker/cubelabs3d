@@ -13,6 +13,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", permission: "admin.overview.read", icon: "▦" },
+  { href: "/admin/todo", label: "Admin Roadmap", permission: "admin.overview.read", icon: "☑" },
   { href: "/admin/users", label: "Users", permission: "users.read", icon: "◍" },
   { href: "/admin/roles", label: "Roles & Access", permission: "roles.manage", icon: "◆" },
   { href: "/admin/ads", label: "Ads & Campaigns", permission: "ads.read", icon: "◈" },

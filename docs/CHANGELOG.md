@@ -2,6 +2,15 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-23 — Admin roadmap / TODO tracker
+
+- Branch: `claude/cubelabs-admin-dashboard-4pe35q`.
+- Added `lib/admin/todo.ts` — the 11-item operator TODO from the site owner (anti-cheat review, leaderboard mod, tournaments, premium subs view, announcements, security logs, audit log, cookie banner, legal editor, daily challenge scheduler, puzzle rotation) with per-item status (done / partial / pending), link to the built page where applicable, and a one-line "what's needed" note when not.
+- `/admin/todo` page renders the full checklist; a compact widget on `/admin` (Overview) shows the next-up items so pending work is visible without opening another page.
+- Unit-tested (`tests/todo.test.ts`): unique IDs, valid statuses, every "done" item links under `/admin`, counts add up, every operator-requested item is present.
+- Nav: added "Admin Roadmap" entry (visible to any admin — permission `admin.overview.read`).
+- Testing: `tsc --noEmit` clean; `npm run build` 44 routes; `npm test` **38/38**; lint exit 0.
+
 ## 2026-07-23 — Place ad / affiliate components on public pages
 
 - Branch: `claude/cubelabs-admin-dashboard-4pe35q`.

@@ -2,6 +2,25 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-23 — Admin roadmap / TODO tracker + main-divergence note
+
+**Completed**
+
+- [x] `lib/admin/todo.ts` — 11-item operator TODO with auto-linked status (done / partial / pending).
+- [x] `/admin/todo` page + compact widget on `/admin` (Overview).
+- [x] Nav item "Admin Roadmap"; unit tests for checklist coherence.
+- [x] Docs: ADMIN-PORTAL route table + CHANGELOG.
+
+**Verified**
+
+- `tsc --noEmit` clean; `npm run build` 44 routes; `npm test` 38/38; `npm run lint` exit 0.
+
+**Blocked / note**
+
+- Main has moved on since this branch was cut (`cd43130` → `0bc6eb0`: atomic checklist, all-puzzle memory, friend play across puzzles, Kilominx merge). Diff vs main is ~244 files. This branch still merges/rebase-eligible but will need a real reconciliation before promotion — the admin work does not touch the puzzle/friend surfaces, so conflicts should be minimal but must be reviewed.
+
+---
+
 ## 2026-07-23 — Ad / affiliate components placed on public pages
 
 **Completed**

@@ -24,6 +24,7 @@ or production-verified.
 | `/admin/media` | Upload/manage images (magic-byte validated, private Storage) | `content.manage` |
 | `/admin/billing` | Plans, subscriptions, Stripe status | `users.premium.manage` |
 | `/admin/ads/preview` | Live preview of published ad/affiliate content | `ads.read` |
+| `/admin/todo` | Admin capability roadmap (done / partial / pending) | `admin.overview.read` |
 
 Enforcement: `app/admin/layout.tsx` → `requireAdmin()`; pages → `requirePermission()`;
 actions/routes → `authorizeAction()`. Authorization is stored in `admin_members`.

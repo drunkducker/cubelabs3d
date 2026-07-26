@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/admin/auth";
 import { getAdminOverview } from "@/lib/admin/overview";
 import { Card, MetricCard, Notice, PageHeader, StatusPill } from "@/components/admin/ui";
 import { BarChart, Donut } from "@/components/admin/Charts";
+import { ADMIN_TODO, todoCounts } from "@/lib/admin/todo";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,10 @@ export default async function AdminOverviewPage() {
         </Card>
       </div>
 
+      <div className="mt-4">
+        <TodoWidget />
+      </div>
+
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-lg font-black">Recent administrative actions</h2>
@@ -108,6 +113,45 @@ export default async function AdminOverviewPage() {
 
 function unavailable() {
   return { value: null, available: false, note: "Unavailable" };
+}
+
+/*
+ * Compact admin-roadmap widget: pending items first (what still needs owner
+ * attention), then partials, then the "Open full roadmap" link. Keeps the
+ * overview a single-scroll summary of both operational state AND buildout.
+ */
+function TodoWidget() {
+  const counts = todoCounts();
+  const upcoming = [...ADMIN_TODO].sort((a, b) => {
+    const order = { pending: 0, partial: 1, done: 2 } as const;
+    return order[a.status] - order[b.status];
+  }).slice(0, 5);
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-black">Admin roadmap</h2>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-black uppercase text-emerald-400">Done {counts.done}</span>
+          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-black uppercase text-amber-400">Partial {counts.partial}</span>
+          <span className="rounded-full bg-slate-500/15 px-2 py-0.5 font-black uppercase text-slate-300">Pending {counts.pending}</span>
+        </div>
+      </div>
+      <ul className="grid gap-2">
+        {upcoming.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
+            <span className="flex min-w-0 items-center gap-2">
+              <span aria-hidden="true" className={item.status === "done" ? "text-emerald-400" : item.status === "partial" ? "text-amber-400" : "text-slate-300"}>
+                {item.status === "done" ? "✓" : item.status === "partial" ? "◐" : "○"}
+              </span>
+              <span className="truncate font-bold">{item.label}</span>
+            </span>
+            {item.href && <Link href={item.href} className="text-xs font-extrabold text-[var(--blue)]">Open →</Link>}
+          </li>
+        ))}
+      </ul>
+      <Link href="/admin/todo" className="mt-3 inline-block text-sm font-extrabold text-[var(--blue)]">Full roadmap →</Link>
+    </Card>
+  );
 }
 
 /*
