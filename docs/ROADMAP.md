@@ -1,44 +1,69 @@
 # Cube Labs 3D — Master Roadmap
 
-**Last updated:** 2026-07-23
+**Last updated:** 2026-07-26
+**Repository audited:** `main` at `24d6a21` plus current PR/branch state
 
 This is the canonical project checklist. Items are checked only when repository evidence and required documentation support completion.
 
-> **Latest merge (2026-07-23):** the current main promotion folds in the admin platform, ads/affiliates/media/billing, mobile profile/social discovery/privacy queue, tracked 3x3 challenge flow, scramble/solver-memory schema/API, and homepage-linked News/My Arcade/Learn hubs. Items below marked `[~]` are merged but await production migrations, server-only keys, browser/RLS verification, or deeper production hardening. See `CURRENT_STATUS.md` and `CHANGELOG.md`.
+> **Current baseline:** the July 23 main promotion includes the admin platform, ads/affiliates/media/billing, mobile profile and social discovery, privacy queues, tracked 3×3 challenge flow, scramble/solver-memory schema and API, and the homepage-linked News, My Arcade, and Learn hubs. The latest repository audit found no newer main-branch implementation commits. Items marked `[~]` are merged but still await production configuration, migrations, browser/RLS verification, or production hardening.
 
 ## Status key
 
 - `[x]` verified complete on the canonical branch
-- `[~]` merged to `main` but unverified, branch-only, or awaiting a migration
+- `[~]` merged to `main` but unverified, branch-only, or awaiting a migration/configuration step
 - `[?]` reported but not yet verified against current code and tests
 - `[ ]` incomplete
 
-## Status & tracking rules
+## Status and tracking rules
 
-These rules keep this list trustworthy. Read them before checking any box.
+1. **`main` is the only source of truth.** Branch-only work is at most `[~]`.
+2. **Every completed item needs evidence:** code, commit/PR, migration, or recorded browser/device verification.
+3. **Migrations gate completion.** Database-backed features stay `[~]` until production application is recorded in `DAILY-LOG.md`.
+4. **Build does not equal production verification.** A green build earns `[~]`; user-visible features require browser/device proof for `[x]`.
+5. **Log every status change** in `DAILY-LOG.md` and keep `CURRENT_STATUS.md`, `PROJECT-HEALTH.md`, and `CHANGELOG.md aligned.
+6. **Never merge RootB branches directly.** Port wanted work manually from `drive-homepage-import`, `fix/cube-transform-stability`, or `feature/social-challenges-foundation`.
+7. **When uncertain, use the lower status.**
 
-1. **`main` is the only source of truth.** An item is `[x]` only when it is on `main` **and** verified. Work living on any other branch is at most `[~]`, and must name the branch.
-2. **Every checked item names its evidence** — a file/route, a commit/PR, a migration, or a recorded browser/device test. No evidence → not checked.
-3. **Migrations gate the checkbox.** A feature needing a SQL migration stays `[~]` until the migration is confirmed run in production and recorded in `DAILY-LOG.md`.
-4. **Build ≠ verified.** A green build earns `[~]`, not `[x]`. `[x]` needs the real behavior confirmed (browser/device) where a user can see it.
-5. **Log every status change** in `DAILY-LOG.md` as one line: item, old→new status, commit/PR, date.
-6. **Keep the branch registry current** (in `CURRENT_STATUS.md`): every active branch has a purpose and a merge state, so nothing is lost or accidentally re-merged.
-7. **Never `git merge` a RootB branch** (`drive-homepage-import`, `fix/cube-transform-stability`, `feature/social-challenges-foundation`) — no shared history. Port wanted work by hand.
-8. **When in doubt, mark it lower.** Honest `[~]`/`[ ]` beats an optimistic `[x]` (Constitution §12).
-9. **Reconcile on sight.** If code and these docs disagree, fix it the same session — neither may stay silently stale (docs `README` §Structure enforcement).
+## Immediate TODO — release and verification order
+
+### P0 — production activation blockers
+
+- [ ] Confirm all dated Supabase migrations are applied in production, including the `20260722_*`, `20260723_admin_platform.sql`, `20260724_ad_rendering.sql`, and `20260725_media_and_billing.sql` migrations.
+- [ ] Configure `SUPABASE_SERVICE_ROLE_KEY` as a server-only production variable.
+- [ ] Create the private `admin-media` Supabase Storage bucket and verify signed previews/uploads.
+- [ ] Configure Stripe secret and webhook-signing keys; verify checkout and webhook entitlement updates.
+- [ ] Bootstrap the owner admin row with `public.bootstrap_owner(...)` and confirm the last-owner guard.
+- [ ] Run the production RLS/security checklist in `docs/SECURITY.md` and record results.
+
+### P1 — browser and account verification
+
+- [ ] Test `/admin` on desktop and mobile: roles, users, media, billing, ads, exports, audit/security, and denied permissions.
+- [ ] Test `/profile`, `/profile/friends`, `/u/[slug]`, `/profile/settings`, mail, password reset, privacy export, and close-account queues.
+- [ ] Run a two-account friend/request/challenge test and record all resulting database rows.
+- [ ] Test the tracked 3×3 save/send flow with two accounts and verify `scrambles`, `solve_results`, `scramble_attempts`, `challenges`, and `challenge_attempts` stay consistent.
+- [ ] Verify homepage navigation into `/news`, `/my-arcade`, `/learn`, and `/leaderboard` on the production deployment.
+- [ ] Verify AWS SES password-reset and mail delivery end to end; finish the configuration and rollback runbook.
+
+### P2 — correctness and hardening
+
+- [ ] Add solver correctness fixtures and regression tests for 3×3, 4×4, and 5×5.
+- [ ] Wire solver pages to `/api/solver-memory` and add billing-aware limits, folders, and cross-device resume.
+- [ ] Implement rate limiting and abuse controls for auth, friends, challenges, ads tracking, privacy requests, and sensitive admin endpoints.
+- [ ] Add admin 2FA or step-up authentication for owner-only operations.
+- [ ] Add blocking, reporting, moderation, anti-cheat, suspicious-result review, and trusted leaderboard validation.
+- [ ] Add dependency/secret scanning and remediate known dependency audit findings.
 
 ## 1. Foundation
 
-- [x] GitHub repository connected
+- [x] GitHub repository connected and writable
 - [x] Vercel deployment foundation
 - [x] IONOS domain purchased
 - [x] Mobile-first site foundation
 - [x] Homepage and interactive hero experience
-- [x] Footer and lower-page content structure
-- [x] Legal-page foundation
+- [x] Footer, legal-page foundation, and content carousels
 - [x] Permanent documentation governance
 - [x] Current status, daily log, roadmap, changelog, checkpoint archive, and project-health dashboard
-- [~] Homepage-linked News, My Arcade, and Learn hubs (merged/build-verified; content/admin wiring pending)
+- [~] News, My Arcade, and Learn hubs are merged/build-verified; content/admin wiring and browser QA remain
 - [ ] First-party analytics and error reporting fully verified
 - [ ] Search Console, sitemap, and SEO content program fully verified
 - [ ] PWA installation flow fully verified
@@ -46,52 +71,45 @@ These rules keep this list trustworthy. Read them before checking any box.
 ## 2. Authentication and Cube ID
 
 - [x] Supabase application foundation
-- [x] Login/create-account route
-- [x] Profile route foundation
-- [x] Profiles database schema
-- [x] Solve-results API foundation
+- [x] Login/create-account route and server actions
+- [x] Profile route and solve-results API foundations
 - [x] Sign In entry point connected
-- [x] Homepage-matched `/auth` sign-in / create-account (merged; `app/auth/page.tsx`)
-- [~] Cube ID player dashboard (merged; `app/profile/page.tsx`; needs migration + browser verify)
-- [~] Password reset flow (merged; `app/auth/reset/page.tsx`; production delivery unverified)
-- [~] Cube Labs Mail (merged; `app/profile/mail/page.tsx`; needs migration + verify)
-- [~] AWS SES email delivery (wired; production delivery unverified)
-- [ ] Confirm `20260722_cube_id_platform.sql` + `20260722_cube_labs_mail_foundation.sql` run in production
-- [ ] Email configuration runbook and recovery procedure
-- [ ] Enable and wire real Google/Apple/GitHub OAuth (gateway parked at `/auth/provider/*`)
-- [ ] Avatar upload and moderation
-- [~] Public display-name and unique-handle database foundation (migrated schema)
-- [ ] Public display-name and unique-handle rules fully implemented and verified
-- [~] Account deletion and export workflow queue (`/profile/settings`; final email/delete worker pending)
+- [x] Homepage-matched `/auth` flow merged and build-verified
+- [~] Cube ID player dashboard merged; migration and browser verification pending
+- [~] Password reset merged; production delivery unverified
+- [~] Cube Labs Mail merged; migration, worker/provider, and browser verification pending
+- [~] Public display-name, unique-handle, profile slug, friendship, and privacy schema foundation
+- [~] Account deletion and export request queue; final export/delete worker pending
+- [ ] Complete production migration verification
+- [ ] Finish email configuration, recovery, and rollback runbook
+- [ ] Enable real Google, Apple, and GitHub OAuth
+- [ ] Avatar upload, moderation, and abuse handling
 - [ ] Provider-migration test
 
 ## 3. Puzzle engine and solvers
 
 - [x] Interactive hero cube
-- [x] Playable 3×3 cube experience
+- [x] Playable 3×3 experience
 - [x] Reusable NxN cube work
-- [x] Larger-cube interaction, viewport, zoom, and performance improvements
-- [x] High-DPI mobile canvas fix
+- [x] Larger-cube interaction, viewport, zoom, high-DPI, and performance improvements
 - [x] Pyraminx engine, solver, timer, undo, scramble history, and swipe-depth behavior
-- [x] Permanent cube-engine architecture and recovered branch findings documented
-- [~] 3×3 manual color entry with invalid-entry freeze fix (merged; `components/ManualSolver.tsx`; correctness fixtures pending)
-- [x] NxN timer, solved-state detection, and scramble history (merged; `app/NxNCubeGame.tsx`)
-- [~] Play-mode focus layout with collapsible controls for 3x3 (`/play/3x3`)
-- [~] 4×4 playable engine (merged)
-- [~] Arbitrary-state 4×4 reduction/edge-pairing solver (merged; `lib/cube4-solver.ts`; fixtures pending)
-- [~] Interim reduced-state 5×5 solver (merged; `lib/cube5-*.ts`; full deterministic path still WIP on `claude/more-cubelabs-yuom1x`)
-- [ ] Complete and verify deterministic 5×5 solver (finish `claude/more-cubelabs-yuom1x`)
-- [ ] 5×5 arbitrary-state manual input parity with the 3×3 workflow
-- [ ] 6×6 and larger solver strategy
-- [ ] Camera/photo/video state scanner
-- [~] Logged-in solver memory API/database for past cube states and generated solutions (`/api/solver-memory`; solver UI wiring pending)
-- [ ] Paid-user extended solver memory, folders, limits, and cross-device resume
-- [ ] Solver correctness fixtures and regression suite (3×3, 4×4, 5×5)
-- [ ] Performance budgets for large cubes on real mobile devices
+- [x] Permanent cube-engine architecture and recovered-branch findings documented
+- [~] 3×3 manual color entry and invalid-entry freeze fix; fixtures pending
+- [x] NxN timer, solved-state detection, and scramble history
+- [~] 3×3 focus play layout
+- [~] 4×4 playable engine and arbitrary-state reduction solver; fixtures pending
+- [~] Interim reduced-state 5×5 solver; deterministic rewrite remains WIP on `claude/more-cubelabs-yuom1x`
+- [~] Solver-memory database/API; UI wiring and paid limits pending
+- [ ] Complete and verify deterministic 5×5 solver
+- [ ] Add 5×5 arbitrary-state manual input parity
+- [ ] Define 6×6-and-larger solver strategy
+- [ ] Build camera/photo/video state scanning
+- [ ] Add paid solver memory, folders, limits, and cross-device resume
+- [ ] Establish real-mobile performance budgets
 
 ## 4. Learn experience
 
-- [~] Learn landing page (`/learn` merged/build-verified; deeper lessons pending)
+- [~] Learn landing page merged/build-verified
 - [ ] Beginner 3×3 guide
 - [ ] Animated notation and algorithm library
 - [ ] 4×4 and 5×5 reduction guides
@@ -102,101 +120,87 @@ These rules keep this list trustworthy. Read them before checking any box.
 ## 5. Social and competition
 
 - [x] Permanent social and multiplayer architecture consolidated
-- [~] Cube ID/profile foundation
-- [~] Mobile `/leaderboard` visual prototype on `claude/home-page-html-rebuild-q7qomi` (preview/test data only; production ranking service incomplete)
-- [~] Tracked 3x3 leaderboard challenge prototype on `claude/home-page-html-rebuild-q7qomi` (`/leaderboard/3x3/play`, `/challenge/[id]`, `/profile/challenges`; build-verified, production verification pending)
-- [~] Local social challenge prototype on `feature/social-challenges-foundation`
-- [~] Community, create-challenge, challenge-attempt, rematch, and browser-persistence prototype
-- [ ] Reconcile the prototype branch with current `main`
+- [~] Cube ID/profile and connected social discovery foundation
+- [~] Mobile `/leaderboard` visual prototype is merged to `main`; ranking service and production verification remain
+- [~] Tracked 3×3 leaderboard/challenge prototype is merged to `main`; production verification remains
+- [~] Friends search, suggestions, requests, accept/decline/remove are merged; block/report/rate limits and two-account QA remain
+- [~] Signed-in account-to-account pre-scrambled challenge flow
+- [~] Player-selected scramble save/send and replay metadata overrides
+- [~] Daily shared scramble is wired to the homepage/prototype; production scheduling service remains
+- [~] Scramble database and ranked attempt rows; trusted ranking service and browser proof remain
+- [~] RootB community/challenge prototype remains in draft PR #1 and must be manually reconciled, not merged
 - [ ] Versioned renderer-independent puzzle-state contract
-- [~] Friends and friend requests (search, suggestions, send/accept/decline/remove are merged/build-verified; block/report/rate limits and browser QA remain)
-- [~] Signed-in account-to-account pre-scrambled challenge links
-- [~] Player-selected 3x3 scramble save/send in the tracked challenge prototype
-- [~] Admin/test overrides for reported moves, undo count, touch/button moves, and solved status in replay metadata
-- [ ] Secure public/guest shareable pre-scrambled challenge links
-- [ ] Solved/unsolved challenge modes
-- [ ] Guest challenge attempts
-- [ ] Server-side challenge validation and result recording
-- [~] Daily shared 3x3 scramble wired to homepage and leaderboard challenge prototype
-- [ ] Production daily shared scramble service
-- [ ] Personal and global leaderboards
-- [~] Scramble database and ranked scramble-attempt rows (`scrambles`, `scramble_attempts`; live leaderboard service and browser proof pending)
+- [ ] Secure public/guest shareable challenge links
+- [ ] Solved/unsolved challenge modes and guest attempts
+- [ ] Server-side challenge validation and trusted result recording
+- [ ] Production daily shared-scramble service
+- [ ] Personal, friends, country, monthly, and global leaderboards
 - [ ] Anti-cheat and suspicious-result review
-- [ ] Ghost races
-- [ ] Live private multiplayer rooms
-- [ ] Public matchmaking
+- [ ] Ghost races, private multiplayer rooms, and public matchmaking
 - [ ] Reporting, blocking, and moderation
 
 ## 6. Admin portal
 
-> **2026-07-23:** Admin platform coded and
-> build-verified (38 routes, `tsc` clean, 27 unit tests pass, lint non-interactive).
-> All items below are `[~]` — they require `20260723_admin_platform.sql` applied in
-> production, `SUPABASE_SERVICE_ROLE_KEY` set, owner bootstrap run, and browser/RLS
-> verification before any `[x]`. See ADR 0003 and `docs/SECURITY.md`.
+> The admin platform is merged and build/type/unit-test verified. All runtime features remain `[~]` until migrations, service-role configuration, owner bootstrap, browser QA, and RLS verification are recorded.
 
-- [x] Admin portal requirements documented
-- [~] Admin authentication and role enforcement (`app/admin/layout.tsx`, `lib/admin/auth.ts`, `lib/admin/permissions.ts`; authorization unit-tested)
-- [~] User search, suspension, deletion, and audit trail (`app/admin/users/*`, `app/admin/actions/users.ts`)
-- [~] Test-result override tools for controlled QA (`app/admin/test-lab`, `app/admin/actions/test-lab.ts`)
-- [~] Leaderboard moderation, preserving originals (`app/admin/leaderboards`, `app/admin/actions/leaderboards.ts`)
-- [~] Challenge inspection and moderation (`app/admin/challenges`, `app/admin/actions/challenges.ts`)
-- [~] Banner and carousel manager (schema + affiliate/campaign create; slide editor UI pending)
-- [~] Affiliate-link manager (`app/admin/carousels`, `createAffiliateProduct`)
-- [~] Site configuration controls and feature flags (`app/admin/settings`, `app/admin/actions/settings.ts`)
-- [~] Security dashboard and audit logs (`app/admin/security`, `app/admin/audit`)
-- [~] Backup/export controls (`app/admin/exports`, `app/api/admin/export`; owner-only audit export)
-- [~] Roles & permissions editor UI (`app/admin/roles`; owner-only, audited, last-owner guard)
-- [~] Media library (`app/admin/media`, `app/api/admin/media`; magic-byte validation, private Storage)
-- [~] Premium & billing (`app/admin/billing`; Stripe checkout + verified webhook)
-- [~] Operator UX: notification bell, ⌘K command palette, onboarding checklist
+- [x] Admin portal requirements, security model, and operator guide documented
+- [~] Admin authentication, role enforcement, and owner-only safeguards
+- [~] User search, suspension, deletion queue, and audit trail
+- [~] Test-result override tools
+- [~] Leaderboard and challenge moderation screens
+- [~] Ad campaign, carousel, and affiliate management
+- [~] Site settings and feature flags
+- [~] Security dashboard and append-only audit logs
+- [~] Backup/export controls
+- [~] Roles and permissions editor
+- [~] Private media library with magic-byte validation
+- [~] Premium billing with Stripe checkout and verified webhook code
+- [~] Operator notification bell, command palette, and readiness checklist
+- [ ] Carousel slide editor and affiliate activation controls
+- [ ] Rate limiting and admin step-up authentication
 
 ## 7. Monetization
 
-> **2026-07-23:** Admin-side management (create/schedule/publish/disclose) **and**
-> the public render components (`AdSlot`, `ManagedCarousel`, `AffiliateProductCard`)
-> + impression/click tracking (`/api/ads/track`, SECURITY DEFINER counters) are now
-> coded and build-verified. Preview at
-> `/admin/ads/preview`. Remaining: wire the components into chosen public pages,
-> affiliate activation toggle + slide editor, conversion tracking. Items stay `[~]`
-> until applied + browser-verified in production.
-
 - [x] Ads and affiliate architecture documented
-- [~] Managed ad slots outside gameplay controls (`components/ads/AdSlot.tsx`; drop-in ready)
-- [~] Banner and carousel campaigns (`ManagedCarousel`; admin create/publish + public render)
-- [~] Amazon affiliate integration and disclosures (`AffiliateProductGrid`; tagged links + `rel="sponsored nofollow"` + disclosure)
+- [~] Managed ad slots, carousels, affiliate cards, disclosures, and click/impression tracking are coded and build-verified
+- [ ] Choose and wire approved public placements
+- [ ] Apply ad-rendering migration and browser-verify counters
+- [~] Premium/no-ads plan and Stripe integration coded; production keys/webhook/browser verification pending
 - [ ] Conversion tracking
-- [~] Premium/no-ads plan (`/admin/billing`, `premium_plans`/`premium_subscriptions`, Stripe checkout + signature-verified webhook; needs `STRIPE_*` keys + browser verify)
 - [ ] Theme or appearance packs
 - [ ] Revenue reporting and compliance review
 
 ## 8. Security, quality, and operations
 
-- [x] Security requirements documented
-- [x] Backup and provider-migration rules documented
-- [x] AI contributor rules documented
-- [x] Architecture decision records started
-- [x] Branch-document recovery and classification process established
+- [x] Security, backup/provider-migration, AI-contributor, and architecture-decision rules documented
+- [x] Branch recovery and classification process established
 - [ ] Complete automated test suite
 - [ ] Production security review
-- [ ] Row-level security verification
+- [ ] Row-level-security verification
 - [ ] Rate limiting and abuse controls
 - [ ] Disaster-recovery rehearsal
 - [ ] Database export and restore rehearsal
 - [ ] Dependency and secret scanning
-- [ ] Dependency audit remediation (`cubejs` bundled npm findings + future Next major upgrade)
+- [ ] Dependency audit remediation
 - [ ] Accessibility audit
 - [ ] Cross-device release checklist
 
+## Branch and PR cleanup
+
+- [ ] Review and close or replace draft PR #1; its RootB history cannot be merged into `main`.
+- [ ] Finish or archive `claude/more-cubelabs-yuom1x` after extracting the deterministic 5×5 work.
+- [ ] Delete merged/superseded RootA branches only after production verification and a final diff check.
+- [ ] Keep `CURRENT_STATUS.md` branch registry synchronized after every cleanup.
+
 ## Current release gate
 
-Before a feature is checked complete, confirm:
+Before marking a feature `[x]`, confirm:
 
-- [ ] Implementation is merged into the canonical branch.
+- [ ] Implementation is merged into `main`.
 - [ ] Build and relevant automated tests pass.
+- [ ] Required migrations and production variables are applied.
 - [ ] Real-device or browser verification is recorded when applicable.
-- [ ] Relevant permanent documentation is updated.
-- [ ] `PROJECT-HEALTH.md` reflects changed readiness or risk.
-- [ ] `CHANGELOG.md` is updated.
-- [ ] An ADR exists when the change affects architecture, security, data ownership, public behavior, providers, or major structure.
+- [ ] Security/RLS behavior and denial paths are verified.
+- [ ] Relevant permanent documentation, project health, daily log, and changelog are updated.
+- [ ] An ADR exists for architecture, security, data ownership, provider, or major public-behavior changes.
 - [ ] Rollback and known-issue notes are recorded.
