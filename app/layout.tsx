@@ -4,6 +4,7 @@
    ToastProvider so any client component can raise feedback messages.
    ========================================================================== */
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { ToastProvider } from "@/components/Toast";
 import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 import "./globals.css";
@@ -31,7 +32,9 @@ export default function RootLayout({
       <body>
         <ToastProvider>
           {children}
-          <UniversalPuzzleActions />
+          <Suspense fallback={null}>
+            <UniversalPuzzleActions />
+          </Suspense>
         </ToastProvider>
       </body>
     </html>
