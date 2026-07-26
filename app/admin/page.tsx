@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/admin/auth";
 import { getAdminOverview } from "@/lib/admin/overview";
 import { Card, MetricCard, Notice, PageHeader, StatusPill } from "@/components/admin/ui";
 import { BarChart, Donut } from "@/components/admin/Charts";
+import { ADMIN_TODO, todoCounts } from "@/lib/admin/todo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,19 +14,10 @@ export default async function AdminOverviewPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Overview"
-        subtitle="Operational health of Cube Labs. Metrics that cannot be retrieved are shown as Unavailable rather than a misleading zero."
-      />
+      <PageHeader title="Overview" subtitle="Operational health of Cube Labs. Metrics that cannot be retrieved are shown as Unavailable rather than a misleading zero." />
 
       {!overview.configured && (
-        <div className="mb-5">
-          <Notice tone="warning">
-            <strong>Admin service not configured.</strong> Set <code>SUPABASE_URL</code> and{" "}
-            <code>SUPABASE_SERVICE_ROLE_KEY</code> (server-only) and run{" "}
-            <code>supabase/migrations/20260723_admin_platform.sql</code> to enable live metrics.
-          </Notice>
-        </div>
+        <div className="mb-5"><Notice tone="warning"><strong>Admin service not configured.</strong> Set <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> (server-only) and run <code>supabase/migrations/20260723_admin_platform.sql</code> to enable live metrics.</Notice></div>
       )}
 
       <OnboardingChecklist readiness={overview.readiness} />
@@ -48,45 +40,23 @@ export default async function AdminOverviewPage() {
       <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_.6fr]">
         <Card>
           <h2 className="mb-3 text-lg font-black">Solves — last 7 days</h2>
-          {overview.solveTrend.available ? (
-            <BarChart data={overview.solveTrend.points} label="Production solves per day, last 7 days" />
-          ) : (
-            <p className="py-8 text-center text-sm font-bold text-amber-400">Trend unavailable — apply the migration and configure the service-role key.</p>
-          )}
+          {overview.solveTrend.available ? <BarChart data={overview.solveTrend.points} label="Production solves per day, last 7 days" /> : <p className="py-8 text-center text-sm font-bold text-amber-400">Trend unavailable — apply the migration and configure the service-role key.</p>}
         </Card>
         <Card>
           <h2 className="mb-3 text-lg font-black">Challenge completion</h2>
           {m.challengesCreated?.available && m.challengesCompleted?.available ? (
-            <div className="flex items-center gap-4">
-              <Donut value={m.challengesCompleted.value ?? 0} total={m.challengesCreated.value ?? 0} label="Challenges completed" />
-              <div className="text-sm">
-                <p className="tabular-nums"><strong>{(m.challengesCompleted.value ?? 0).toLocaleString()}</strong> completed</p>
-                <p className="tabular-nums text-[var(--muted)]">of {(m.challengesCreated.value ?? 0).toLocaleString()} created</p>
-              </div>
-            </div>
-          ) : (
-            <p className="py-8 text-center text-sm font-bold text-amber-400">Unavailable</p>
-          )}
+            <div className="flex items-center gap-4"><Donut value={m.challengesCompleted.value ?? 0} total={m.challengesCreated.value ?? 0} label="Challenges completed" /><div className="text-sm"><p className="tabular-nums"><strong>{(m.challengesCompleted.value ?? 0).toLocaleString()}</strong> completed</p><p className="tabular-nums text-[var(--muted)]">of {(m.challengesCreated.value ?? 0).toLocaleString()} created</p></div></div>
+          ) : <p className="py-8 text-center text-sm font-bold text-amber-400">Unavailable</p>}
         </Card>
       </div>
+
+      <div className="mt-4"><TodoWidget /></div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 text-lg font-black">Recent administrative actions</h2>
-          {overview.recentActions.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No audit records yet. Privileged actions will appear here.</p>
-          ) : (
-            <ul className="grid gap-2">
-              {overview.recentActions.map((a) => (
-                <li key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-bold">{a.action}</p>
-                    <p className="text-xs text-[var(--muted)]">{a.actor_role ?? "—"} · {new Date(a.created_at).toLocaleString()}</p>
-                  </div>
-                  <StatusPill status={a.success ? "passed" : "failed"} />
-                </li>
-              ))}
-            </ul>
+          {overview.recentActions.length === 0 ? <p className="text-sm text-[var(--muted)]">No audit records yet. Privileged actions will appear here.</p> : (
+            <ul className="grid gap-2">{overview.recentActions.map((a) => <li key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2 text-sm"><div className="min-w-0"><p className="truncate font-bold">{a.action}</p><p className="text-xs text-[var(--muted)]">{a.actor_role ?? "—"} · {new Date(a.created_at).toLocaleString()}</p></div><StatusPill status={a.success ? "passed" : "failed"} /></li>)}</ul>
           )}
           <Link href="/admin/audit" className="mt-3 inline-block text-sm font-extrabold text-[var(--blue)]">Open full audit log →</Link>
         </Card>
@@ -106,14 +76,20 @@ export default async function AdminOverviewPage() {
   );
 }
 
-function unavailable() {
-  return { value: null, available: false, note: "Unavailable" };
+function unavailable() { return { value: null, available: false, note: "Unavailable" }; }
+
+function TodoWidget() {
+  const counts = todoCounts();
+  const upcoming = [...ADMIN_TODO].sort((a, b) => ({ pending: 0, partial: 1, done: 2 }[a.status] - { pending: 0, partial: 1, done: 2 }[b.status])).slice(0, 5);
+  return (
+    <Card>
+      <div className="mb-3 flex items-center justify-between gap-3"><h2 className="text-lg font-black">Admin roadmap</h2><div className="flex flex-wrap items-center justify-end gap-2 text-xs"><span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-black uppercase text-emerald-400">Done {counts.done}</span><span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-black uppercase text-amber-400">Partial {counts.partial}</span><span className="rounded-full bg-slate-500/15 px-2 py-0.5 font-black uppercase text-slate-300">Pending {counts.pending}</span></div></div>
+      <ul className="grid gap-2">{upcoming.map((item) => <li key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2 text-sm"><span className="flex min-w-0 items-center gap-2"><span aria-hidden="true" className={item.status === "done" ? "text-emerald-400" : item.status === "partial" ? "text-amber-400" : "text-slate-300"}>{item.status === "done" ? "✓" : item.status === "partial" ? "◐" : "○"}</span><span className="truncate font-bold">{item.label}</span></span>{item.href && <Link href={item.href} className="text-xs font-extrabold text-[var(--blue)]">Open →</Link>}</li>)}</ul>
+      <Link href="/admin/todo" className="mt-3 inline-block text-sm font-extrabold text-[var(--blue)]">Full roadmap →</Link>
+    </Card>
+  );
 }
 
-/*
- * Setup checklist from real signals. Hides itself once every step is done so it
- * only nags during initial setup.
- */
 function OnboardingChecklist({ readiness }: { readiness: { configured: boolean; hasOwner: boolean; hasCampaign: boolean; hasAudit: boolean } }) {
   const steps = [
     { done: readiness.configured, label: "Configure service-role key + run migrations", hint: "SUPABASE_SERVICE_ROLE_KEY + 20260723/24/25 migrations" },
@@ -123,38 +99,9 @@ function OnboardingChecklist({ readiness }: { readiness: { configured: boolean; 
   ];
   if (steps.every((s) => s.done)) return null;
   const completed = steps.filter((s) => s.done).length;
-
-  return (
-    <div className="mb-5">
-      <Card>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-black">Getting started</h2>
-          <span className="text-sm font-bold text-[var(--muted)]">{completed} / {steps.length} done</span>
-        </div>
-        <ul className="grid gap-2">
-          {steps.map((s) => (
-            <li key={s.label} className="flex items-start gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
-              <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-xs ${s.done ? "bg-emerald-500/20 text-emerald-400" : "border border-[var(--border-2)] text-[var(--faint)]"}`}>{s.done ? "✓" : ""}</span>
-              <span className="min-w-0">
-                <span className={`block font-bold ${s.done ? "text-[var(--muted)] line-through" : ""}`}>{s.label}</span>
-                <span className="text-xs text-[var(--faint)]"><code>{s.hint}</code></span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-    </div>
-  );
+  return <div className="mb-5"><Card><div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-black">Getting started</h2><span className="text-sm font-bold text-[var(--muted)]">{completed} / {steps.length} done</span></div><ul className="grid gap-2">{steps.map((s) => <li key={s.label} className="flex items-start gap-3 rounded-xl border border-[var(--border)] px-3 py-2"><span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-xs ${s.done ? "bg-emerald-500/20 text-emerald-400" : "border border-[var(--border-2)] text-[var(--faint)]"}`}>{s.done ? "✓" : ""}</span><span className="min-w-0"><span className={`block font-bold ${s.done ? "text-[var(--muted)] line-through" : ""}`}>{s.label}</span><span className="text-xs text-[var(--faint)]"><code>{s.hint}</code></span></span></li>)}</ul></Card></div>;
 }
 
 function HealthRow({ label, status, note }: { label: string; status: string; note: string }) {
-  return (
-    <li className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2">
-      <span className="font-bold">{label}</span>
-      <span className="flex items-center gap-2">
-        <span className="hidden text-xs text-[var(--muted)] sm:inline">{note}</span>
-        <StatusPill status={status} />
-      </span>
-    </li>
-  );
+  return <li className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] px-3 py-2"><span className="font-bold">{label}</span><span className="flex items-center gap-2"><span className="hidden text-xs text-[var(--muted)] sm:inline">{note}</span><StatusPill status={status} /></span></li>;
 }
