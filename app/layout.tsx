@@ -1,10 +1,11 @@
-/* ==========================================================================
+/* ========================================================================== 
    ROOT LAYOUT
    Sets document metadata, loads global styles, and wraps the app in the
    ToastProvider so any client component can raise feedback messages.
    ========================================================================== */
 import type { Metadata, Viewport } from "next";
 import { ToastProvider } from "@/components/Toast";
+import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,7 +29,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          {children}
+          <UniversalPuzzleActions />
+        </ToastProvider>
       </body>
     </html>
   );
