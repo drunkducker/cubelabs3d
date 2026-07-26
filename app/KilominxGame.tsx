@@ -32,8 +32,9 @@ import {
   VERTICES, FACE_CORNERS, FACE_COLORS, faceNormal,
   solved as kiloSolved, applyMoveIndex, isSolved as kiloIsSolved,
   randomScramble, solve as kiloSolve, faceOfMove, dirOfMove, inverseMoveIndex,
-  moveLabel, type KiloState,
+  moveLabel, parseMove, type KiloState,
 } from "@/lib/kilominx-engine";
+import SavedScrambles from "@/components/SavedScrambles";
 
 const toVec3 = (v: readonly [number, number, number]) => new THREE.Vector3(v[0], v[1], v[2]);
 const TURN = (2 * Math.PI) / 5;
@@ -104,7 +105,7 @@ function quadGeometry(quad: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.
 export default function KilominxGame() {
   const mountRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<{
-    scramble: () => void; solveNow: () => void; resetPuzzle: () => void; resetView: () => void; undo: () => void; turnFace: (moveIndex: number) => void;
+    scramble: () => void; solveNow: () => void; resetPuzzle: () => void; resetView: () => void; undo: () => void; turnFace: (moveIndex: number) => void; loadScramble: (notation: string) => void;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Kilominx ready");
@@ -307,8 +308,28 @@ export default function KilominxGame() {
       setMoves(history.length);
       queueMove(inverseMoveIndex(previous.moveIndex), { record: false });
     };
+    // Snap every corner group back to its solved transform. Children hold the
+    // solved absolute coordinates, so clearing each group's baked transform
+    // returns the whole puzzle to solved without animating.
+    const hardReset = () => {
+      cornerGroups.forEach(g => { g.position.set(0, 0, 0); g.quaternion.identity(); g.scale.set(1, 1, 1); });
+      logicalState = kiloSolved();
+    };
+    const loadScramble = (notation: string) => {
+      if (active) return;
+      let indices: number[];
+      try { indices = notation.trim().split(/\s+/).filter(Boolean).map(parseMove); } catch { return; }
+      if (!indices.length) return;
+      queue.length = 0;
+      hardReset();
+      history.length = 0; setCanUndo(false); setMoves(0);
+      setScrambleText(notation);
+      setStatus("Loading scramble…");
+      resetTimer(); startTimer();
+      queueSequence(indices, { record: false, fast: true });
+    };
 
-    actionsRef.current = { scramble, solveNow, resetPuzzle, resetView, undo, turnFace: (moveIndex) => queueMove(moveIndex) };
+    actionsRef.current = { scramble, solveNow, resetPuzzle, resetView, undo, turnFace: (moveIndex) => queueMove(moveIndex), loadScramble };
 
     // ---- Swipe-to-turn: drag a face sticker to turn that face; drag empty
     // space to orbit. Each kite belongs to exactly one face, so the touched
@@ -442,6 +463,8 @@ export default function KilominxGame() {
       </section>
 
       <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to start a timed attempt."}</p></section>
+
+      <SavedScrambles puzzleType="kilominx" currentScramble={scrambleText} onLoad={(s) => actionsRef.current?.loadScramble(s)} />
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
