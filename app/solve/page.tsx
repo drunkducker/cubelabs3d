@@ -9,6 +9,7 @@ const puzzles=[
  {name:"10×10 Cube Engine Test",description:"Stress-test our own Cube Labs engine at 10×10 before generalizing the smaller NxN cubes.",status:"TEST",href:"/play/10x10",accent:"text-[#70b7ff]",badge:"bg-[rgba(46,166,255,.14)] border-[rgba(46,166,255,.35)]"},
  {name:"Mirror Cube",description:"3×3 shape-mod mode using size and shape instead of sticker colors.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
  {name:"Pyraminx",description:"Playable four-sided twisty puzzle with swipe-to-turn, a timer, undo, and a verified full solver.",status:"BETA",href:"/solver/pyraminx",accent:"text-[var(--gold)]",badge:"bg-[rgba(245,185,66,.14)] border-[rgba(245,185,66,.35)]"},
+ {name:"Kilominx",description:"Playable dodecahedron (corners-only Megaminx) with swipe-to-turn, a timer, undo, and a verified reduction solver with step playback.",status:"BETA",href:"/solver/kilominx",accent:"text-[var(--purple)]",badge:"bg-[rgba(139,92,246,.14)] border-[rgba(139,92,246,.35)]"},
  {name:"Skewb",description:"Corner-turning puzzle solver and interactive trainer.",status:"COMING SOON",accent:"text-[var(--muted)]",badge:"bg-white/5 border-[var(--border)]"},
 ];
 
