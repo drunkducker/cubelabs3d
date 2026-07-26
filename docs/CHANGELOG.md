@@ -2,6 +2,16 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-26 — Admin hardening follow-up
+
+- Branch: `claude/admin-hardening-followup` off `origin/main` (`c5f7b58`).
+- **Rate limiting** (`supabase/migrations/20260726_rate_limiting.sql`, `lib/admin/rate-limit.ts`): fixed-window `check_rate_limit` SECURITY DEFINER RPC. Wired into sign-in lockout (per-IP + per-email), password-reset throttle, privileged admin actions, media upload, billing checkout, MFA verify, and the public ad-tracking beacon. Fails **open** for user-facing paths so an outage never locks users out.
+- **Admin 2FA (TOTP)** via Supabase MFA: `/admin/security/mfa` + `MfaSetup` client + `/api/admin/mfa` (enroll/verify/unenroll, rate-limited, audited) + `lib/admin/mfa.ts`. Optional strict enforcement gated by `ADMIN_REQUIRE_MFA`: `requirePermission` demands aal2 while `/admin/security/mfa` uses `requireAdmin` so an aal1 admin can always complete enrollment. Security center surfaces MFA + enforcement + rate-limit + headers status honestly.
+- **CI security scanners** (`.github/workflows/`): Gitleaks (secret scan), OSV-Scanner (dependency CVEs), CodeQL (JS/TS SAST) on push, PR, and weekly; plus `ci.yml` for typecheck / lint / unit tests / build / `npm audit`.
+- **RLS assertion script** (`supabase/tests/rls_assertions.sql`): wrapped-in-ROLLBACK SQL that runs the RLS checklist against `anon` and `authenticated`; every policy regression raises.
+- **Admin roadmap** (`lib/admin/todo.ts`) gains four hardening items so operators see them at `/admin/todo` alongside product work.
+- Testing: `tsc --noEmit` clean; `npm run build` **59 routes**; `npm test` **46/46**. Not deployed; `20260726` migration not applied; `ADMIN_REQUIRE_MFA` off by default.
+
 ## 2026-07-23 — Merge admin/profile work into main
 
 - Branches merged: `claude/cubelabs-admin-dashboard-4pe35q`, `origin/gpt/mobile-profile-page-20260722`, and local `gpt/mobile-profile-page-20260722` follow-up commits.

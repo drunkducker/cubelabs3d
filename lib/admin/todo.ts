@@ -25,6 +25,10 @@ export const ADMIN_TODO: AdminTodoItem[] = [
   { id: "legal.pages", label: "Legal page editor / content management", status: "partial", href: "/admin/content", note: "Structured content path exists; a safe block editor remains." },
   { id: "daily.challenge", label: "Daily challenge scheduler", status: "pending", note: "Needs official daily scramble records, timezone/date scheduling, publication controls, and homepage/leaderboard wiring." },
   { id: "puzzle.rotation", label: "Puzzle rotation manager", status: "pending", note: "Needs a dated featured-puzzle configuration and a shared read service." },
+  { id: "sec.rate_limits", label: "Rate limiting & login lockout", status: "done", href: "/admin/security", note: "Fixed-window check_rate_limit RPC + sign-in/reset/admin-action/media/checkout/ad-track wiring. Activates once 20260726_rate_limiting.sql is applied." },
+  { id: "sec.mfa", label: "Admin two-factor (TOTP)", status: "done", href: "/admin/security/mfa", note: "Enrol an authenticator, then set ADMIN_REQUIRE_MFA=true to require aal2 on every admin page." },
+  { id: "sec.ci_scanners", label: "CI: secret scan, dep CVEs, SAST", status: "done", note: "Gitleaks + OSV-Scanner + CodeQL + npm audit in .github/workflows/. Runs on push, PR, and weekly." },
+  { id: "sec.rls_tests", label: "RLS regression tests", status: "done", note: "supabase/tests/rls_assertions.sql — wrapped in ROLLBACK, run in the Supabase SQL editor after every admin migration." },
 ];
 
 export function todoCounts(items: AdminTodoItem[] = ADMIN_TODO) {

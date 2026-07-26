@@ -95,14 +95,37 @@ introspected through the REST API.
   `javascript:`, `data:`, `file:` destinations.
 - Typed-phrase confirmation + mandatory reason on destructive actions.
 
+### Added 2026-07-26 (follow-up branch `claude/admin-hardening-followup`)
+
+- **Rate limiting / login lockout** (`20260726_rate_limiting.sql`): fixed-window
+  counter + `check_rate_limit` SECURITY DEFINER RPC. Wired into: sign-in
+  (per-IP 15/5min + per-email 8/15min), password reset (4/15min per email,
+  12/15min per IP), privileged admin actions (80/min per admin), media upload
+  (30/min per admin), billing checkout (8/min per user), MFA verify (8/5min per
+  admin), ad tracking beacon (240/min per IP). Fails **open** on user-facing
+  paths so a limiter outage cannot lock users out.
+- **Admin 2FA (TOTP)** via Supabase MFA (`/admin/security/mfa`,
+  `/api/admin/mfa`, `lib/admin/mfa.ts`): enrol → QR/secret → verify → done.
+  Optional strict enforcement gated by `ADMIN_REQUIRE_MFA=true`:
+  `requirePermission` demands an aal2 session; the MFA enrollment page uses
+  `requireAdmin` only so it stays reachable at aal1 (no lock-out loop). MFA
+  verify attempts are rate-limited and audited; secrets/codes are never logged.
+- **CI security scanners** (`.github/workflows/`):
+  Gitleaks (secret scan), OSV-Scanner (dependency CVEs), CodeQL
+  (JavaScript/TypeScript SAST) on push + PR + a weekly Monday sweep; plus a
+  `ci.yml` running typecheck / lint / unit tests / build / `npm audit`.
+- **RLS assertion script** (`supabase/tests/rls_assertions.sql`): runs the RLS
+  checklist as executable SQL against `anon` and `authenticated`; wrapped in
+  ROLLBACK so it is safe to run in production and any policy regression raises.
+
 ## Known open items
 
-- Rate limiting on sensitive endpoints is **not yet implemented** (tracked in
-  ROADMAP §8). Origin checks and size limits are in place.
-- Admin step-up 2FA/TOTP is **not yet implemented**.
-- `npm audit --omit=dev` still reports unresolved dependency findings. The
-  safe path bumped Next to `14.2.35`; full remediation requires a planned
-  framework-major upgrade and replacement or deeper review of `cubejs`, whose
-  current package bundles an old `npm` dependency.
-- Production RLS/advisor verification must be run and recorded once the migration
-  is applied (see checklist above).
+- Production RLS/advisor verification must be run and recorded once the
+  migrations are applied (see checklist above); the RLS assertion SQL script
+  now automates it.
+- `npm audit --omit=dev` still reports unresolved dependency findings inherited
+  from `cubejs` (bundles an old `npm`); the safe path bumped Next to `14.2.35`,
+  full remediation requires replacement or a planned framework-major upgrade.
+- WebAuthn / passkeys as a second admin factor option beyond TOTP.
+- CSP is currently enforcing with `unsafe-inline` and `unsafe-eval` on scripts;
+  next step is a nonce so those two can be removed.

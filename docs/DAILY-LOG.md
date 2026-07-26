@@ -2,6 +2,34 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-26 — Admin hardening follow-up branch
+
+**Branch:** `claude/admin-hardening-followup` off `origin/main` (`c5f7b58`). Small, focused follow-up so the four hardening items that never got ported can be reviewed cleanly on their own.
+
+**Completed**
+
+- [x] Rate limiting: `supabase/migrations/20260726_rate_limiting.sql`, `lib/admin/rate-limit.ts`, wiring in sign-in (per-IP + per-email lockout), password reset, `authorizeAction`, media upload, billing checkout, MFA verify, and ad-track beacon.
+- [x] Admin 2FA (TOTP): `lib/admin/mfa.ts`, `/admin/security/mfa` page + `MfaSetup`, `/api/admin/mfa` (enroll/verify/unenroll), optional `ADMIN_REQUIRE_MFA` step-up in `requirePermission`; security center surfaces status; link from `/admin/security`.
+- [x] CI workflows: `.github/workflows/ci.yml` (typecheck/lint/test/build/audit) + `security.yml` (Gitleaks/OSV/CodeQL, weekly).
+- [x] RLS regression script: `supabase/tests/rls_assertions.sql` (wrapped in ROLLBACK).
+- [x] Admin roadmap items added (rate-limit / MFA / CI scanners / RLS tests) so operators see them at `/admin/todo`.
+- [x] Docs: SECURITY.md "Added 2026-07-26" section; CHANGELOG entry; `.env.example` gains `ADMIN_REQUIRE_MFA`.
+
+**Verified**
+
+- `npx tsc --noEmit` clean; `npm run build` 59 routes; `npm test` 46/46; `npm run lint` exit 0.
+
+**Unverified (do not mark `[x]`)**
+
+- [ ] `20260726_rate_limiting.sql` not applied in production; `ADMIN_REQUIRE_MFA` off; CI workflows and RLS script not yet exercised in this repo's Actions.
+- [ ] Not browser-tested.
+
+**Note on branch strategy**
+
+- Prior branch `claude/cubelabs-admin-dashboard-4pe35q` had grown to ~244-file diff vs main and was largely already ported by parallel work. This follow-up is deliberately tiny (~15 new files + ~5 small integration edits) so review is manageable. Prior branch is safe to close once this merges.
+
+---
+
 ## 2026-07-23 — Main merge: admin, profile, hubs, security headers
 
 **Completed**
