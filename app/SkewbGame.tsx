@@ -12,15 +12,17 @@ import {
   CORNER_POSITIONS,
   type AxisName,
   type Direction,
+  type LayerSide,
   type PieceTransform,
   type SkewbMove,
   applyMove,
-  axesForPosition,
   inverseMove,
   isPositionInLayer,
   isSolved as skewbIsSolved,
+  layersForPosition,
   moveLabel,
   parseSequence,
+  pivotVector,
   randomScramble,
   solve as solveSkewb,
   solved as skewbSolved,
@@ -42,7 +44,7 @@ type PointerStart = {
   hitPoint: THREE.Vector3;
   group: THREE.Group;
 };
-type SwipeGesture = { axis: AxisName; direction: Direction };
+type SwipeGesture = Required<Pick<SkewbMove, "axis" | "direction" | "layer">>;
 type DragPreview = {
   gesture: SwipeGesture;
   groups: THREE.Group[];
@@ -52,6 +54,10 @@ type DragPreview = {
 
 const FACE_COLORS = ["#f4f4f1", "#ffd500", "#00a85a", "#1557d5", "#ef3340", "#ff7a00"];
 const TURN_ANGLE = (2 * Math.PI) / 3;
+const TURN_DURATION_MS = 460;
+const QUICK_TURN_DURATION_MS = 180;
+const MIN_SETTLE_DURATION_MS = 150;
+const FULL_DRAG_DISTANCE_PX = 150;
 const FACE_DATA = [
   { normal: new THREE.Vector3(0, 1, 0), u: new THREE.Vector3(1, 0, 0), v: new THREE.Vector3(0, 0, -1) },
   { normal: new THREE.Vector3(0, -1, 0), u: new THREE.Vector3(1, 0, 0), v: new THREE.Vector3(0, 0, 1) },
@@ -319,6 +325,7 @@ export default function SkewbGame() {
     let logicalState = skewbSolved();
     const queue: QueuedMove[] = [];
     const history: SkewbMove[] = [];
+    const stateHistory: SkewbMove[] = [];
     let active = false;
     let moveFrame = 0;
     let disposed = false;
@@ -347,8 +354,10 @@ export default function SkewbGame() {
       });
     };
 
-    const groupsForMove = (axisName: AxisName) =>
-      pieceGroups.filter(group => isPositionInLayer(pieceState(group).position, axisName));
+    const groupsForMove = (move: Pick<SkewbMove, "axis" | "layer">) =>
+      pieceGroups.filter(group =>
+        isPositionInLayer(pieceState(group).position, move.axis, move.layer ?? 1),
+      );
 
     let highlighted: THREE.Group[] = [];
     const glowPiece = (group: THREE.Group, intensity: number) => {
@@ -365,7 +374,7 @@ export default function SkewbGame() {
     };
     const highlightMove = (gesture: SwipeGesture) => {
       clearHighlight();
-      highlighted = groupsForMove(gesture.axis);
+      highlighted = groupsForMove(gesture);
       highlighted.forEach(group => glowPiece(group, 0.28));
     };
 
@@ -378,10 +387,14 @@ export default function SkewbGame() {
       syncRenderer();
     };
     const showDragPreview = (gesture: SwipeGesture, angle: number) => {
-      if (!dragPreview || dragPreview.gesture.axis !== gesture.axis) {
+      if (
+        !dragPreview ||
+        dragPreview.gesture.axis !== gesture.axis ||
+        dragPreview.gesture.layer !== gesture.layer
+      ) {
         clearDragPreview();
         highlightMove(gesture);
-        const groups = groupsForMove(gesture.axis);
+        const groups = groupsForMove(gesture);
         const pivot = new THREE.Group();
         root.add(pivot);
         groups.forEach(group => pivot.attach(group));
@@ -389,7 +402,7 @@ export default function SkewbGame() {
       }
       dragPreview.gesture = gesture;
       dragPreview.angle = angle;
-      const axis = new THREE.Vector3(...AXES[gesture.axis]).normalize();
+      const axis = new THREE.Vector3(...pivotVector(gesture)).normalize();
       dragPreview.pivot.quaternion.setFromAxisAngle(axis, angle);
     };
 
@@ -399,6 +412,7 @@ export default function SkewbGame() {
       setCanUndo(history.length > 0);
       setIsSolved(solvedNow);
       if (solvedNow) {
+        stateHistory.length = 0;
         stopTimer();
         setStatus("Solved!");
       }
@@ -407,6 +421,7 @@ export default function SkewbGame() {
     const hardReset = () => {
       queue.length = 0;
       history.length = 0;
+      stateHistory.length = 0;
       logicalState = skewbSolved();
       clearDragPreview();
       syncRenderer();
@@ -423,9 +438,8 @@ export default function SkewbGame() {
       active = true;
       setBusy(true);
       const move = queue.shift()!;
-      const axisTuple = AXES[move.axis];
-      const axis = new THREE.Vector3(...axisTuple).normalize();
-      const selected = groupsForMove(move.axis);
+      const axis = new THREE.Vector3(...pivotVector(move)).normalize();
+      const selected = groupsForMove(move);
       const pivot = new THREE.Group();
       root.add(pivot);
       selected.forEach(group => pivot.attach(group));
@@ -434,7 +448,9 @@ export default function SkewbGame() {
       const startAngle = THREE.MathUtils.clamp(move.startAngle ?? 0, -TURN_ANGLE, TURN_ANGLE);
       pivot.quaternion.setFromAxisAngle(axis, startAngle);
       const remaining = Math.abs(angle - startAngle) / TURN_ANGLE;
-      const duration = move.fast ? 115 : Math.max(90, 280 * remaining);
+      const duration = move.fast
+        ? QUICK_TURN_DURATION_MS
+        : Math.max(MIN_SETTLE_DURATION_MS, TURN_DURATION_MS * remaining);
       clearHighlight();
       const animate = (now: number) => {
         if (disposed) return;
@@ -452,7 +468,12 @@ export default function SkewbGame() {
         root.remove(pivot);
         syncRenderer();
 
-        const recordedMove: SkewbMove = { axis: move.axis, direction: move.direction };
+        const recordedMove: SkewbMove = {
+          axis: move.axis,
+          direction: move.direction,
+          ...(move.layer === -1 ? { layer: move.layer } : {}),
+        };
+        if (move.phase !== "solve") stateHistory.push(recordedMove);
         if (move.record !== false) history.push(recordedMove);
         clearHighlight();
         syncUi();
@@ -474,14 +495,25 @@ export default function SkewbGame() {
       queue.push(move);
       runNext();
     };
-    const turn = (axis: AxisName, direction: Direction, startAngle = 0) => {
+    const turn = (
+      axis: AxisName,
+      direction: Direction,
+      startAngle = 0,
+      layer: LayerSide = 1,
+    ) => {
       if (active || queue.length) return;
       setSolutionText("");
       if (skewbIsSolved(logicalState)) {
         resetTimer();
         startTimer();
       }
-      enqueue({ axis, direction, phase: "play", startAngle });
+      enqueue({
+        axis,
+        direction,
+        ...(layer === -1 ? { layer } : {}),
+        phase: "play",
+        startAngle,
+      });
     };
     const loadMoves = (sequence: SkewbMove[], notation: string, phase: "scramble" | "load") => {
       if (active || queue.length || !sequence.length) return;
@@ -517,7 +549,7 @@ export default function SkewbGame() {
       if (active || queue.length || skewbIsSolved(logicalState)) return;
       try {
         setStatus("Finding verified solution…");
-        const solution = solveSkewb(logicalState);
+        const solution = solveSkewb(logicalState, stateHistory);
         if (!verifySolution(logicalState, solution)) throw new Error("Solution verification failed.");
         setSolutionText(solution.map(moveLabel).join(" "));
         history.length = 0;
@@ -584,27 +616,29 @@ export default function SkewbGame() {
     };
     const resolveGesture = (start: PointerStart, dx: number, dy: number): SwipeGesture => {
       const position = pieceState(start.group).position;
-      const candidates = axesForPosition(position);
+      const candidates = layersForPosition(position);
       const drag = new THREE.Vector2(dx, dy).normalize();
       const rootOrigin = root.getWorldPosition(new THREE.Vector3());
       const relativeHit = start.hitPoint.clone().sub(rootOrigin);
       root.updateMatrixWorld(true);
 
-      let bestAxis = candidates[0] ?? "U";
+      let bestLayer = candidates[0] ?? { axis: "U" as const, layer: 1 as const };
       let bestScore = 0;
       let bestMagnitude = -1;
-      for (const axisName of candidates) {
-        const axisWorld = new THREE.Vector3(...AXES[axisName]).normalize().transformDirection(root.matrixWorld);
+      for (const candidate of candidates) {
+        const axisWorld = new THREE.Vector3(...pivotVector(candidate))
+          .normalize()
+          .transformDirection(root.matrixWorld);
         const tangent = new THREE.Vector3().crossVectors(axisWorld, relativeHit);
         if (tangent.lengthSq() < 1e-8) continue;
         const score = drag.dot(projectedScreenDirection(tangent.normalize(), start.hitPoint));
         if (Math.abs(score) > bestMagnitude) {
           bestMagnitude = Math.abs(score);
-          bestAxis = axisName;
+          bestLayer = candidate;
           bestScore = score;
         }
       }
-      return { axis: bestAxis, direction: bestScore >= 0 ? 1 : -1 };
+      return { ...bestLayer, direction: bestScore >= 0 ? 1 : -1 };
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -650,7 +684,11 @@ export default function SkewbGame() {
       const dy = event.clientY - pointerStart.clientY;
       if (Math.hypot(dx, dy) < 14) return;
       previewGesture = resolveGesture(pointerStart, dx, dy);
-      const progress = THREE.MathUtils.clamp((Math.hypot(dx, dy) - 8) / 82, 0, 1);
+      const progress = THREE.MathUtils.clamp(
+        (Math.hypot(dx, dy) - 10) / FULL_DRAG_DISTANCE_PX,
+        0,
+        1,
+      );
       showDragPreview(previewGesture, previewGesture.direction * TURN_ANGLE * progress);
       setStatus(`${moveLabel(previewGesture)} · release to turn`);
     };
@@ -675,7 +713,7 @@ export default function SkewbGame() {
       const startAngle = dragPreview?.angle ?? 0;
       clearDragPreview();
       if (!canceled && Math.hypot(dx, dy) >= 30 && !active && !queue.length) {
-        turn(gesture.axis, gesture.direction, startAngle);
+        turn(gesture.axis, gesture.direction, startAngle, gesture.layer);
       } else {
         setStatus(skewbIsSolved(logicalState) ? "Solved!" : "Your turn");
       }

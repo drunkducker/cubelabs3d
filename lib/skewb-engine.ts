@@ -9,9 +9,11 @@
 
 export type AxisName = "U" | "R" | "L" | "B";
 export type Direction = 1 | -1;
+export type LayerSide = 1 | -1;
 export type Vec3 = [number, number, number];
 export type Mat3 = [number, number, number, number, number, number, number, number, number];
-export type SkewbMove = { axis: AxisName; direction: Direction };
+export type SkewbLayer = { axis: AxisName; layer: LayerSide };
+export type SkewbMove = { axis: AxisName; direction: Direction; layer?: LayerSide };
 export type PieceTransform = { position: Vec3; orientation: Mat3 };
 export type SkewbState = { corners: PieceTransform[]; centers: PieceTransform[] };
 
@@ -44,20 +46,34 @@ const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
  * The renderer uses this same predicate for picking and animation, so a
  * sticker can never select a layer that disagrees with the exact state engine.
  */
-export function isPositionInLayer(position: Vec3, axisName: AxisName): boolean {
-  return dot(position, AXES[axisName]) > 0;
+export function isPositionInLayer(
+  position: Vec3,
+  axisName: AxisName,
+  layer: LayerSide = 1,
+): boolean {
+  return layer * dot(position, AXES[axisName]) > 0;
 }
 
 /**
- * Legal corner axes reachable from a sticker at the supplied slot.
+ * Every physical corner layer that contains a sticker at the supplied slot.
  *
- * Corner stickers belong to one or three playable layers. A center sticker
- * belongs to two. Exposing both cases lets the UI make the whole colored
- * surface swipeable instead of limiting play to the small corner stickers.
+ * A Skewb has two independently turnable halves on each of its four body
+ * diagonals. Including both halves gives every corner and center exactly four
+ * legal drag candidates, so direct manipulation stays consistent after any
+ * number of moves.
  */
-export function axesForPosition(position: Vec3): AxisName[] {
-  return (Object.keys(AXES) as AxisName[])
-    .filter(axisName => isPositionInLayer(position, axisName));
+export function layersForPosition(position: Vec3): SkewbLayer[] {
+  return (Object.keys(AXES) as AxisName[]).flatMap(axis =>
+    ([1, -1] as LayerSide[])
+      .filter(layer => isPositionInLayer(position, axis, layer))
+      .map(layer => ({ axis, layer })),
+  );
+}
+
+export function pivotVector(move: Pick<SkewbMove, "axis" | "layer">): Vec3 {
+  const layer = move.layer ?? 1;
+  const axis = AXES[move.axis];
+  return [layer * axis[0], layer * axis[1], layer * axis[2]];
 }
 
 const multiply = (a: Mat3, b: Mat3): Mat3 => [
@@ -82,8 +98,12 @@ const transform = (m: Mat3, v: Vec3): Vec3 => [
  * Rodrigues' formula rounded to {-1,0,1}. For a ±120° turn around a signed
  * cube diagonal, the result is always an exact signed-permutation matrix.
  */
-export function rotationMatrix(axisName: AxisName, direction: Direction): Mat3 {
-  const raw = AXES[axisName];
+export function rotationMatrix(
+  axisName: AxisName,
+  direction: Direction,
+  layer: LayerSide = 1,
+): Mat3 {
+  const raw = AXES[axisName].map(value => value * layer) as Vec3;
   const axis = raw.map(value => value / Math.sqrt(3)) as Vec3;
   const angle = direction * (2 * Math.PI / 3);
   const c = Math.cos(angle);
@@ -124,9 +144,10 @@ export function clone(state: SkewbState): SkewbState {
 
 export function applyMove(state: SkewbState, move: SkewbMove): SkewbState {
   const out = clone(state);
-  const rotation = rotationMatrix(move.axis, move.direction);
+  const layer = move.layer ?? 1;
+  const rotation = rotationMatrix(move.axis, move.direction, layer);
   const turn = (piece: PieceTransform) => {
-    if (!isPositionInLayer(piece.position, move.axis)) return;
+    if (!isPositionInLayer(piece.position, move.axis, layer)) return;
     piece.position = transform(rotation, piece.position);
     piece.orientation = multiply(rotation, piece.orientation);
   };
@@ -159,16 +180,23 @@ export function equal(a: SkewbState, b: SkewbState): boolean {
 }
 
 export function moveLabel(move: SkewbMove): string {
-  return `${move.axis}${move.direction === -1 ? "'" : ""}`;
+  const axis = move.layer === -1 ? move.axis.toLowerCase() : move.axis;
+  return `${axis}${move.direction === -1 ? "'" : ""}`;
 }
 
 export function parseMove(token: string): SkewbMove {
   const prime = token.endsWith("'");
-  const axis = (prime ? token.slice(0, -1) : token) as AxisName;
-  if (!(axis in AXES) || token !== `${axis}${prime ? "'" : ""}`) {
+  const rawAxis = prime ? token.slice(0, -1) : token;
+  const axis = rawAxis.toUpperCase() as AxisName;
+  const layer: LayerSide = rawAxis === rawAxis.toLowerCase() ? -1 : 1;
+  if (!(axis in AXES) || rawAxis.length !== 1 || token !== `${rawAxis}${prime ? "'" : ""}`) {
     throw new Error(`Invalid Skewb move: ${token}`);
   }
-  return { axis, direction: prime ? -1 : 1 };
+  return {
+    axis,
+    direction: prime ? -1 : 1,
+    ...(layer === -1 ? { layer } : {}),
+  };
 }
 
 export function parseSequence(notation: string): SkewbMove[] {
@@ -176,7 +204,7 @@ export function parseSequence(notation: string): SkewbMove[] {
 }
 
 export function inverseMove(move: SkewbMove): SkewbMove {
-  return { axis: move.axis, direction: move.direction === 1 ? -1 : 1 };
+  return { ...move, direction: move.direction === 1 ? -1 : 1 };
 }
 
 export function inverseSequence(moves: SkewbMove[]): SkewbMove[] {
@@ -268,14 +296,21 @@ function solvedSearchTable(): Map<string, SkewbMove[]> {
 }
 
 /**
- * Solve the current Skewb state, independent of how it was reached.
+ * Solve the current Skewb state.
  *
  * The search meets a depth-five table grown from solved with a depth-six
  * search grown from the requested state. Every returned sequence is verified
- * against the exact engine before it leaves this function.
+ * against the exact engine before it leaves this function. Canonical U/R/L/B
+ * states are solved entirely from state. A direct UI turn may use the opposite
+ * half of one of those diagonals; when supplied, its verified move history is
+ * the exact fallback for that larger, orientation-aware move set.
  */
-export function solve(state: SkewbState): SkewbMove[] {
+export function solve(state: SkewbState, fallbackHistory: SkewbMove[] = []): SkewbMove[] {
   if (isSolved(state)) return [];
+  if (fallbackHistory.some(move => move.layer === -1)) {
+    const fallback = inverseSequence(fallbackHistory);
+    if (isSolved(applyMoves(state, fallback))) return fallback;
+  }
 
   const solvedTable = solvedSearchTable();
   const start = clone(state);
@@ -309,6 +344,11 @@ export function solve(state: SkewbState): SkewbMove[] {
       }
     }
     frontier = nextFrontier;
+  }
+
+  if (fallbackHistory.length) {
+    const fallback = inverseSequence(fallbackHistory);
+    if (isSolved(applyMoves(state, fallback))) return fallback;
   }
 
   throw new Error("Unable to solve this Skewb state.");

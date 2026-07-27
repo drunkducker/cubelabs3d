@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   AXES,
+  type LayerSide,
+  type SkewbMove,
   applyMove,
   applyMoves,
-  axesForPosition,
   equal,
   inverseMove,
   inverseSequence,
   isPositionInLayer,
   isSolved,
+  layersForPosition,
+  moveLabel,
   parseSequence,
   randomScramble,
   rotationMatrix,
@@ -21,11 +24,13 @@ import {
 describe("skewb move geometry", () => {
   it("uses exact signed-permutation matrices", () => {
     for (const axis of Object.keys(AXES) as Array<keyof typeof AXES>) {
-      for (const direction of [1, -1] as const) {
-        const matrix = rotationMatrix(axis, direction);
-        expect(matrix.every(value => [-1, 0, 1].includes(value))).toBe(true);
-        for (let row = 0; row < 3; row++) {
-          expect(matrix.slice(row * 3, row * 3 + 3).filter(Boolean)).toHaveLength(1);
+      for (const layer of [1, -1] as LayerSide[]) {
+        for (const direction of [1, -1] as const) {
+          const matrix = rotationMatrix(axis, direction, layer);
+          expect(matrix.every(value => [-1, 0, 1].includes(value))).toBe(true);
+          for (let row = 0; row < 3; row++) {
+            expect(matrix.slice(row * 3, row * 3 + 3).filter(Boolean)).toHaveLength(1);
+          }
         }
       }
     }
@@ -33,16 +38,20 @@ describe("skewb move geometry", () => {
 
   it("each corner turn has order three", () => {
     for (const axis of Object.keys(AXES) as Array<keyof typeof AXES>) {
-      let state = solved();
-      for (let i = 0; i < 3; i++) state = applyMove(state, { axis, direction: 1 });
-      expect(isSolved(state)).toBe(true);
+      for (const layer of [1, -1] as LayerSide[]) {
+        let state = solved();
+        for (let i = 0; i < 3; i++) state = applyMove(state, { axis, layer, direction: 1 });
+        expect(isSolved(state)).toBe(true);
+      }
     }
   });
 
   it("a move followed by its inverse is the identity", () => {
     for (const axis of Object.keys(AXES) as Array<keyof typeof AXES>) {
-      const move = { axis, direction: 1 as const };
-      expect(isSolved(applyMoves(solved(), [move, inverseMove(move)]))).toBe(true);
+      for (const layer of [1, -1] as LayerSide[]) {
+        const move = { axis, layer, direction: 1 as const };
+        expect(isSolved(applyMoves(solved(), [move, inverseMove(move)]))).toBe(true);
+      }
     }
   });
 
@@ -50,24 +59,42 @@ describe("skewb move geometry", () => {
     const state = solved();
 
     for (const corner of state.corners) {
-      expect([1, 3]).toContain(axesForPosition(corner.position).length);
+      expect(layersForPosition(corner.position)).toHaveLength(4);
     }
     for (const center of state.centers) {
-      expect(axesForPosition(center.position)).toHaveLength(2);
+      expect(layersForPosition(center.position)).toHaveLength(4);
     }
 
     for (const axis of Object.keys(AXES) as Array<keyof typeof AXES>) {
-      const movingCorners = state.corners.filter(piece => isPositionInLayer(piece.position, axis));
-      const movingCenters = state.centers.filter(piece => isPositionInLayer(piece.position, axis));
-      expect(movingCorners).toHaveLength(4);
-      expect(movingCenters).toHaveLength(3);
+      for (const layer of [1, -1] as LayerSide[]) {
+        const movingCorners = state.corners.filter(piece => isPositionInLayer(piece.position, axis, layer));
+        const movingCenters = state.centers.filter(piece => isPositionInLayer(piece.position, axis, layer));
+        expect(movingCorners).toHaveLength(4);
+        expect(movingCenters).toHaveLength(3);
+      }
     }
+  });
+
+  it("keeps all eight corner layers playable through the tutorial sequence", () => {
+    const moves = parseSequence("R' U R U'");
+    let state = solved();
+
+    for (const move of [...moves, ...moves]) {
+      state = applyMove(state, move);
+      for (const piece of [...state.corners, ...state.centers]) {
+        expect(layersForPosition(piece.position)).toHaveLength(4);
+      }
+    }
+
+    expect(isSolved(applyMoves(state, inverseSequence([...moves, ...moves])))).toBe(true);
   });
 });
 
 describe("skewb sequences", () => {
-  it("parses canonical U/R/L/B notation and rejects invalid moves", () => {
-    expect(parseSequence("U R' L B'")).toHaveLength(4);
+  it("round-trips canonical and opposite-layer notation", () => {
+    const moves = parseSequence("U R' l b'");
+    expect(moves).toHaveLength(4);
+    expect(moves.map(moveLabel).join(" ")).toBe("U R' l b'");
     expect(() => parseSequence("F")).toThrow("Invalid Skewb move");
     expect(() => parseSequence("U2")).toThrow("Invalid Skewb move");
   });
@@ -98,6 +125,17 @@ describe("skewb solver", () => {
     const state = applyMoves(solved(), parseSequence("U R' L B U' R L' B' U R"));
     const solution = solveSkewb(state);
     expect(solution.length).toBeGreaterThan(0);
+    expect(verifySolution(state, solution)).toBe(true);
+  });
+
+  it("solves states made by direct turns on opposite corner layers", () => {
+    const directMoves: SkewbMove[] = [
+      { axis: "U", layer: -1, direction: 1 },
+      { axis: "R", layer: -1, direction: -1 },
+      { axis: "L", layer: -1, direction: 1 },
+    ];
+    const state = applyMoves(solved(), directMoves);
+    const solution = solveSkewb(state, directMoves);
     expect(verifySolution(state, solution)).toBe(true);
   });
 
