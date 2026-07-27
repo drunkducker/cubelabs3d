@@ -4,8 +4,8 @@
  * 5x5 reduced-state solver with manual entry.
  *
  * Full arbitrary 5x5 reduction (centers + edge triplets) is still in
- * development (see 5X5_SOLVER_HANDOFF.md), so this ships the honest slice that
- * works today: any *reduced* 5x5 — centers solved, edge triplets paired — is
+ * development (see the 5x5 handoff in docs/CUBE-ENGINE.md), so this ships the
+ * honest slice that works today: any *reduced* 5x5 — centers solved, edge triplets paired — is
  * sampled to a 3x3, solved by the same cubejs engine as the 3x3 page, and the
  * solution is verified move-for-move on the full 5x5. States that aren't
  * reduced are scored and clearly labelled, never pretend-solved.

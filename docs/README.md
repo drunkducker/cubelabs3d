@@ -2,83 +2,80 @@
 
 This folder is the permanent source of truth for Cube Labs 3D.
 
-All contributors, including AI agents, must read this index, `CONSTITUTION.md`, `ARCHITECTURE.md`, and `AI-INSTRUCTIONS.md` before making structural or architectural changes.
+The documentation was consolidated from 45 Markdown files to 13 on
+2026-07-27. Retired filenames are recorded inside their destination documents,
+and Git preserves their exact earlier versions. Do not recreate separate daily
+logs, changelogs, checkpoints, transfer notes, or one-off continuation prompts.
 
-**Full Markdown audit:** On 2026-07-27, all 44 pre-existing tracked Markdown
-files were read against the repository, PR, test, and deployment evidence. A
-new Skewb PR #9 checkpoint was then added. Current documents were reconciled;
-dated checkpoints and deploy triggers were preserved as historical evidence.
+## Read this first
 
-## Current project control
+For every meaningful task:
 
-- [CURRENT_STATUS.md](./CURRENT_STATUS.md) — single current-state summary and active priorities
-- [PROJECT-HEALTH.md](./PROJECT-HEALTH.md) — evidence-backed health dashboard, risks, and directional completion
-- [ROADMAP.md](./ROADMAP.md) — canonical master checklist and release gates
-- [DAILY-LOG.md](./DAILY-LOG.md) — daily verification, completed work, blockers, and next actions
-- [CHANGELOG.md](./CHANGELOG.md) — meaningful shipped project changes
-- [checkpoints](./checkpoints/) — preserved historical snapshots and handoff records
+1. Read [`GOVERNANCE.md`](./GOVERNANCE.md).
+2. Read [`CURRENT_STATUS.md`](./CURRENT_STATUS.md).
+3. Read the one reference document that owns the affected system.
+4. Search [`HISTORY.md`](./HISTORY.md) only when prior evidence is needed.
+5. Check [`DECISIONS.md`](./DECISIONS.md) for relevant structural constraints.
 
-## Core documents
+Do not read all documentation on every turn. The index below is the routing
+contract.
 
-- [CONSTITUTION.md](./CONSTITUTION.md) — non-negotiable project rules
-- [VISION.md](./VISION.md) — product purpose and long-term direction
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — application structure and system boundaries
-- [CUBE-ENGINE.md](./CUBE-ENGINE.md) — puzzle-engine boundaries, recovered branch findings, and challenge-state target
-- [SOCIAL-AND-MULTIPLAYER.md](./SOCIAL-AND-MULTIPLAYER.md) — consolidated challenges, friends, leaderboards, safety, and multiplayer plan
-- [AI-INSTRUCTIONS.md](./AI-INSTRUCTIONS.md) — required workflow for AI contributors
-- [CODING-STANDARDS.md](./CODING-STANDARDS.md) — implementation and commenting standards
-- [AUTHENTICATION.md](./AUTHENTICATION.md) — Cube ID, login, sessions, and recovery
-- [ADMIN-PORTAL.md](./ADMIN-PORTAL.md) — administration, testing, security, and content controls
-- [ADMIN-GUIDE.md](./ADMIN-GUIDE.md) — plain-language operator how-to (affiliate links, ads, day-to-day tasks)
-- [ADS-AFFILIATES.md](./ADS-AFFILIATES.md) — managed ad slots, banners, carousels, and affiliate links
-- [SECURITY.md](./SECURITY.md) — security requirements and review checklist
-- [BACKUP-AND-MIGRATION.md](./BACKUP-AND-MIGRATION.md) — provider independence, exports, and Supabase migration
-- [decisions](./decisions/) — architecture decision records
+## Canonical documents
 
-## Required documentation workflow
+| Document | Owns | Read when |
+| --- | --- | --- |
+| [`CURRENT_STATUS.md`](./CURRENT_STATUS.md) | Production and branch state, health, risks, release gates, immediate priorities | Every meaningful task |
+| [`GOVERNANCE.md`](./GOVERNANCE.md) | Constitution, contributor workflow, coding standards, documentation rules, definition of done | Every meaningful task |
+| [`ROADMAP.md`](./ROADMAP.md) | High-level roadmap and stable atomic checklist IDs | Planning or changing scope/status |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | System boundaries, authentication, security, backup, migration | Platform, data, auth, or structural work |
+| [`CUBE-ENGINE.md`](./CUBE-ENGINE.md) | Puzzle engines, rendering, gestures, camera, solver state, detailed 5×5 handoff | Puzzle or solver work |
+| [`SOCIAL-AND-MULTIPLAYER.md`](./SOCIAL-AND-MULTIPLAYER.md) | Product vision, friends, challenges, leaderboards, multiplayer | Social/product work |
+| [`ADMIN-PORTAL.md`](./ADMIN-PORTAL.md) | Admin architecture, operator guide, ads, affiliates, billing/media operations | Admin or managed-content work |
+| [`DECISIONS.md`](./DECISIONS.md) | Append-only ADRs with stable numbers | Structural choices |
+| [`HISTORY.md`](./HISTORY.md) | Changelog, daily evidence, checkpoints, handoffs, deploy records | Search by date/feature/branch/commit |
 
-A feature is not complete until all applicable items are finished:
+Repository-level files:
 
-1. Code and database changes are implemented.
-2. The relevant permanent document is updated.
-3. `ROADMAP.md` reflects the verified status.
-4. `DAILY-LOG.md` records what was checked, completed, blocked, and next.
-5. `PROJECT-HEALTH.md` is updated when a major area changes readiness or risk.
-6. `CHANGELOG.md` is updated for meaningful shipped changes.
-7. A decision record is added when architecture, data ownership, security, public behavior, providers, or project structure changes.
-8. Branch, commit, deployment, testing, known issues, and rollback notes are logged.
-9. Any old checkpoint document is either preserved as history or folded into the permanent documentation without losing important information.
+- [`../README.md`](../README.md) — project overview, stack, verification, and
+  repository map.
+- [`../ASSET-CREDITS-AND-LICENSES.md`](../ASSET-CREDITS-AND-LICENSES.md) —
+  licensing and attribution.
+- [`../design/learn/README.md`](../design/learn/README.md) — local Learn
+  prototype instructions.
 
 ## Start-and-finish rule
 
-Every implementation session must:
+Before editing:
 
-1. read the required documents and the relevant feature notes before editing;
-2. name the permanent documents that will need an update;
-3. verify the active branch, remote PR head, and deployment target;
-4. update the notes before reporting the implementation complete;
-5. update branch/PR, commit, tests, deployment, mobile/browser status, known
-   issues, and rollback notes again after every push, deployment, or merge.
+1. verify the active branch, remote PR head, and deployment target;
+2. inspect existing shared systems before adding a new one;
+3. identify the canonical document that owns the change;
+4. distinguish current evidence from historical claims.
+
+Before reporting completion:
+
+1. update the owning reference document;
+2. update `CURRENT_STATUS.md` if branch, PR, deployment, health, or priorities
+   changed;
+3. update `ROADMAP.md` if a gate or checklist item changed;
+4. append one evidence entry to `HISTORY.md` for meaningful work;
+5. add a numbered entry to `DECISIONS.md` only for a structural decision;
+6. record tests, browser/mobile/database verification, known issues, migration
+   impact, deployment state, and rollback information.
 
 When a publishing connector recreates a verified local commit, record both the
-local commit and the remote commit and state whether their Git trees match.
-Never present a local commit SHA as the hosted branch head when they differ.
+local and remote SHAs and whether their Git trees match. Never present a local
+SHA as the hosted head when they differ.
 
-## Current versus historical Markdown
+## Status and history rules
 
-- `CURRENT_STATUS.md`, `ROADMAP.md`, `MASTER-CHECKLIST.md`,
-  `PROJECT-HEALTH.md`, and the permanent feature documents describe current
-  truth.
-- `DAILY-LOG.md` and `CHANGELOG.md` are append-only evidence trails; newer
-  entries supersede older intermediate states without deleting them.
-- `checkpoints/`, `deploy-triggers/`, and dated root handoffs preserve the facts
-  known at that time. They must carry a historical/supersession pointer when
-  they could be mistaken for current instructions.
-- Authoritative rules and accepted ADRs change only when the underlying
-  decision changes, not merely to stamp a review date.
+- Current truth belongs in `CURRENT_STATUS.md` and the canonical topic file.
+- Stable task IDs and release gates belong in `ROADMAP.md`.
+- Historical entries in `HISTORY.md` remain accurate for the time they were
+  written; add a superseding entry instead of rewriting them.
+- Accepted decisions in `DECISIONS.md` change only when the decision changes.
+- A feature is not complete merely because it is coded or deployed; use the
+  evidence levels defined in `GOVERNANCE.md`.
 
-## Structure enforcement
-
-The documented structure must be followed. Contributors may not create competing documentation systems, bypass the data layer, hard-code managed content, or reorganize major folders without approval and a recorded decision.
-
-When implementation and documentation disagree, the conflict must be resolved immediately. Neither is allowed to remain silently outdated.
+When implementation and documentation disagree, resolve the conflict
+immediately. Neither may remain silently outdated.

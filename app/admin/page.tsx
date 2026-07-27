@@ -65,7 +65,7 @@ export default async function AdminOverviewPage() {
           <h2 className="mb-3 text-lg font-black">Provider &amp; deployment health</h2>
           <ul className="grid gap-2 text-sm">
             <HealthRow label="Database / Supabase" status={overview.configured ? "passed" : "warning"} note={overview.configured ? "Service-role reachable" : "Not configured"} />
-            <HealthRow label="Email provider (SES)" status="manual" note="Delivery verified manually — see AUTHENTICATION.md" />
+            <HealthRow label="Email provider (SES)" status="manual" note="Delivery verified manually — see docs/ARCHITECTURE.md" />
             <HealthRow label="Deployment (Vercel)" status="manual" note="Confirm in Vercel dashboard" />
             <HealthRow label="Migration status" status="manual" note="Confirm 20260722 + 20260723 migrations applied" />
           </ul>

@@ -64,24 +64,22 @@ two-account verification where those are required.
 - `lib/` — renderer-independent puzzle engines and application services
 - `tests/` — Vitest regression and contract tests
 - `supabase/migrations/` — reproducible database changes
-- `docs/` — permanent project source of truth, roadmap, logs, and decisions
+- `docs/` — consolidated project source of truth, roadmap, references, decisions,
+  and searchable history
 - `design/` — preserved design prototypes and source assets
 
 ## Required documentation workflow
 
-Before meaningful work, read
-[`docs/README.md`](./docs/README.md),
-[`docs/CONSTITUTION.md`](./docs/CONSTITUTION.md),
-[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), and
-[`docs/AI-INSTRUCTIONS.md`](./docs/AI-INSTRUCTIONS.md), plus the relevant
-feature notes.
+Before meaningful work, use the routing index in
+[`docs/README.md`](./docs/README.md), then read
+[`docs/GOVERNANCE.md`](./docs/GOVERNANCE.md),
+[`docs/CURRENT_STATUS.md`](./docs/CURRENT_STATUS.md), and the one canonical
+reference for the affected system.
 
-After implementation, update the permanent feature document,
-`CURRENT_STATUS.md`, `ROADMAP.md` or `MASTER-CHECKLIST.md`, `DAILY-LOG.md`,
-and `CHANGELOG.md` as applicable. Record branch, commit/PR, tests, deployment,
-known issues, and rollback information. Read the notes before coding; update
-them after every push, deployment, and merge.
+After implementation, update that reference, current status or roadmap when
+their facts changed, and append one evidence entry to
+[`docs/HISTORY.md`](./docs/HISTORY.md). Record branch, commit/PR, tests,
+deployment, known issues, migration impact, and rollback information.
 
-Detailed puzzle notes live in
-[`CUBE-ENGINE-NOTES.md`](./CUBE-ENGINE-NOTES.md) and
-[`CUBE-PERSPECTIVE-NOTES.md`](./CUBE-PERSPECTIVE-NOTES.md).
+Detailed puzzle-engine, renderer, camera, and solver handoff notes are
+consolidated in [`docs/CUBE-ENGINE.md`](./docs/CUBE-ENGINE.md).
