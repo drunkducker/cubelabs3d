@@ -174,3 +174,125 @@ export function randomScramble(count = 10): SkewbMove[] {
   }
   return moves;
 }
+
+const SEARCH_MOVES: SkewbMove[] = (Object.keys(AXES) as AxisName[])
+  .flatMap(axis => ([{ axis, direction: 1 }, { axis, direction: -1 }] as SkewbMove[]));
+
+const CORNER_POSITION_INDEX = new Map(CORNER_POSITIONS.map((position, index) => [position.join(","), index]));
+const CENTER_POSITION_INDEX = new Map(CENTER_POSITIONS.map((position, index) => [position.join(","), index]));
+
+/**
+ * Compact, deterministic key for graph search.
+ *
+ * Corner identity is the array index, so each entry only needs its current
+ * slot and orientation. Center sticker orientation is visually irrelevant;
+ * their current slots completely describe the center state.
+ */
+export function stateKey(state: SkewbState): string {
+  const corners = state.corners.map(piece => {
+    const position = CORNER_POSITION_INDEX.get(piece.position.join(","));
+    if (position === undefined) throw new Error("Invalid Skewb corner position.");
+    const orientation = piece.orientation.reduce((code, value) => code * 3 + value + 1, 0);
+    return `${position}${orientation.toString(36).padStart(3, "0")}`;
+  }).join("");
+  const centers = state.centers.map(piece => {
+    const position = CENTER_POSITION_INDEX.get(piece.position.join(","));
+    if (position === undefined) throw new Error("Invalid Skewb center position.");
+    return position;
+  }).join("");
+  return `${corners}/${centers}`;
+}
+
+type SearchNode = {
+  state: SkewbState;
+  path: SkewbMove[];
+  lastAxis: AxisName | null;
+};
+
+let solvedSide: Map<string, SkewbMove[]> | null = null;
+
+/**
+ * Build the solved half of a bidirectional search once and reuse it.
+ *
+ * A shortest solution never turns the same axis twice in a row: equal
+ * directions collapse to the inverse turn (order three), and opposite
+ * directions cancel. Pruning those branches keeps this table small enough
+ * to build in the browser on first use.
+ */
+function solvedSearchTable(): Map<string, SkewbMove[]> {
+  if (solvedSide) return solvedSide;
+
+  const root = solved();
+  const table = new Map<string, SkewbMove[]>([[stateKey(root), []]]);
+  let frontier: SearchNode[] = [{ state: root, path: [], lastAxis: null }];
+
+  for (let depth = 0; depth < 5; depth++) {
+    const nextFrontier: SearchNode[] = [];
+    for (const node of frontier) {
+      for (const move of SEARCH_MOVES) {
+        if (move.axis === node.lastAxis) continue;
+        const nextState = applyMove(node.state, move);
+        const key = stateKey(nextState);
+        if (table.has(key)) continue;
+        const path = [...node.path, move];
+        table.set(key, path);
+        nextFrontier.push({ state: nextState, path, lastAxis: move.axis });
+      }
+    }
+    frontier = nextFrontier;
+  }
+
+  solvedSide = table;
+  return table;
+}
+
+/**
+ * Solve the current Skewb state, independent of how it was reached.
+ *
+ * The search meets a depth-five table grown from solved with a depth-six
+ * search grown from the requested state. Every returned sequence is verified
+ * against the exact engine before it leaves this function.
+ */
+export function solve(state: SkewbState): SkewbMove[] {
+  if (isSolved(state)) return [];
+
+  const solvedTable = solvedSearchTable();
+  const start = clone(state);
+  const visited = new Set<string>([stateKey(start)]);
+  let frontier: SearchNode[] = [{ state: start, path: [], lastAxis: null }];
+
+  for (let depth = 0; depth <= 6; depth++) {
+    const nextFrontier: SearchNode[] = [];
+    for (const node of frontier) {
+      const solvedPath = solvedTable.get(stateKey(node.state));
+      if (solvedPath) {
+        const solution = [...node.path, ...inverseSequence(solvedPath)];
+        if (!isSolved(applyMoves(state, solution))) {
+          throw new Error("Skewb solver verification failed.");
+        }
+        return solution;
+      }
+      if (depth === 6) continue;
+
+      for (const move of SEARCH_MOVES) {
+        if (move.axis === node.lastAxis) continue;
+        const nextState = applyMove(node.state, move);
+        const key = stateKey(nextState);
+        if (visited.has(key)) continue;
+        visited.add(key);
+        nextFrontier.push({
+          state: nextState,
+          path: [...node.path, move],
+          lastAxis: move.axis,
+        });
+      }
+    }
+    frontier = nextFrontier;
+  }
+
+  throw new Error("Unable to solve this Skewb state.");
+}
+
+export function verifySolution(state: SkewbState, solution: SkewbMove[]): boolean {
+  return isSolved(applyMoves(state, solution));
+}

@@ -2,6 +2,39 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-26 — Skewb swipe, verified solver, and inline share
+
+**Completed**
+
+- [x] Added raycasted corner-sticker swipes with layer preview and 120° turns.
+- [x] Added a state-based bidirectional Skewb solver that verifies its own output.
+- [x] Added visible solver status and solution notation to `/solver/skewb`.
+- [x] Moved Skewb Save & Share into the page and removed its floating duplicate.
+- [x] Split the ambiguous Load / copy action into Load, Save, and Share.
+- [x] Added native share-sheet support with a copied playable-link fallback.
+- [x] Added arbitrary-state and varied long-scramble solver regression tests.
+
+**Verified**
+
+- `npm test` → 7 files and 55 tests passed.
+- `npx tsc --noEmit` → clean.
+- `npm run lint` → exit 0; only pre-existing warnings.
+- `npm run build` → successful; `/solver/skewb` prerendered.
+
+**Unverified**
+
+- [ ] Hosted mobile/desktop pointer interaction and native share-sheet behavior.
+- [ ] Signed-in memory save and two-account friend challenge.
+- [ ] Feature branch merge to production `main`.
+
+**Branch / rollback**
+
+- Branch: `feature/skewb-puzzle`.
+- No migration or provider change.
+- Rollback by reverting the Skewb interaction/solver/share follow-up files.
+
+---
+
 ## 2026-07-26 — Skewb engine and Save/Friend repair
 
 **Completed**

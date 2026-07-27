@@ -33,11 +33,17 @@ for Pyraminx and Kilominx:
 - Scramble/setup moves remain in the current-state sequence but are excluded from
   player move count and undo history.
 - Reset clears both renderer and logical state before a new scramble.
-- Reverse solve inverts the full current-state sequence, not only player history.
+- Sticker raycasting maps corner swipes to a legal diagonal axis and turn
+  direction while empty-space drags remain camera orbit gestures.
+- The solver uses bidirectional graph search over the exact current state rather
+  than depending on move history, and verifies every returned sequence before
+  playback.
 - The shared `cube-labs:load-scramble` event accepts saved and challenge Skewb
   notation.
+- Skewb Save & Share is embedded in the route; shared links encode the exact
+  scramble and load it after the puzzle listener is ready.
 
-Automated evidence on the branch: six Skewb engine tests, the full 52-test suite,
+Automated evidence on the branch: nine Skewb engine tests, the full 55-test suite,
 clean TypeScript, lint exit 0, and a successful production build. This remains
 branch-only until merged; real mobile/browser interaction is still unverified.
 

@@ -3,7 +3,7 @@ import SkewbGame from "@/app/SkewbGame";
 
 export const metadata: Metadata = {
   title: "Skewb Puzzle | Cube Lab 3D",
-  description: "Playable 3D Skewb with corner turns, scramble, undo, timer, and animated solve playback.",
+  description: "Playable 3D Skewb with sticker swipes, scramble, undo, timer, sharing, and a verified state-based solver.",
 };
 
 export default function SkewbPage() {

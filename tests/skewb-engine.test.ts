@@ -10,7 +10,10 @@ import {
   parseSequence,
   randomScramble,
   rotationMatrix,
+  solve as solveSkewb,
   solved,
+  stateKey,
+  verifySolution,
 } from "@/lib/skewb-engine";
 
 describe("skewb move geometry", () => {
@@ -61,5 +64,29 @@ describe("skewb sequences", () => {
   it("is deterministic for the same move sequence", () => {
     const moves = parseSequence("U R' L B U' R");
     expect(equal(applyMoves(solved(), moves), applyMoves(solved(), moves))).toBe(true);
+  });
+
+  it("creates a stable key for equivalent states", () => {
+    const moves = parseSequence("U R' L B U' R");
+    expect(stateKey(applyMoves(solved(), moves))).toBe(stateKey(applyMoves(solved(), moves)));
+    expect(stateKey(applyMoves(solved(), moves))).not.toBe(stateKey(solved()));
+  });
+});
+
+describe("skewb solver", () => {
+  it("solves a state without needing its move history", () => {
+    const state = applyMoves(solved(), parseSequence("U R' L B U' R L' B' U R"));
+    const solution = solveSkewb(state);
+    expect(solution.length).toBeGreaterThan(0);
+    expect(verifySolution(state, solution)).toBe(true);
+  });
+
+  it("verifies solutions for varied long scrambles", () => {
+    for (let trial = 0; trial < 12; trial++) {
+      const state = applyMoves(solved(), randomScramble(24));
+      const solution = solveSkewb(state);
+      expect(solution.length).toBeLessThanOrEqual(11);
+      expect(verifySolution(state, solution)).toBe(true);
+    }
   });
 });

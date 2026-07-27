@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import SiteHeader from "@/components/SiteHeader";
+import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 import {
   AXES,
   CENTER_POSITIONS,
@@ -15,21 +16,29 @@ import {
   type SkewbMove,
   applyMove,
   inverseMove,
-  inverseSequence,
   isSolved as skewbIsSolved,
   moveLabel,
   parseSequence,
   randomScramble,
+  solve as solveSkewb,
   solved as skewbSolved,
+  verifySolution,
 } from "@/lib/skewb-engine";
 
 type MovePhase = "play" | "scramble" | "load" | "undo" | "solve";
 type QueuedMove = SkewbMove & {
   record?: boolean;
-  track?: boolean;
   fast?: boolean;
   phase?: MovePhase;
 };
+type PointerStart = {
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  hitPoint: THREE.Vector3;
+  group: THREE.Group;
+};
+type SwipeGesture = { axis: AxisName; direction: Direction };
 
 const FACE_COLORS = ["#f4f4f1", "#ffd500", "#00a85a", "#1557d5", "#ef3340", "#ff7a00"];
 const FACE_DATA = [
@@ -83,6 +92,7 @@ export default function SkewbGame() {
   const [canUndo, setCanUndo] = useState(false);
   const [isSolved, setIsSolved] = useState(true);
   const [scrambleText, setScrambleText] = useState("");
+  const [solutionText, setSolutionText] = useState("");
   const [elapsedMs, setElapsedMs] = useState(0);
 
   const accumulatedMsRef = useRef(0);
@@ -158,6 +168,7 @@ export default function SkewbGame() {
     root.add(body);
 
     const pieceGroups: THREE.Group[] = [];
+    const pickables: THREE.Mesh[] = [];
     const geometries: THREE.BufferGeometry[] = [];
     const materials: THREE.Material[] = [body.material as THREE.Material];
     const groupFor = (keyName: string, anchor: THREE.Vector3, kind: "corner" | "center") => {
@@ -201,6 +212,8 @@ export default function SkewbGame() {
         const geometry = polygonGeometry(poly.points, anchor);
         const material = new THREE.MeshStandardMaterial({
           color: FACE_COLORS[faceIndex],
+          emissive: FACE_COLORS[faceIndex],
+          emissiveIntensity: 0.025,
           roughness: 0.42,
           metalness: 0,
           polygonOffset: true,
@@ -209,6 +222,9 @@ export default function SkewbGame() {
         });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.castShadow = true;
+        mesh.userData.isSticker = true;
+        mesh.userData.pieceGroup = group;
+        if (poly.kind === "corner") pickables.push(mesh);
         group.add(mesh);
         geometries.push(geometry);
         materials.push(material);
@@ -218,7 +234,6 @@ export default function SkewbGame() {
     let logicalState = skewbSolved();
     const queue: QueuedMove[] = [];
     const history: SkewbMove[] = [];
-    const stateMoves: SkewbMove[] = [];
     let active = false;
     let moveFrame = 0;
     let disposed = false;
@@ -247,6 +262,33 @@ export default function SkewbGame() {
       });
     };
 
+    const groupsForMove = (axisName: AxisName) => {
+      const axis = AXES[axisName];
+      return pieceGroups.filter(group => {
+        const position = pieceState(group).position;
+        return position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2] > 0;
+      });
+    };
+
+    let highlighted: THREE.Group[] = [];
+    const glowPiece = (group: THREE.Group, intensity: number) => {
+      group.traverse(child => {
+        if (!(child instanceof THREE.Mesh) || !child.userData.isSticker) return;
+        const material = child.material as THREE.MeshStandardMaterial;
+        material.emissive.set(intensity ? "#ffffff" : material.color);
+        material.emissiveIntensity = intensity || 0.025;
+      });
+    };
+    const clearHighlight = () => {
+      highlighted.forEach(group => glowPiece(group, 0));
+      highlighted = [];
+    };
+    const highlightMove = (gesture: SwipeGesture) => {
+      clearHighlight();
+      highlighted = groupsForMove(gesture.axis);
+      highlighted.forEach(group => glowPiece(group, 0.28));
+    };
+
     const syncUi = () => {
       const solvedNow = skewbIsSolved(logicalState);
       setMoves(history.length);
@@ -261,13 +303,14 @@ export default function SkewbGame() {
     const hardReset = () => {
       queue.length = 0;
       history.length = 0;
-      stateMoves.length = 0;
       logicalState = skewbSolved();
       syncRenderer();
+      clearHighlight();
       resetTimer();
       setMoves(0);
       setCanUndo(false);
       setIsSolved(true);
+      setSolutionText("");
     };
 
     const runNext = () => {
@@ -277,10 +320,7 @@ export default function SkewbGame() {
       const move = queue.shift()!;
       const axisTuple = AXES[move.axis];
       const axis = new THREE.Vector3(...axisTuple).normalize();
-      const selected = pieceGroups.filter(group => {
-        const position = pieceState(group).position;
-        return position[0] * axisTuple[0] + position[1] * axisTuple[1] + position[2] * axisTuple[2] > 0;
-      });
+      const selected = groupsForMove(move.axis);
       const pivot = new THREE.Group();
       root.add(pivot);
       selected.forEach(group => pivot.attach(group));
@@ -305,7 +345,7 @@ export default function SkewbGame() {
 
         const recordedMove: SkewbMove = { axis: move.axis, direction: move.direction };
         if (move.record !== false) history.push(recordedMove);
-        if (move.track !== false) stateMoves.push(recordedMove);
+        clearHighlight();
         syncUi();
 
         active = false;
@@ -327,6 +367,7 @@ export default function SkewbGame() {
     };
     const turn = (axis: AxisName, direction: Direction) => {
       if (active || queue.length) return;
+      setSolutionText("");
       if (skewbIsSolved(logicalState)) {
         resetTimer();
         startTimer();
@@ -360,17 +401,25 @@ export default function SkewbGame() {
     const undo = () => {
       if (active || queue.length || !history.length) return;
       const move = history.pop()!;
-      stateMoves.pop();
-      enqueue({ ...inverseMove(move), record: false, track: false, phase: "undo" });
+      setSolutionText("");
+      enqueue({ ...inverseMove(move), record: false, phase: "undo" });
     };
     const solve = () => {
-      if (active || queue.length || skewbIsSolved(logicalState) || !stateMoves.length) return;
-      setStatus("Solving…");
-      const solution = inverseSequence(stateMoves);
-      history.length = 0;
-      stateMoves.length = 0;
-      queue.push(...solution.map(move => ({ ...move, record: false, track: false, phase: "solve" as const })));
-      runNext();
+      if (active || queue.length || skewbIsSolved(logicalState)) return;
+      try {
+        setStatus("Finding verified solution…");
+        const solution = solveSkewb(logicalState);
+        if (!verifySolution(logicalState, solution)) throw new Error("Solution verification failed.");
+        setSolutionText(solution.map(moveLabel).join(" "));
+        history.length = 0;
+        setCanUndo(false);
+        setMoves(0);
+        setStatus(`Solving in ${solution.length} moves…`);
+        queue.push(...solution.map(move => ({ ...move, record: false, phase: "solve" as const })));
+        runNext();
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Unable to solve this Skewb state.");
+      }
     };
     const resetPuzzle = () => {
       if (active || queue.length) return;
@@ -388,6 +437,131 @@ export default function SkewbGame() {
       resetView: () => controls.reset(),
       loadScramble,
     };
+
+    // Swipe a corner sticker to choose a legal corner-axis turn. A corner
+    // belongs to one or three playable layers depending on its current slot;
+    // projecting each candidate's rotation tangent into screen space lets the
+    // drag direction select both the axis and turn sign. Empty-space drags
+    // remain camera orbit gestures.
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let pointerStart: PointerStart | null = null;
+    let previewGesture: SwipeGesture | null = null;
+    let activePointers = 0;
+
+    const setPointerFromEvent = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+    };
+    const projectedScreenDirection = (worldDirection: THREE.Vector3, origin: THREE.Vector3) => {
+      const originProjected = origin.clone().project(camera);
+      const endpointProjected = origin.clone().add(worldDirection).project(camera);
+      return new THREE.Vector2(
+        endpointProjected.x - originProjected.x,
+        -(endpointProjected.y - originProjected.y),
+      ).normalize();
+    };
+    const resolveGesture = (start: PointerStart, dx: number, dy: number): SwipeGesture => {
+      const position = pieceState(start.group).position;
+      const candidates = (Object.keys(AXES) as AxisName[]).filter(axisName => {
+        const axis = AXES[axisName];
+        return position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2] > 0;
+      });
+      const drag = new THREE.Vector2(dx, dy).normalize();
+      const rootOrigin = root.getWorldPosition(new THREE.Vector3());
+      const relativeHit = start.hitPoint.clone().sub(rootOrigin);
+      root.updateMatrixWorld(true);
+
+      let bestAxis = candidates[0] ?? "U";
+      let bestScore = 0;
+      let bestMagnitude = -1;
+      for (const axisName of candidates) {
+        const axisWorld = new THREE.Vector3(...AXES[axisName]).normalize().transformDirection(root.matrixWorld);
+        const tangent = new THREE.Vector3().crossVectors(axisWorld, relativeHit);
+        if (tangent.lengthSq() < 1e-8) continue;
+        const score = drag.dot(projectedScreenDirection(tangent.normalize(), start.hitPoint));
+        if (Math.abs(score) > bestMagnitude) {
+          bestMagnitude = Math.abs(score);
+          bestAxis = axisName;
+          bestScore = score;
+        }
+      }
+      return { axis: bestAxis, direction: bestScore >= 0 ? 1 : -1 };
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      activePointers += 1;
+      pointerStart = null;
+      previewGesture = null;
+      clearHighlight();
+      if (active || queue.length || activePointers > 1) {
+        controls.enabled = true;
+        return;
+      }
+      setPointerFromEvent(event);
+      const hit = raycaster.intersectObjects(pickables, false)[0];
+      const group = hit?.object.userData.pieceGroup as THREE.Group | undefined;
+      if (!hit || !group) {
+        controls.enabled = true;
+        return;
+      }
+      pointerStart = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        hitPoint: hit.point.clone(),
+        group,
+      };
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      controls.enabled = false;
+      renderer.domElement.setPointerCapture(event.pointerId);
+      setStatus("Swipe to turn");
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId || activePointers > 1) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const dx = event.clientX - pointerStart.clientX;
+      const dy = event.clientY - pointerStart.clientY;
+      if (Math.hypot(dx, dy) < 14) return;
+      previewGesture = resolveGesture(pointerStart, dx, dy);
+      highlightMove(previewGesture);
+      setStatus(`Selected ${moveLabel(previewGesture)}`);
+    };
+    const finishPointer = (event: PointerEvent, canceled = false) => {
+      activePointers = Math.max(0, activePointers - 1);
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId) {
+        if (activePointers === 0) controls.enabled = true;
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const start = pointerStart;
+      pointerStart = null;
+      const dx = event.clientX - start.clientX;
+      const dy = event.clientY - start.clientY;
+      if (!canceled && Math.hypot(dx, dy) >= 32 && !active && !queue.length) {
+        const gesture = previewGesture ?? resolveGesture(start, dx, dy);
+        turn(gesture.axis, gesture.direction);
+      } else {
+        clearHighlight();
+        setStatus(skewbIsSolved(logicalState) ? "Solved!" : "Your turn");
+      }
+      previewGesture = null;
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      }
+      controls.enabled = activePointers === 0;
+    };
+    const cancelPointer = (event: PointerEvent) => finishPointer(event, true);
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown, true);
+    renderer.domElement.addEventListener("pointermove", onPointerMove, true);
+    renderer.domElement.addEventListener("pointerup", finishPointer, true);
+    renderer.domElement.addEventListener("pointercancel", cancelPointer, true);
 
     const resize = () => {
       const width = Math.max(1, mount.clientWidth);
@@ -413,6 +587,10 @@ export default function SkewbGame() {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(moveFrame);
       observer.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
+      renderer.domElement.removeEventListener("pointerup", finishPointer, true);
+      renderer.domElement.removeEventListener("pointercancel", cancelPointer, true);
       controls.dispose();
       actionsRef.current = null;
       geometries.forEach(geometry => geometry.dispose());
@@ -434,37 +612,59 @@ export default function SkewbGame() {
   }, []);
 
   const axes = Object.keys(AXES) as AxisName[];
-  return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(92px+env(safe-area-inset-bottom))] pt-[22px]">
+  return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
     <div className="orb orb-a" /><div className="orb orb-b" />
     <div className="relative z-[1]">
       <SiteHeader />
       <Link href="/solve" className="mt-4 inline-flex text-sm font-bold text-[var(--muted)]">← Back to solvers</Link>
       <section className="mt-5">
         <p className="text-xs font-extrabold tracking-[.18em] text-[var(--blue)]">SKEWB</p>
-        <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Twist corners.<br /><span className="accent-text">Shift every face.</span></h1>
-        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">A playable corner-axis puzzle with true 120° layer turns, scramble, undo, timer, and reverse-playback solve.</p>
+        <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play &amp; solve<br /><span className="accent-text">the Skewb.</span></h1>
+        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Swipe corner stickers for true 120° turns, then use the verified solver from any state.</p>
       </section>
       <section className="mt-4 overflow-hidden rounded-[24px] border border-black/10 bg-[#d8dde3] shadow-[0_18px_55px_rgba(0,0,0,.3)]">
         <div className="flex items-center justify-between border-b border-black/10 bg-white/55 px-4 py-3 text-sm text-slate-700">
           <span>{status}</span><span className="flex gap-3"><span className="tabular-nums">{formatElapsed(elapsedMs)}</span><strong>{moves} moves</strong></span>
         </div>
         <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-        <div className="bg-white/45 px-4 py-3 text-center text-[13px] font-semibold text-slate-600">Drag to rotate view • Use buttons for corner turns</div>
+        <div className="bg-white/45 px-4 py-3 text-center text-[13px] font-semibold text-slate-600">Swipe a corner sticker to turn • Drag empty space to rotate</div>
       </section>
-      <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to begin."}</p></section>
+      <section data-puzzle-scramble={scrambleText} className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to begin."}</p></section>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || !canUndo} onClick={() => actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button>
-        <button disabled={busy || isSolved} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-12 rounded-xl font-extrabold disabled:opacity-40">Solve</button>
+        <button disabled={busy || isSolved} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-12 rounded-xl font-extrabold disabled:opacity-40">Auto-solve</button>
       </div>
-      <section className="glass mt-3 rounded-[18px] p-3">
-        <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">CORNER TURNS</p>
+
+      <section className="glass mt-3 rounded-[18px] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold tracking-[.16em] text-[var(--green)]">VERIFIED SOLVER</p>
+            <p className="mt-1 text-sm font-bold text-[var(--text)]">{solutionText ? "Solution played and checked" : isSolved ? "Scramble or swipe to create a state" : "Ready to solve the current state"}</p>
+          </div>
+          <span className="rounded-full border border-[rgba(52,208,88,.35)] bg-[rgba(52,208,88,.12)] px-2.5 py-1 text-[10px] font-extrabold tracking-[.09em] text-[var(--green)]">ENGINE</span>
+        </div>
+        {solutionText ? <p className="mt-3 break-words rounded-xl bg-black/20 p-3 font-mono text-xs leading-5 text-[var(--text)]">{solutionText}</p> : null}
+      </section>
+
+      <Suspense fallback={<section className="glass mt-3 min-h-[72px] rounded-[18px]" />}>
+        <UniversalPuzzleActions placement="inline" />
+      </Suspense>
+
+      <details className="glass mt-3 rounded-[18px] p-3">
+        <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Corner turn buttons</summary>
         <div className="mt-3 grid grid-cols-4 gap-2">{axes.map(axis => <button key={axis} disabled={busy} onClick={() => actionsRef.current?.turn(axis, 1)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{axis}</button>)}</div>
         <div className="mt-2 grid grid-cols-4 gap-2">{axes.map(axis => <button key={`${axis}'`} disabled={busy} onClick={() => actionsRef.current?.turn(axis, -1)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{axis}&apos;</button>)}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button disabled={busy} onClick={() => actionsRef.current?.resetPuzzle()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">Reset Puzzle</button>
           <button onClick={() => actionsRef.current?.resetView()} className="glass min-h-12 rounded-xl font-extrabold">Reset View</button>
         </div>
+      </details>
+
+      <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
+        <p><strong className="text-[var(--text)]">Play:</strong> swipe across a colored corner sticker; the touched piece and drag direction choose the turn.</p>
+        <p><strong className="text-[var(--text)]">Look around:</strong> drag the gray space around the puzzle to rotate the camera.</p>
+        <p><strong className="text-[var(--text)]">Solver:</strong> finds and verifies a solution from the actual current state, even after manual swipes.</p>
       </section>
     </div>
   </main>;

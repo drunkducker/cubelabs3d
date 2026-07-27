@@ -2,6 +2,20 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-26 — Make Skewb playable, state-solvable, and shareable
+
+- Author: OpenAI Codex working with the project owner.
+- Branch: `feature/skewb-puzzle`.
+- Purpose: finish the interaction, solver, and save/share gaps left after the first Skewb renderer and state-engine repair.
+- Added sticker raycasting and screen-space swipe resolution to `app/SkewbGame.tsx`; corner-sticker drags now select a legal `U/R/L/B` axis and direction, highlight the moving layer, and execute the same verified engine move used by buttons.
+- Replaced history reversal with a renderer-independent bidirectional state search in `lib/skewb-engine.ts`. It solves the actual current state, prunes redundant same-axis turns, and verifies every returned sequence against the engine before playback.
+- Added an explicit solver panel and solution notation to `/solver/skewb`; manual corner buttons remain available in a collapsed fallback section.
+- Embedded Save & Share inside the Skewb page and suppressed its old floating duplicate. Load, Save, and Share are now separate actions; Share uses the device share sheet when available and otherwise copies a playable scramble URL.
+- Added query-load timing protection so shared and saved scrambles reach the Skewb listener after hydration.
+- Verification: 55/55 tests pass, including arbitrary-state and varied long-scramble solver coverage; TypeScript is clean; lint exits 0 with pre-existing warnings only; production build succeeds and prerenders `/solver/skewb`.
+- Deployment status: feature branch update pending hosted preview/browser verification and merge.
+- Rollback: revert this entry's Skewb game, engine, shared actions, tests, and solver metadata changes; no migration or provider change is involved.
+
 ## 2026-07-26 — Repair Skewb engine and shared puzzle actions
 
 - Author: OpenAI Codex working with the project owner.
