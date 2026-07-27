@@ -52,6 +52,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 | --- | --- | --- | --- |
 | `main` | RootA | Canonical branch | ✅ current at `51950a0` |
 | `claude/puzzle-gen-twisting-69clo3` | RootA | Kilominx + saved scrambles | ✔ merged through PR #4; safe to delete after production verification |
+| `claude/pyrinx-bug-qot86k` | RootA | Pyraminx solid pieces + rotating centers | ⛔ unmerged; see "Open issues — revisit" — reported symptom still unresolved |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged |
 | `claude/working-status-mumm9x` | RootA | Older staging/session handoff | superseded — review before delete |
 | `claude/home-page-html-rebuild-q7qomi` | RootA | Learn/home rebuild, leaderboard, tracked challenge | ✔ merged — safe to delete after verification |
@@ -109,6 +110,35 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 - [~] Leaderboard/challenge prototypes merged; trusted ranking, anti-cheat, and production verification remain
 - [~] Friends system merged; block/report/rate limits and two-account QA remain
 - [~] Admin, ads, media, and billing merged and code-tested; production migration/configuration/browser/RLS verification remains
+
+## Open issues — revisit
+
+### Pyraminx turn animation still does not match a real Pyraminx (UNRESOLVED)
+
+Reported by the project owner with two screen recordings. **Root cause is not yet identified — do not assume the notes below are the answer.**
+
+Owner's description of the remaining problem, verbatim:
+
+> "we are still missing a spin"
+> "the whole bottom 5 spin around center"
+
+Reference behavior came from a *different* site (not ours) that the owner recorded as the correct example. In that reference, a corner turn lifts a vertex layer and spins it about the puzzle's axis as one solid unit while the rest stays as a clean base.
+
+What has already been changed on `claude/pyrinx-bug-qot86k` (both pushed, both verified against tests/build):
+
+1. `0a3963a` — pieces were zero-thickness flat triangles, so mid-turn they exposed the background and looked like detached shards. Now each cell has a solid body (a wedge from its outer face inward to the core), mirroring `NxNCubeGame`'s solid cubie bodies.
+2. `f4ce5f5` — the 4 face-center (axial) pieces were pinned and never rotated. Now a deep turn spins the vertex's center with its tip and edges, and the solver was extended to solve edges **and** centers together (BFS over the 46080 × 81 product space, typed arrays, ~0.5 s one-time build).
+
+Why this is still open:
+
+- When asked whether the centers now spin in the build being tested, the owner replied **"this has nothing to do with it"** — so the center/axial work above, while correct in its own right, is *not* the fix for the reported symptom. Treat the centers as a closed side-quest, not the diagnosis.
+- The second recording still shows flat, thin-sliver pieces on a light background, which does not match this branch's output (solid pieces, dark background). It was **not** established whether the owner was testing this branch, an older deploy, or the third-party reference site. **Confirm exactly which build/URL the owner is looking at before doing any further diagnosis** — the previous session burned significant effort analyzing footage that may not have been our code at all.
+
+Open questions for next session:
+
+- Which layer does "the whole bottom 5" refer to? On one face a Pyraminx row 3 is 5 triangles; a corner turn can be animated either as "small top cap rotates" or, equivalently in permutation terms, "the larger lower portion rotates about the same axis." Our renderer always animates the small vertex cap. The reference may animate the complementary chunk, which would look substantially different even though the resulting state is identical.
+- Does the owner want a second, deeper cut depth exposed (a layer turn distinct from tip/vertex-cap), or purely a change to which chunk is animated for the existing move?
+- Get the exact reference URL from the owner rather than inferring behavior from video frames.
 
 ## Current priorities
 

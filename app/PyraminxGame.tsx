@@ -17,6 +17,15 @@
  * turn animation rotates each pivot group with
  * `quaternion.setFromAxisAngle(axis, angle)` instead of the NxN engine's
  * `pivot.rotation[axis] = angle` (which only works when axis is literally x/y/z).
+ *
+ * OPEN ISSUE — the project owner reports the turn animation still doesn't look
+ * like a real Pyraminx ("we are still missing a spin" / "the whole bottom 5
+ * spin around center"). The root cause is NOT identified. Note that a vertex
+ * turn can be animated two ways that produce the identical end state: rotate
+ * the small vertex cap (what `groupsForMove` does today) or rotate the larger
+ * complementary chunk about that same axis — visually very different. Read
+ * "Open issues — revisit" in docs/CURRENT_STATUS.md before changing turn
+ * animation behavior; it records what was already ruled out.
  */
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
