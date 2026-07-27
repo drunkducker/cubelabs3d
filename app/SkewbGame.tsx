@@ -155,6 +155,11 @@ export default function SkewbGame() {
   const [solutionText, setSolutionText] = useState("");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("turn");
+  const [undoUses, setUndoUses] = useState(0);
+  const [touchMoves, setTouchMoves] = useState(0);
+  const [buttonMoves, setButtonMoves] = useState(0);
+  const [moveLog, setMoveLog] = useState<string[]>([]);
+  const [assisted, setAssisted] = useState(false);
 
   const accumulatedMsRef = useRef(0);
   const segmentStartRef = useRef<number | null>(null);
@@ -191,7 +196,15 @@ export default function SkewbGame() {
     const distance = 6.25;
     camera.position.set(distance * 0.82, distance * 0.68, distance);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    } catch {
+      // Keep the controls and save/send surface usable on browsers where
+      // WebGL is disabled instead of crashing the whole solver route.
+      setStatus("3D view unavailable in this browser");
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.55));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearAlpha(0);
@@ -409,6 +422,7 @@ export default function SkewbGame() {
     const syncUi = () => {
       const solvedNow = skewbIsSolved(logicalState);
       setMoves(history.length);
+      setMoveLog(history.map(moveLabel));
       setCanUndo(history.length > 0);
       setIsSolved(solvedNow);
       if (solvedNow) {
@@ -431,6 +445,11 @@ export default function SkewbGame() {
       setCanUndo(false);
       setIsSolved(true);
       setSolutionText("");
+      setUndoUses(0);
+      setTouchMoves(0);
+      setButtonMoves(0);
+      setMoveLog([]);
+      setAssisted(false);
     };
 
     const runNext = () => {
@@ -500,6 +519,7 @@ export default function SkewbGame() {
       direction: Direction,
       startAngle = 0,
       layer: LayerSide = 1,
+      source: "touch" | "button" = "button",
     ) => {
       if (active || queue.length) return;
       setSolutionText("");
@@ -507,6 +527,8 @@ export default function SkewbGame() {
         resetTimer();
         startTimer();
       }
+      if (source === "touch") setTouchMoves(count => count + 1);
+      else setButtonMoves(count => count + 1);
       enqueue({
         axis,
         direction,
@@ -543,6 +565,7 @@ export default function SkewbGame() {
       if (active || queue.length || !history.length) return;
       const move = history.pop()!;
       setSolutionText("");
+      setUndoUses(count => count + 1);
       enqueue({ ...inverseMove(move), record: false, phase: "undo" });
     };
     const solve = () => {
@@ -555,6 +578,8 @@ export default function SkewbGame() {
         history.length = 0;
         setCanUndo(false);
         setMoves(0);
+        setMoveLog([]);
+        setAssisted(true);
         setStatus(`Solving in ${solution.length} moves…`);
         queue.push(...solution.map(move => ({ ...move, record: false, phase: "solve" as const })));
         runNext();
@@ -713,7 +738,7 @@ export default function SkewbGame() {
       const startAngle = dragPreview?.angle ?? 0;
       clearDragPreview();
       if (!canceled && Math.hypot(dx, dy) >= 30 && !active && !queue.length) {
-        turn(gesture.axis, gesture.direction, startAngle, gesture.layer);
+        turn(gesture.axis, gesture.direction, startAngle, gesture.layer, "touch");
       } else {
         setStatus(skewbIsSolved(logicalState) ? "Solved!" : "Your turn");
       }
@@ -832,7 +857,23 @@ export default function SkewbGame() {
       </section>
 
       <Suspense fallback={<section className="glass mt-3 min-h-[72px] rounded-[18px]" />}>
-        <UniversalPuzzleActions placement="inline" />
+        <UniversalPuzzleActions
+          placement="inline"
+          puzzleType="skewb"
+          currentScramble={scrambleText}
+          onLoadScramble={(notation) => actionsRef.current?.loadScramble(notation)}
+          attempt={{
+            started: Boolean(scrambleText) && !busy && (moves > 0 || !isSolved),
+            solved: isSolved,
+            elapsedMs,
+            moveCount: moves,
+            undoCount: undoUses,
+            touchMoves,
+            buttonMoves,
+            moveHistory: moveLog,
+            assisted,
+          }}
+        />
       </Suspense>
 
       <details className="glass mt-3 rounded-[18px] p-3">
