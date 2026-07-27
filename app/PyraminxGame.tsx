@@ -154,6 +154,45 @@ function triangleGeometry(corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]
   return geometry;
 }
 
+/**
+ * Builds a SOLID body for a cell: a small tetrahedron spanning from the cell's
+ * (shrunk) outer triangle inward to the puzzle centre (the origin, since the
+ * tetrahedron is centred there). This is the Pyraminx analogue of NxNCubeGame's
+ * solid BoxGeometry cubie body.
+ *
+ * Why the pieces MUST be solid rather than flat backing triangles: a Pyraminx
+ * turn rotates a layer around a VERTEX axis, so mid-turn the moving stickers
+ * necessarily swing off the flat face they were resting on (unlike a cube,
+ * whose layer turns keep every sticker in its own flat plane). With only a
+ * zero-thickness backing triangle behind each sticker, that swing showed the
+ * dark background *through* the puzzle: pieces looked like detached shards
+ * exploding outward and a tip-twist looked like the tip floating away from the
+ * body. Giving every cell real depth to the core means a turning layer reads as
+ * solid pieces rotating over a solid black interior — the way a real Pyraminx
+ * looks mid-turn — instead of flat tiles peeling off into empty space.
+ *
+ * The inner apex sits exactly on the origin, which every vertex turn axis passes
+ * through, so a piece's innermost point is pinned on the axis during its own
+ * turn — the body hinges at the core rather than translating.
+ */
+function solidBodyGeometry(corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3], shrink: number) {
+  const centroid = new THREE.Vector3().add(corners[0]).add(corners[1]).add(corners[2]).multiplyScalar(1 / 3);
+  const [o0, o1, o2] = corners.map(c => new THREE.Vector3().lerpVectors(centroid, c, shrink)) as [THREE.Vector3, THREE.Vector3, THREE.Vector3];
+  const apex = new THREE.Vector3(0, 0, 0);
+  const tris: THREE.Vector3[] = [
+    o0, o1, o2,      // outer face (behind the sticker; shows as the black border)
+    o0, apex, o1,    // three inner walls down to the core
+    o1, apex, o2,
+    o2, apex, o0,
+  ];
+  const positions = new Float32Array(tris.length * 3);
+  tris.forEach((v, i) => { positions[i * 3] = v.x; positions[i * 3 + 1] = v.y; positions[i * 3 + 2] = v.z; });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 export default function PyraminxGame({ variant = "full" }: { variant?: "full" | "focus" }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<{
@@ -241,14 +280,18 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
 
     const materials: THREE.Material[] = [];
     const geometries: THREE.BufferGeometry[] = [];
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#111318", roughness: 0.4, metalness: 0.06 });
+    // DoubleSide: the body is now a closed solid, and during a turn a piece's
+    // inner walls rotate to face the camera through the opening left behind.
+    // Culling them would flash the puzzle hollow; a dark solid never bleeds the
+    // way the sticker layer would (see the sticker material's note below).
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#111318", roughness: 0.4, metalness: 0.06, side: THREE.DoubleSide });
     materials.push(bodyMaterial);
     const pickables: THREE.Mesh[] = [];
 
     for (let face = 0; face < 4; face++) {
       for (const cell of faceCells(face)) {
         const stickerGeo = triangleGeometry(cell.corners, 0.78);
-        const backingGeo = triangleGeometry(cell.corners, 0.94);
+        const backingGeo = solidBodyGeometry(cell.corners, 0.94);
         geometries.push(stickerGeo, backingGeo);
         const stickerMat = new THREE.MeshStandardMaterial({
           color: FACE_COLORS[face], roughness: 0.3, metalness: 0.02, emissive: FACE_COLORS[face], emissiveIntensity: 0.035,
