@@ -11,7 +11,7 @@ export default function LearnModelExplorer() {
   const [puzzleId, setPuzzleId] = useState<LearnPuzzleId>("3x3");
   const [stepIndex, setStepIndex] = useState(0);
   const model = useMemo(() => getLearnPuzzleModel(puzzleId), [puzzleId]);
-  const step = model.starterAlgorithm.steps[stepIndex] ?? model.starterAlgorithm.steps[0];
+  const step = (model.starterAlgorithm.steps[stepIndex] ?? model.starterAlgorithm.steps[0])!;
 
   function choosePuzzle(id: LearnPuzzleId) {
     setPuzzleId(id);
