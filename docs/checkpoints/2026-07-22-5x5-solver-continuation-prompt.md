@@ -1,3 +1,11 @@
+<!--
+Historical status: archived continuation prompt from 2026-07-22. Preserved as a
+handoff record. The live, detailed engineering reference for this work is
+`5X5_SOLVER_HANDOFF.md` at the repository root; deterministic-5×5 status is tracked
+in `docs/CUBE-ENGINE.md` and `docs/ROADMAP.md`. This prompt is a point-in-time
+summary of that handoff and must not override the current documents.
+-->
+
 # Task: finish the full arbitrary-state 5×5 Rubik's Cube solver
 
 You're picking up a partially-built cube-solver web app (Next.js 14 + React +

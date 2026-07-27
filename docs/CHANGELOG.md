@@ -2,6 +2,29 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-27 — Documentation stewardship reconciliation
+
+- Branch: `claude/cubelabs3d-architecture-4444ve`.
+- Purpose: bring the living documents back in line with the actual `main` head after a batch of 07-26/07-27 merges left `CURRENT_STATUS.md`, `PROJECT-HEALTH.md`, `CHANGELOG.md`, and `DAILY-LOG.md` behind reality.
+- Reconciled `CURRENT_STATUS.md` from head `51950a0` to `f97ddd8`: recorded the post-Kilominx merges (PR #6 all-puzzle Save & Friend Play, PR #7 coming-soon homepage, PR #8 admin roadmap widget, the atomic master checklist, and the 07-27 docs governance batch), added a "work in progress" section for draft PRs #9 and #1, refreshed the branch registry against the 27 live remote branches, and noted the 2×2 (Pocket) solver.
+- Updated `PROJECT-HEALTH.md` (dated to 2026-07-27; admin/ads/billing moved from "coded on branch" to "merged to `main`").
+- Backfilled the missing 2026-07-26 feature entries (below) and this entry in the changelog and daily log, closing the code/docs loop that had stopped at 2026-07-23.
+- Consolidation: folded the scattered root-level handoffs and the one-shot Vercel deploy-trigger stubs into the existing `docs/checkpoints/` archive without losing content — `AI_CONTINUATION_PROMPT.md` → `docs/checkpoints/2026-07-22-5x5-solver-continuation-prompt.md`, `LEADERBOARD_TRANSFER_2026-07-22.md` → `docs/checkpoints/2026-07-22-leaderboard-transfer.md`, and `docs/deploy-triggers/*` → `docs/checkpoints/2026-07-22-deploy-triggers.md` (the now-empty `deploy-triggers/` folder removed). Active engine journals (`CUBE-ENGINE-NOTES.md`, `CUBE-PERSPECTIVE-NOTES.md`, `5X5_SOLVER_HANDOFF.md`) stay at the repo root because source-code comments reference them by path; they are now indexed from `docs/README.md`.
+- Reconciled `docs/checkpoints/README.md` (removed the three never-added file promises, listed the checkpoints that actually exist).
+- Added `scripts/check-docs.mjs` and `npm run docs:check`: validates relative Markdown links across the repository and flags orphaned/broken references. Wired into the daily workflow.
+- Deliberately did **not** perform a competing large restructure: draft PR #9 already proposes a routed canonical set and its own `docs:check`. This pass keeps `main`'s current structure mergeable rather than forking a second "canonical" layout.
+- Validation: recorded in the 2026-07-27 `DAILY-LOG.md` entry.
+
+## 2026-07-26 — Kilominx, all-puzzle Save & Friend Play, coming-soon, admin roadmap
+
+- Branches/PRs merged to `main`: PR #4 (`claude/puzzle-gen-twisting-69clo3`), PR #6 (`gpt/all-puzzle-memory-friend-play-20260726`), PR #7 (`gpt/coming-soon-page-20260726`), PR #8 (`gpt/reconcile-admin-dashboard-20260726`).
+- **Kilominx (PR #4, merge `51950a0`):** interactive 3D Kilominx at `/solver/kilominx`, dodecahedron-derived geometry and move engine (`lib/kilominx-engine.ts`), verified reduction solver, timer/scramble/undo/swipe/face-buttons/reset/animation, `/solve` entry, and the reusable `components/SavedScrambles.tsx` backed by `/api/solver-memory`. `tests/kilominx-engine.test.ts` covers geometry/move invariants, scramble round trips, and 50 random-scramble solves.
+- **All-puzzle Save & Friend Play (PR #6):** universal `components/UniversalPuzzleActions.tsx` panel on every supported puzzle/solver route; captures visible scrambles, allows manual start-state entry, saves to `/api/solver-memory`, and sends account-to-account challenges via `/api/challenges` preserving `puzzle_type` and the exact scramble. `/challenge/[id]` made puzzle-aware; shared `cube-labs:load-scramble` browser event contract added for engine-native listeners.
+- **Coming-soon homepage (PR #7):** `components/ComingSoonPage.tsx` shown when `NEXT_PUBLIC_COMING_SOON=1`; full homepage restored when unset/`0`. Legal routes remain reachable; no email capture until consent handling is ready.
+- **Admin roadmap (PR #8):** ported only the unique admin-roadmap slice onto current `main` (`lib/admin/todo.ts`, `/admin/todo`, nav item, compact `/admin` widget) rather than rebasing the ~244-file stale admin branch; original preserved as `backup/claude-admin-dashboard-20260726`.
+- **Docs:** added `docs/MASTER-CHECKLIST.md` (atomic execution checklist) and linked it from `docs/ROADMAP.md`; added the 07-26 Kilominx and all-puzzle checkpoints.
+- Status: merged with repository-level evidence; production/mobile browser verification and the standing Supabase migration/configuration gates still apply.
+
 ## 2026-07-23 — Merge admin/profile work into main
 
 - Branches merged: `claude/cubelabs-admin-dashboard-4pe35q`, `origin/gpt/mobile-profile-page-20260722`, and local `gpt/mobile-profile-page-20260722` follow-up commits.

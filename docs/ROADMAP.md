@@ -1,7 +1,7 @@
 # Cube Labs 3D — Master Roadmap
 
-**Last updated:** 2026-07-26
-**Repository audited:** `main` after the all-puzzle Save & Friend Play merge
+**Last updated:** 2026-07-27
+**Repository audited:** `main` at head `f97ddd8` (after the all-puzzle Save & Friend Play, coming-soon homepage, `/admin/todo` roadmap widget, and documentation-governance merges)
 
 This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST.md)** as the numbered, one-task-at-a-time execution checklist. Items are checked only when repository evidence and required documentation support completion.
 
@@ -66,6 +66,7 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 - [x] Homepage and interactive hero experience
 - [x] Footer, legal foundation, and content carousels
 - [x] Permanent documentation governance
+- [x] Switchable branded coming-soon homepage gated by `NEXT_PUBLIC_COMING_SOON` (PR #7)
 - [~] News, My Arcade, and Learn hubs merged/build-verified; content wiring and browser QA remain
 - [ ] First-party analytics and error reporting fully verified
 - [ ] Search Console, sitemap, and SEO content program fully verified
@@ -144,6 +145,7 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 
 - [x] Admin requirements, security model, and operator guide documented
 - [~] Admin authentication, roles, users, test tools, moderation, ads, settings, logs, exports, media, billing, and operator UX merged; production gates remain
+- [~] `/admin/todo` roadmap page and compact `/admin` roadmap widget merged (PR #8, `lib/admin/todo.ts`); browser verification remains
 - [ ] Carousel slide editor and affiliate activation controls
 - [ ] Rate limiting and admin step-up authentication
 - [ ] Privacy, copyright, billing-refund, consent, and anti-cheat case-management tools

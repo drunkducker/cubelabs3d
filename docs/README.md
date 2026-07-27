@@ -8,7 +8,8 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 
 - [CURRENT_STATUS.md](./CURRENT_STATUS.md) — single current-state summary and active priorities
 - [PROJECT-HEALTH.md](./PROJECT-HEALTH.md) — evidence-backed health dashboard, risks, and directional completion
-- [ROADMAP.md](./ROADMAP.md) — canonical master checklist and release gates
+- [ROADMAP.md](./ROADMAP.md) — high-level roadmap and release gates
+- [MASTER-CHECKLIST.md](./MASTER-CHECKLIST.md) — numbered, one-task-at-a-time atomic execution checklist (linked from the roadmap)
 - [DAILY-LOG.md](./DAILY-LOG.md) — daily verification, completed work, blockers, and next actions
 - [CHANGELOG.md](./CHANGELOG.md) — meaningful shipped project changes
 - [checkpoints](./checkpoints/) — preserved historical snapshots and handoff records
@@ -31,6 +32,18 @@ All contributors, including AI agents, must read this index, `CONSTITUTION.md`, 
 - [SECURITY.md](./SECURITY.md) — security requirements and review checklist
 - [BACKUP-AND-MIGRATION.md](./BACKUP-AND-MIGRATION.md) — provider independence, exports, and Supabase migration
 - [decisions](./decisions/) — architecture decision records
+
+## Root-level references
+
+A few canonical documents live at the repository root rather than under `/docs`, because source-code comments reference them by path or they are repository-wide by convention. They remain part of the source of truth:
+
+- `../README.md` — developer quick start and project structure.
+- `../CUBE-ENGINE-NOTES.md` — detailed cube-engine implementation and bug-analysis journal (referenced from `app/PyraminxGame.tsx` and `app/NxNCubeGame.tsx`).
+- `../CUBE-PERSPECTIVE-NOTES.md` — camera, framing, viewport, and visual positioning notes.
+- `../5X5_SOLVER_HANDOFF.md` — live engineering reference for the 4×4/5×5 solver work (referenced from `components/FiveSolver.tsx`).
+- `../ASSET-CREDITS-AND-LICENSES.md` — third-party asset credits and licenses.
+
+Engine-specific truth is governed by [CUBE-ENGINE.md](./CUBE-ENGINE.md); the root journals are its detailed evidence. Retired handoffs and one-shot deploy triggers have been archived under [checkpoints](./checkpoints/).
 
 ## How the documents depend on each other
 

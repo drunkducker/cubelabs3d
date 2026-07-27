@@ -2,6 +2,52 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-27 — Documentation stewardship reconciliation
+
+**Checked**
+
+- [x] Repository and branch state — `main` head is `f97ddd8`; 27 remote branches; open draft PRs #9 (Skewb + proposed doc consolidation) and #1 (RootB social challenges).
+- [x] Builds and tests (see below).
+- [x] Current roadmap items vs. code — verified solver routes (`/solver/2x2..5x5`, `kilominx`, `pyraminx`), `/play/10x10`, 7 committed Supabase migrations, env-gated coming-soon homepage.
+- [x] Documentation/changelog alignment — found the living docs stale.
+
+**Completed**
+
+- [x] Reconciled `CURRENT_STATUS.md` from head `51950a0` → `f97ddd8` (post-Kilominx merges PR #6/#7/#8, master checklist, 07-27 docs batch; refreshed branch registry; added a work-in-progress section for the draft PRs; noted the 2×2 solver).
+- [x] Dated `PROJECT-HEALTH.md` to 2026-07-27 and moved admin/ads/billing from "coded on branch" to "merged to `main`."
+- [x] Updated `ROADMAP.md` header/head and added coming-soon + `/admin/todo` items.
+- [x] Backfilled `CHANGELOG.md` with the missing 2026-07-26 feature entries and a 2026-07-27 stewardship entry (the log had stopped at 07-23).
+- [x] Consolidated scattered handoffs into `docs/checkpoints/`: `AI_CONTINUATION_PROMPT.md` → `2026-07-22-5x5-solver-continuation-prompt.md`, `LEADERBOARD_TRANSFER_2026-07-22.md` → `2026-07-22-leaderboard-transfer.md`, and `docs/deploy-triggers/*` → `2026-07-22-deploy-triggers.md` (folder removed). Kept `CUBE-ENGINE-NOTES.md`, `CUBE-PERSPECTIVE-NOTES.md`, and `5X5_SOLVER_HANDOFF.md` at root (code-referenced) and indexed them from `docs/README.md`.
+- [x] Reconciled `docs/checkpoints/README.md` (removed 3 never-added file promises; listed the checkpoints that exist).
+- [x] Added `scripts/check-docs.mjs` + `npm run docs:check` (relative-link and required-doc validation).
+
+**Verified**
+
+- `npm run docs:check` — OK (44 Markdown files, 110 local links valid, 12 required docs present).
+- `npx tsc --noEmit` — clean (exit 0).
+- `npm test` — 46/46 passing.
+- `npm run lint` — exit 0 (pre-existing unrelated warnings only; no new warnings).
+- `npm run build` — passes; all routes prerender.
+
+**Blocked or unverified**
+
+- [ ] Deployment verification of the `main` head and all standing Supabase migration/configuration/browser/RLS gates remain open (unchanged by this docs pass).
+
+**Next priorities**
+
+1. Owner review + merge of this stewardship branch.
+2. Reconcile with draft PR #9's proposed doc consolidation (avoid two competing canonical structures).
+3. Resume the P0 production-activation gates in `ROADMAP.md` / `MASTER-CHECKLIST.md`.
+
+**Commits / deployments / rollback notes**
+
+- Branch: `claude/cubelabs3d-architecture-4444ve` (documentation only; no app/runtime code changed).
+- Deployment: none triggered by this pass.
+- Known issues: none introduced; validations green.
+- Rollback: revert the stewardship commit; archived files are moves preserved in Git history.
+
+---
+
 ## 2026-07-23 — Main merge: admin, profile, hubs, security headers
 
 **Completed**

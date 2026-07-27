@@ -1,5 +1,11 @@
 # Cube Labs 3D Leaderboard Transfer Handoff
 
+**Historical status:** archived handoff from 2026-07-22, preserved as history. The
+leaderboard remains a visual prototype; the authoritative current plan and status
+live in [`../SOCIAL-AND-MULTIPLAYER.md`](../SOCIAL-AND-MULTIPLAYER.md),
+[`../CURRENT_STATUS.md`](../CURRENT_STATUS.md), and [`../ROADMAP.md`](../ROADMAP.md).
+This checkpoint must not override those documents.
+
 Generated: 2026-07-22 20:09 EDT  
 Repository: `drunkducker/cubelabs3d`  
 Working branch: `claude/home-page-html-rebuild-q7qomi`

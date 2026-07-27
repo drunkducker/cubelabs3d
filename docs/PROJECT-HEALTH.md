@@ -1,7 +1,7 @@
 # Cube Labs 3D — Project Health
 
-**Last verified:** 2026-07-22
-**Canonical branch:** `main`
+**Last verified:** 2026-07-27
+**Canonical branch:** `main` (head `f97ddd8`)
 
 This dashboard summarizes evidence-backed project health. Percentages are directional planning estimates, not promises or automated coverage measurements.
 
@@ -21,10 +21,10 @@ This dashboard summarizes evidence-backed project health. Percentages are direct
 | Pyraminx | Strong | Playable engine and solver with documented interaction and correctness work |
 | Social challenges | Prototype | Tracked 3x3 account-to-account challenge prototype exists; secure production validation and browser proof are incomplete |
 | Leaderboards and multiplayer | Prototype | Mobile `/leaderboard` visual prototype and 3x3 challenge entry exist; production ranking services are not complete |
-| Scramble library and solver memory | Developing | Durable scramble, ranked attempt, and solver-memory schema/API are merged; solver UI, paid limits, and browser proof remain |
-| Admin portal | Developing | Full platform coded + build/type/unit-test verified on `claude/cubelabs-admin-dashboard-4pe35q` (12 routes, server-side auth, RLS migration, audit, test isolation); migration/service-role/owner-bootstrap + browser/RLS verification pending |
-| Ads and affiliates | Developing | Admin management + public render components (`AdSlot`/`AffiliateProductGrid`/`ManagedCarousel`) + click/impression tracking coded; needs placement on public pages + migration/browser verify |
-| Monetization / billing | Developing | Premium plans + Stripe checkout + signature-verified webhook + `/admin/billing` coded; needs `STRIPE_*` keys + browser verify |
+| Scramble library and solver memory | Developing | Durable scramble, ranked attempt, and solver-memory schema/API are merged; the shared Save & Friend Play panel (PR #6) now provides cross-puzzle save/send UI; native scramble-load wiring, paid limits, and browser proof remain |
+| Admin portal | Developing | Full platform **merged to `main`** (12 routes + `/admin/todo` roadmap widget via PR #8, server-side auth, RLS migration, audit, test isolation); migration/service-role/owner-bootstrap + browser/RLS verification pending |
+| Ads and affiliates | Developing | Admin management + public render components (`AdSlot`/`AffiliateProductGrid`/`ManagedCarousel`) + click/impression tracking **merged to `main`**; needs placement on public pages + migration/browser verify |
+| Monetization / billing | Developing | Premium plans + Stripe checkout + signature-verified webhook + `/admin/billing` **merged to `main`**; needs `STRIPE_*` keys + browser verify |
 | Camera scanner | Not started/early | No verified production scanner |
 | Automated testing | Needs improvement | Feature-specific evidence exists, but no complete release regression suite is verified |
 | Security and recovery | Developing | Rules documented; production security and restore rehearsals remain |

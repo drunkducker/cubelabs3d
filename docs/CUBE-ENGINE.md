@@ -9,8 +9,9 @@ This document defines the permanent cube-engine architecture and records recover
 - `app/NxNCubeGame.tsx` — playable NxN engine used by larger cube routes.
 - `components/NotationCube.tsx` — notation/explainer cube.
 - `app/PyraminxGame.tsx` and `lib/pyraminx-engine.ts` — Pyraminx renderer, state model, and solver.
-- `CUBE-ENGINE-NOTES.md` — detailed implementation and bug-analysis journal.
-- `CUBE-PERSPECTIVE-NOTES.md` — camera, framing, viewport, and visual positioning notes.
+- `CUBE-ENGINE-NOTES.md` — detailed implementation and bug-analysis journal (repository root; referenced from `PyraminxGame.tsx` and `NxNCubeGame.tsx`).
+- `CUBE-PERSPECTIVE-NOTES.md` — camera, framing, viewport, and visual positioning notes (repository root).
+- `5X5_SOLVER_HANDOFF.md` — live engineering reference for the 4×4/5×5 solver work (repository root; referenced from `FiveSolver.tsx`). The 4×4 full solver is shipped; the deterministic 5×5 reduction is unfinished.
 
 ## Required engine boundaries
 
@@ -88,6 +89,10 @@ Solver pages must use application services such as `getSolverMemory()` and `save
 ## Solver status rule
 
 A playable puzzle, reset function, or move-history reversal is not automatically a general-purpose solver. A solver may be marked complete only when arbitrary supported input states are validated, solvability is checked, generated moves are verified, and regression fixtures pass.
+
+### Deterministic 5×5 acceptance target
+
+The shipped 5×5 experience is an honest reduced-state solver with manual entry (`components/FiveSolver.tsx`, `/solver/5x5`), built on the verified NxN engine; the arbitrary-state full solver is not dependable yet (blind-search reduction times out). The recommended path and full context are in `5X5_SOLVER_HANDOFF.md` (repository root). The bar for marking the full 5×5 solver complete: scramble or hand-enter any cube → deterministic reduction (centers + edge triplets) → parity → cubejs → verified solution → 3D playback, off the main thread in a Web Worker, with roughly ≥95% of random scrambles solved under ~10 seconds and regression fixtures in place.
 
 ## Recovery source
 
