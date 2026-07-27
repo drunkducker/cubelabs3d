@@ -6,13 +6,16 @@
  *   - a SHALLOW turn spins only the small trivial tip piece at that vertex.
  *   - a DEEP turn spins the tip plus the 3 edge pieces touching that vertex,
  *     as one rigid layer.
- * The 4 face-center pieces are permanently fixed to the core and never move
- * under ANY turn — there is no cut depth that isolates them on a standard
- * (3-layer) Pyraminx. So the only piece state worth tracking is:
+ * The 4 face-center ("axial") pieces never leave their vertex, but — like the
+ * real puzzle — they DO rotate: a deep turn spins the vertex's center piece
+ * along with its tip and edges. So the piece state worth tracking is:
  *   - 6 edge pieces: which of the 6 slots each currently occupies (`ep`),
  *     and whether each is flipped relative to its slot (`eo`).
  *   - 4 tip pieces: each stays at its home vertex forever, so it only needs
  *     a 0/1/2 rotation offset (`to`) — no permutation.
+ *   - 4 center/axial pieces: also fixed to their vertex, each a 0/1/2 rotation
+ *     offset (`co`). Unlike a tip, a center only turns on DEEP moves — a
+ *     shallow tip twist spins the tip alone, leaving the center behind.
  *
  * Geometry (vertices, faces, edges, colors) is derived once from a regular
  * tetrahedron centered at the origin, and the discrete move tables below are
@@ -65,10 +68,10 @@ export const FACES_AT_EDGE: [number, number][] = EDGE_PAIRS.map(([i, j]) =>
 // directly opposite v (face v itself).
 export const FACES_AT_VERTEX: number[][] = [0, 1, 2, 3].map(v => [0, 1, 2, 3].filter(k => k !== v));
 
-export type PyraState = { ep: number[]; eo: number[]; to: number[] };
-export const solved = (): PyraState => ({ ep: [0, 1, 2, 3, 4, 5], eo: [0, 0, 0, 0, 0, 0], to: [0, 0, 0, 0] });
-export const clone = (s: PyraState): PyraState => ({ ep: [...s.ep], eo: [...s.eo], to: [...s.to] });
-export const isSolved = (s: PyraState) => s.ep.every((p, i) => p === i) && s.eo.every(o => o === 0) && s.to.every(t => t === 0);
+export type PyraState = { ep: number[]; eo: number[]; to: number[]; co: number[] };
+export const solved = (): PyraState => ({ ep: [0, 1, 2, 3, 4, 5], eo: [0, 0, 0, 0, 0, 0], to: [0, 0, 0, 0], co: [0, 0, 0, 0] });
+export const clone = (s: PyraState): PyraState => ({ ep: [...s.ep], eo: [...s.eo], to: [...s.to], co: [...s.co] });
+export const isSolved = (s: PyraState) => s.ep.every((p, i) => p === i) && s.eo.every(o => o === 0) && s.to.every(t => t === 0) && s.co.every(c => c === 0);
 
 // ---- Vector helpers (no three.js dependency — keeps this file portable) ----
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -179,6 +182,8 @@ export function applyMove(state: PyraState, move: PyraMove): PyraState {
   out.to[vertex] = (out.to[vertex] + (direction === 1 ? 1 : 2)) % 3;
   if (depth === "shallow") return out;
 
+  // A deep turn also spins the vertex's center piece and its 3 edges.
+  out.co[vertex] = (out.co[vertex] + (direction === 1 ? 1 : 2)) % 3;
   const { from, to, flip } = VERTEX_MOVES[vertex][direction === 1 ? 0 : 1];
   const fromEo = from.map(slot => state.eo[slot]);
   const fromEp = from.map(slot => state.ep[slot]);
@@ -221,16 +226,29 @@ export function randomScramble(count = 10): string {
   return out.join(" ");
 }
 
-// ---- Edge solver: exhaustive BFS over the full edge state space ----
+// ---- Deep solver: exhaustive BFS over the (edges × centers) state space ----
 //
-// With centers fixed and tips trivial, the only real complexity is the 6
-// edges: 6! permutations * 2^6 orientations = 46,080 reachable states. That
-// is small enough to fully explore with a breadth-first search from the
-// solved state ONE TIME and cache a parent-pointer table, giving instant,
-// exact (shortest deep-turn-count) solves for any scramble — no heuristic
-// search, no risk of an incomplete hand-written algorithm.
+// Deep turns move two independent things: the 6 edges (6! * 2^6 = 46,080
+// encoded slots) and the 4 center orientations (3^4 = 81). Because a shallow
+// tip twist touches neither, everything a deep turn can reach lives in the
+// product space (3,732,480 encoded slots), which BFS from the solved state can
+// still fully explore ONE TIME and cache as a parent-pointer table — giving
+// exact (shortest deep-turn-count) solutions for any scramble, with no
+// heuristic search and no hand-written algorithm to get subtly wrong.
+//
+// Centers must be solved TOGETHER with edges, not afterwards: an edge-only
+// solution almost always lands the centers in the wrong orientation (verified
+// empirically), and there is no shallow move to fix a center without also
+// re-scrambling edges. Only the tips, which no deep turn can strand, are safe
+// to clean up in a trivial pass at the end.
+//
+// The 3.7M-slot tables are typed arrays (~19 MB total), not an array of
+// objects, so the whole thing stays cheap enough to build lazily in a browser.
 
-const STATE_COUNT = 720 * 64; // 6! * 2^6
+const EDGE_STATE_COUNT = 720 * 64; // 6! * 2^6
+const CENTER_STATE_COUNT = 81;     // 3^4
+const STATE_COUNT = EDGE_STATE_COUNT * CENTER_STATE_COUNT;
+
 function encodeEdges(ep: number[], eo: number[]): number {
   // Lehmer-code style permutation index (0..719) combined with a 6-bit
   // orientation mask (0..63) into a single 0..46079 integer.
@@ -248,64 +266,115 @@ function encodeEdges(ep: number[], eo: number[]): number {
   return permIndex * 64 + orientationMask;
 }
 
-type BfsEntry = { move: string; prevState: number } | null;
-let bfsTable: BfsEntry[] | null = null;
+/** Inverse of `encodeEdges` — needed so BFS can hold its frontier as compact
+ * integer codes instead of full state objects (millions of them would be far
+ * too much memory as objects). */
+function decodeEdges(edgeCode: number): { ep: number[]; eo: number[] } {
+  const orientationMask = edgeCode % 64;
+  let permIndex = Math.floor(edgeCode / 64);
+  const eo = [0, 1, 2, 3, 4, 5].map(i => (orientationMask >> i) & 1);
+  const avail = [0, 1, 2, 3, 4, 5];
+  const ep: number[] = [];
+  let factorial = 720;
+  for (let i = 0; i < 6; i++) {
+    factorial /= 6 - i;
+    const rank = Math.floor(permIndex / factorial);
+    permIndex %= factorial;
+    ep.push(avail[rank]);
+    avail.splice(rank, 1);
+  }
+  return { ep, eo };
+}
 
-function buildBfsTable(): BfsEntry[] {
-  const table: BfsEntry[] = new Array(STATE_COUNT).fill(undefined) as BfsEntry[];
-  const solvedState = solved();
-  const startCode = encodeEdges(solvedState.ep, solvedState.eo);
-  table[startCode] = null; // solved state has no predecessor
-  const queue: PyraState[] = [solvedState];
-  const queueCodes: number[] = [startCode];
-  const deepMoves: PyraMove[] = [0, 1, 2, 3].flatMap((v): PyraMove[] => [
-    { vertex: v as Axis, direction: 1, depth: "deep" },
-    { vertex: v as Axis, direction: -1, depth: "deep" },
-  ]);
+const encodeCenters = (co: number[]) => co[0] + co[1] * 3 + co[2] * 9 + co[3] * 27;
+const decodeCenters = (c: number) => [c % 3, Math.floor(c / 3) % 3, Math.floor(c / 9) % 3, Math.floor(c / 27) % 3];
+const encodeFull = (ep: number[], eo: number[], co: number[]) => encodeEdges(ep, eo) * CENTER_STATE_COUNT + encodeCenters(co);
 
-  let head = 0;
-  while (head < queue.length) {
-    const current = queue[head]; const currentCode = queueCodes[head]; head++;
-    for (const move of deepMoves) {
-      const next = applyMove(current, move);
-      const code = encodeEdges(next.ep, next.eo);
-      if (table[code] !== undefined) continue;
-      table[code] = { move: moveLabel(move), prevState: currentCode };
-      queue.push(next);
-      queueCodes.push(code);
+// The 8 deep generators, in a fixed order so a move can be stored as its index.
+const DEEP_MOVES: PyraMove[] = [0, 1, 2, 3].flatMap((v): PyraMove[] => [
+  { vertex: v as Axis, direction: 1, depth: "deep" },
+  { vertex: v as Axis, direction: -1, depth: "deep" },
+]);
+
+type BfsTable = { prev: Int32Array; move: Int8Array; startCode: number };
+let bfsTable: BfsTable | null = null;
+
+function buildBfsTable(): BfsTable {
+  // Precompute, per deep move, the transition on the two independent halves of
+  // the code (edges 0..46079, centers 0..80). The main BFS then expands a state
+  // with two array lookups and an integer combine instead of decoding and
+  // cloning a full PyraState 7.5M times — the difference between a multi-second
+  // pause and a snappy one when the table is first built in the browser.
+  const edgeTrans: Int32Array[] = DEEP_MOVES.map(() => new Int32Array(EDGE_STATE_COUNT));
+  for (let ec = 0; ec < EDGE_STATE_COUNT; ec++) {
+    const { ep, eo } = decodeEdges(ec);
+    for (let mi = 0; mi < DEEP_MOVES.length; mi++) {
+      const next = applyMove({ ep, eo, co: [0, 0, 0, 0], to: [0, 0, 0, 0] }, DEEP_MOVES[mi]);
+      edgeTrans[mi][ec] = encodeEdges(next.ep, next.eo);
     }
   }
-  return table;
+  const centerTrans: Int8Array[] = DEEP_MOVES.map(m => {
+    const arr = new Int8Array(CENTER_STATE_COUNT);
+    for (let cc = 0; cc < CENTER_STATE_COUNT; cc++) {
+      const co = decodeCenters(cc);
+      co[m.vertex] = (co[m.vertex] + (m.direction === 1 ? 1 : 2)) % 3;
+      arr[cc] = encodeCenters(co);
+    }
+    return arr;
+  });
+
+  const prev = new Int32Array(STATE_COUNT).fill(-1); // predecessor code, -1 = unvisited
+  const move = new Int8Array(STATE_COUNT).fill(-1);  // index into DEEP_MOVES that reached this state
+  const s0 = solved();
+  const startCode = encodeFull(s0.ep, s0.eo, s0.co);
+  prev[startCode] = startCode; // self-reference marks the root as visited
+
+  const queue = new Int32Array(STATE_COUNT); // frontier as compact codes
+  let head = 0, tail = 0;
+  queue[tail++] = startCode;
+  while (head < tail) {
+    const currentCode = queue[head++];
+    const ec = Math.floor(currentCode / CENTER_STATE_COUNT);
+    const cc = currentCode % CENTER_STATE_COUNT;
+    for (let mi = 0; mi < DEEP_MOVES.length; mi++) {
+      const code = edgeTrans[mi][ec] * CENTER_STATE_COUNT + centerTrans[mi][cc];
+      if (prev[code] !== -1) continue;
+      prev[code] = currentCode;
+      move[code] = mi;
+      queue[tail++] = code;
+    }
+  }
+  return { prev, move, startCode };
 }
 
 /**
- * Solves the edge subgroup only (ignores tips) via the precomputed BFS table.
+ * Solves edges AND centers together via the precomputed BFS table.
  *
- * `bfsTable` was built by walking FORWARD from `solved` — table[X] =
- * {move: M, prevState: P} means X = applyMove(P, M). To walk a scrambled
- * state back toward solved we need to go the other way at each step (X -> P),
- * which means applying the INVERSE of the stored move, not the move itself.
- * And since we're already stepping from the scrambled state toward solved,
- * the moves come out in the correct application order as we collect them —
- * reversing the list at the end would undo that and re-break it.
+ * The table was built walking FORWARD from `solved`: reaching state X from
+ * predecessor P used move `DEEP_MOVES[move[X]]`. To walk a scrambled state back
+ * toward solved we step X -> prev[X], applying the INVERSE of that stored move
+ * at each hop. Because we step from the scrambled state toward solved, the
+ * inverse moves come out already in application order — collecting them as we
+ * go yields the solution directly (reversing at the end would re-break it).
  */
-export function solveEdges(state: PyraState): string[] {
-  const table: BfsEntry[] = bfsTable ?? (bfsTable = buildBfsTable());
-  const startCode = encodeEdges(state.ep, state.eo);
+export function solveEdgesAndCenters(state: PyraState): string[] {
+  const table = bfsTable ?? (bfsTable = buildBfsTable());
+  let code = encodeFull(state.ep, state.eo, state.co);
   const moves: string[] = [];
-  let code: number | null = startCode;
   let guard = 0;
-  while (code !== null && guard < 64) {
-    const entry: BfsEntry = table[code];
-    if (!entry) break;
-    moves.push(inverseToken(entry.move));
-    code = entry.prevState;
+  while (code !== table.startCode && guard < 128) {
+    const mi = table.move[code];
+    if (mi < 0) break; // defensive: every real game state is reachable
+    moves.push(inverseToken(moveLabel(DEEP_MOVES[mi])));
+    code = table.prev[code];
     guard++;
   }
   return moves;
 }
 
-/** Solves the 4 trivial tips directly — no search needed, each is 0-2 turns. */
+/** Solves the 4 trivial tips directly — no search needed, each is 0-2 turns.
+ * Runs after the deep solve: shallow tip twists disturb neither edges nor
+ * centers, so they can never undo the work above. */
 export function solveTips(state: PyraState): string[] {
   const moves: string[] = [];
   for (let v = 0; v < 4; v++) {
@@ -315,10 +384,11 @@ export function solveTips(state: PyraState): string[] {
   return moves;
 }
 
-/** Full solve: edges first (deep turns also carry tips along), then clean up tips. */
+/** Full solve: edges + centers via deep turns (which also carry the tips
+ * along), then a trivial pass to zero the tips. */
 export function solve(state: PyraState): string[] {
-  const edgeMoves = solveEdges(state);
-  const afterEdges = applySequence(state, edgeMoves.join(" "));
-  const tipMoves = solveTips(afterEdges);
-  return [...edgeMoves, ...tipMoves];
+  const deepMoves = solveEdgesAndCenters(state);
+  const afterDeep = applySequence(state, deepMoves.join(" "));
+  const tipMoves = solveTips(afterDeep);
+  return [...deepMoves, ...tipMoves];
 }

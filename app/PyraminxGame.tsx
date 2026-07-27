@@ -83,7 +83,7 @@ function faceCells(faceIndex: number) {
   const P = (i: number, j: number, k: number) =>
     new THREE.Vector3().addScaledVector(A, i / 3).addScaledVector(B, j / 3).addScaledVector(C, k / 3);
 
-  type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center" } };
+  type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center"; vertex: number } };
   const cells: Cell[] = [];
 
   const classify = (ijk: [number, number, number][]): Cell["target"] => {
@@ -100,7 +100,13 @@ function faceCells(faceIndex: number) {
         return { kind: "edge", edge };
       }
     }
-    return { kind: "center" };
+    // A center cell belongs to the axial piece at the vertex it hugs — the
+    // barycentric axis carrying the most weight across the cell's corners. This
+    // matters because a deep turn spins that vertex's center along with it, so
+    // each center cell must be grouped by vertex, not lumped per-face.
+    const sums = [0, 1, 2].map(pos => ijk.reduce((s, c) => s + c[pos], 0));
+    const axisIndex = sums.indexOf(Math.max(...sums));
+    return { kind: "center", vertex: verts[axisIndex] };
   };
 
   // 6 upward cells: i+j+k = 2.
@@ -274,6 +280,11 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     // 14 rigid piece groups: 4 tips + 6 edges + 4 centers. Every sticker cell
     // computed below gets added as a child of exactly one of these, so
     // turning a piece later is just "pivot this group."
+    //
+    // Centers (axials) are indexed by VERTEX, not by face: like a real Pyraminx,
+    // a deep turn spins the vertex's center along with its tip and edges, so the
+    // three center cells hugging a vertex — one on each of its three faces — must
+    // live in one group that rotates about that vertex.
     const tipGroups = [0, 1, 2, 3].map(() => { const g = new THREE.Group(); root.add(g); return g; });
     const edgeGroups = [0, 1, 2, 3, 4, 5].map(() => { const g = new THREE.Group(); root.add(g); return g; });
     const centerGroups = [0, 1, 2, 3].map(() => { const g = new THREE.Group(); root.add(g); return g; });
@@ -310,14 +321,16 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         const sticker = new THREE.Mesh(stickerGeo, stickerMat);
         const backing = new THREE.Mesh(backingGeo, bodyMaterial);
         sticker.userData.isSticker = true;
-        // Only tip/edge stickers are grabbable — centers never turn, so
-        // tapping one should fall through to camera orbit like empty space.
+        // Only tip/edge stickers are grabbable. A deep turn is initiated by
+        // swiping an edge (it carries the vertex's center along), so leaving
+        // center stickers unpickable keeps them working as camera-orbit handles
+        // like empty space — the same intent as before centers could rotate.
         if (cell.target.kind === "tip") { sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick; pickables.push(sticker); }
         else if (cell.target.kind === "edge") { sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick; pickables.push(sticker); }
 
         const group = cell.target.kind === "tip" ? tipGroups[cell.target.vertex]
           : cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
-          : centerGroups[face];
+          : centerGroups[cell.target.vertex];
         group.add(backing);
         group.add(sticker);
       }
@@ -349,6 +362,9 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const groupsForMove = (move: PyraMove): THREE.Group[] => {
       const groups = [tipGroups[move.vertex]];
       if (move.depth === "deep") {
+        // The center (axial) lives at the vertex and only orients — it never
+        // changes slot — so it's indexed by vertex directly, like the tip.
+        groups.push(centerGroups[move.vertex]);
         EDGES_AT_VERTEX[move.vertex].forEach(slot => groups.push(edgeGroups[logicalState.ep[slot]]));
       }
       return groups;
