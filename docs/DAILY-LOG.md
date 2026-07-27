@@ -2,6 +2,30 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-27 — Kilominx manual-entry solver + flat net
+
+**Branch:** `claude/manual-solver-input-jja9t0` (not merged, not deployed).
+
+**Completed**
+
+- [x] Engine facelet↔state mapping in `lib/kilominx-engine.ts` (`stateToFacelets`, `faceletsToState`, `FACE_CORNERS_CCW`, `permutationParity`, `isSolvableKiloState`, `FACELET_COUNT`); rejects impossible cubes before `solve()`.
+- [x] `lib/kilominx-net-layout.ts` — two-flower net unfolded from the real dodecahedron geometry; 60 kites tagged `(face, kite, slot)`.
+- [x] `components/KilominxSolver.tsx` — scramble + manual "Enter My Cube" modes, 60-sticker paint net, verified solution, net-based step playback.
+- [x] Route split: `/solver/kilominx` → new solver; playable 3D game moved to new `/play/kilominx` (`app/KilominxGame.tsx` unchanged). `/solve` copy updated. ADR 0004 recorded.
+- [x] Tests: 8 new Kilominx facelet tests (round-trip, legality, reconstruct-then-solve).
+
+**Verified**
+
+- `npm run build` passes; `npm test` **54/54**; lint exit 0 (pre-existing warnings only).
+
+**Unverified (do not mark `[x]`)**
+
+- [ ] No mobile/browser verification of the net paint UX or playback.
+- [ ] Manual entry assumes the standard colour scheme (no fixed centres on a Kilominx); documented in-UI, not yet validated with a physical cube.
+- [ ] Playback is on the flat net; a dedicated 3D `KilominxSolverCube3D` is a possible follow-up.
+
+---
+
 ## 2026-07-23 — Main merge: admin, profile, hubs, security headers
 
 **Completed**

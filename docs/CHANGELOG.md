@@ -2,6 +2,17 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-27 — Kilominx manual-entry solver + net (coded, build-verified, unmerged)
+
+- Branch: `claude/manual-solver-input-jja9t0`. Not merged, not deployed, not browser-verified.
+- Purpose: give the Kilominx the same "Enter My Cube" manual solver the 3×3/4×4/5×5 already have, so a player can type in their own physical puzzle instead of only scrambling one on screen.
+- **Engine** (`lib/kilominx-engine.ts`): added a facelet (sticker-colour) representation and mapping — `FACE_CORNERS_CCW`, `stateToFacelets`, `faceletsToState`, `permutationParity`, `isSolvableKiloState`, `FACELET_COUNT`. Reconstruction matches each corner's colour triple back to a piece+twist and rejects impossible cubes (odd permutation or twist-sum ≢ 0 mod 3) **before** `solve()` runs. All derived from the existing dodecahedron geometry — no hard-coded tables.
+- **Net layout** (`lib/kilominx-net-layout.ts`, new): the standard two-flower Kilominx net, each petal genuinely unfolded about its shared edge from the real geometry; every one of the 60 kites is tagged with its `(face, kite, corner-slot)`.
+- **UI** (`components/KilominxSolver.tsx`, new): scramble-demo + manual-entry modes, a 60-sticker paint net, verified solution with a move stepper, and net-based step playback. A Kilominx has no fixed centres, so entry is relative to the standard colour scheme — each face shows a numbered reference-colour anchor.
+- **Structural change (ADR 0004):** route split to match the 3×3/4×4 convention — `/solver/kilominx` is now the manual/scramble solver; the playable 3D game moved verbatim to the new `/play/kilominx`. `app/KilominxGame.tsx` is unchanged, only re-hosted. `/solve` copy updated. Challenge routing (`app/challenge/[id]`) already pointed at `/solver/kilominx` and stays consistent.
+- Testing: `npm run build` passes (adds `/play/kilominx`, `/solver/kilominx` now 4.06 kB); `npm test` **54/54** (adds 8 Kilominx facelet tests: 100-scramble state↔facelet round-trip, legality rejection, reconstruct-then-solve verification); lint exit 0 (pre-existing warnings only).
+- Known issues / gates: no mobile/browser verification; manual entry assumes the standard colour scheme (documented in-UI); solution playback is on the flat net, not a dedicated 3D view (a `KilominxSolverCube3D` extraction is a possible follow-up). Rollback: revert the branch; no schema or config changes.
+
 ## 2026-07-23 — Merge admin/profile work into main
 
 - Branches merged: `claude/cubelabs-admin-dashboard-4pe35q`, `origin/gpt/mobile-profile-page-20260722`, and local `gpt/mobile-profile-page-20260722` follow-up commits.

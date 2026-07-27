@@ -96,6 +96,7 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 - [x] Permanent cube-engine architecture documented
 - [~] Kilominx interactive 3D puzzle and verified reduction solver merged; production mobile/browser QA remains
 - [x] Kilominx engine regression tests include geometry/move invariants, scramble round trips, and random-scramble solves
+- [~] Kilominx manual "Enter My Cube" solver on a flat pentagon net (facelet↔state mapping, legality check, net playback); coded + build/test-verified on `claude/manual-solver-input-jja9t0`, unmerged, mobile/browser QA remains. Route split: `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0004)
 - [~] Shared Save & Friend Play panel merged across supported puzzle routes; native load wiring and production verification remain
 - [~] 3×3 manual color entry and freeze fix; broader fixtures pending
 - [x] NxN timer, solved-state detection, and scramble history
