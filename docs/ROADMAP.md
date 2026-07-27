@@ -166,7 +166,7 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 - [x] Security, backup/provider migration, AI contributor, and ADR rules documented
 - [x] Branch recovery and classification process established
 - [ ] Finalize legal operator and launch policies
-- [ ] Implement cookie consent, privacy choices, and production cookie inventory
+- [~] Cookie consent banner, per-category Cookie Settings, GPC honoring, and first-party cookie inventory implemented and build-verified; Your Privacy Choices opt-outs and production/browser verification remain
 - [ ] Implement age screening and parent-request handling
 - [ ] Complete automated test suite
 - [ ] Production security review

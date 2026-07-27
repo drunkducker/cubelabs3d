@@ -6,6 +6,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { ToastProvider } from "@/components/Toast";
+import CookieConsent from "@/components/CookieConsent";
 import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 import "./globals.css";
 
@@ -31,10 +32,12 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <ToastProvider>
-          {children}
-          <Suspense fallback={null}>
-            <UniversalPuzzleActions />
-          </Suspense>
+          <CookieConsent>
+            {children}
+            <Suspense fallback={null}>
+              <UniversalPuzzleActions />
+            </Suspense>
+          </CookieConsent>
         </ToastProvider>
       </body>
     </html>

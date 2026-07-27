@@ -2,6 +2,22 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-27 — Cookie consent, settings, and inventory
+
+**Completed**
+
+- [x] Added the cookie consent model `lib/consent.ts`: categories (necessary/preferences/analytics/advertising), a versioned consent record stored in the `cl_consent` cookie + local-storage mirror, GPC detection, a fail-closed `consentAllows()`, and the first-party cookie inventory.
+- [x] Added `components/CookieConsent.tsx`: a consent banner (Accept all / Reject nonessential / Customize) shown until a decision is recorded, a reopenable per-category settings modal, and a `useConsent()` context; mounted once in `app/layout.tsx`.
+- [x] Gated `components/ads/tracking.tsx` beacons on advertising consent so no ad/affiliate measurement fires before opt-in.
+- [x] Added `/cookies/settings` (MP-006) showing current choices and the published cookie inventory, plus a footer "Cookie Settings" link and updated Cookie Policy copy.
+- [x] Added `tests/consent.test.ts` (7 tests). Verified: `tsc` clean, `npm run lint` exit 0, `npm run build` OK (`/cookies/settings` prerendered), `npm test` **53/53**.
+
+**Blocked or unverified**
+
+- [ ] Production/browser verification (banner render, real GPC browser, cookie persistence across sessions) and final legal review remain. Extend the inventory before enabling any new storage-writing provider. Analytics category has no provider wired yet; "Your Privacy Choices" opt-outs (MP-005) still pending.
+
+---
+
 ## 2026-07-23 — Main merge: admin, profile, hubs, security headers
 
 **Completed**

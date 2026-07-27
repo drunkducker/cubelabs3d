@@ -2,6 +2,16 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-27 — Cookie consent, settings, and first-party inventory
+
+- **Consent model** (`lib/consent.ts`): four categories (necessary always on; preferences, analytics, advertising optional), a versioned decision persisted in the `cl_consent` cookie (180-day, `SameSite=Lax`, `Secure` on HTTPS) mirrored to local storage, Global Privacy Control detection, and a fail-closed `consentAllows()` — nothing nonessential runs without a recorded opt-in. Publishes the first-party cookie inventory (auth tokens + consent cookie) with provider, purpose, category, and duration.
+- **Banner + settings** (`components/CookieConsent.tsx`, mounted in `app/layout.tsx`): a consent banner (Accept all / Reject nonessential / Customize) shown until a choice is recorded; a reopenable per-category settings modal (`openCookieSettings()` / `useConsent()`); Escape-to-close and backdrop dismissal that re-shows the banner when no decision was made.
+- **GPC** (P-009): when a Global Privacy Control signal is present, advertising/sharing are pre-set to off and the state is surfaced in the banner and settings.
+- **Ad gating** (`components/ads/tracking.tsx`): impression/click beacons now no-op until advertising consent is granted.
+- **Pages/links**: new standing `/cookies/settings` page (MP-006) with live choices + inventory table; footer "Cookie Settings" link; Cookie Policy copy updated to point at the tool and inventory and describe GPC handling.
+- Maps to MASTER-CHECKLIST P-006, P-007, P-008, P-009, and MP-006 (all now `[~]`).
+- Testing: `tsc` clean; `npm run lint` exit 0; `npm run build` OK (`/cookies/settings` prerendered); `npm test` **53/53** (adds `tests/consent.test.ts`). Not yet production/browser verified; final legal review pending.
+
 ## 2026-07-23 — Merge admin/profile work into main
 
 - Branches merged: `claude/cubelabs-admin-dashboard-4pe35q`, `origin/gpt/mobile-profile-page-20260722`, and local `gpt/mobile-profile-page-20260722` follow-up commits.

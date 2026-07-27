@@ -17,13 +17,13 @@ export default function CookiePolicyPage() {
       </ul>
 
       <h2>3. Consent and Controls</h2>
-      <p>Where required by law, nonessential Cookies will be disabled until you provide consent. You may withdraw or change consent through Cookie Settings when that tool is implemented. You can also use browser or device controls, although blocking necessary Cookies may prevent parts of the Services from working.</p>
+      <p>Nonessential Cookies are disabled until you provide consent. You may grant, reject, or withdraw consent by category at any time through <a href="/cookies/settings">Cookie Settings</a>. You can also use browser or device controls, although blocking necessary Cookies may prevent parts of the Services from working.</p>
 
       <h2>4. Global Privacy Signals</h2>
-      <p>Where legally required and technically supported, we will honor recognized opt-out preference signals, such as Global Privacy Control, for activities treated as a sale, sharing, or targeted advertising.</p>
+      <p>Where legally required and technically supported, we honor recognized opt-out preference signals, such as Global Privacy Control, for activities treated as a sale, sharing, or targeted advertising. When we detect such a signal, advertising and data-sharing Cookies are pre-set to off unless you explicitly turn them on.</p>
 
       <h2>5. Third Parties</h2>
-      <p>Hosting, analytics, authentication, embedded video, advertising, affiliate, and security providers may place or access Cookies subject to their own policies. A production cookie inventory naming each provider, purpose, duration, and category must be added before those services are enabled.</p>
+      <p>Hosting, analytics, authentication, embedded video, advertising, affiliate, and security providers may place or access Cookies subject to their own policies, and only within the categories you have allowed. The current first-party Cookie inventory — naming each key, provider, purpose, duration, and category — is published on the <a href="/cookies/settings">Cookie Settings</a> page and must be extended before any new storage-writing service is enabled.</p>
 
       <h2>6. Retention</h2>
       <p>Session Cookies expire when the session ends. Persistent Cookies remain for a defined period or until deleted. We will configure retention periods to be proportionate to each purpose.</p>

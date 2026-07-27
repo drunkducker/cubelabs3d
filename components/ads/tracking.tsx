@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { consentAllows } from "@/lib/consent";
 
 /*
  * Client-side ad metric beacons. Fire-and-forget; never block or break the page.
+ * Gated on advertising consent: no impression or click measurement leaves the
+ * browser until the visitor has allowed advertising cookies.
  */
 
 function beacon(kind: string, id: string) {
+  if (!consentAllows("advertising")) return;
   try {
     const body = JSON.stringify({ kind, id });
     if (navigator.sendBeacon) {

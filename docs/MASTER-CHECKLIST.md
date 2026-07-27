@@ -39,11 +39,11 @@
 - [ ] **P-002 — Finalize the Privacy Policy.** Replace all launch placeholders and ensure actual data practices match the text.
 - [~] **P-003 — Terms of Service foundation.** The page exists, but legal identity, governing law, venue, and dispute terms remain unfinished.
 - [ ] **P-004 — Finalize the Terms of Service.** Add counsel-approved legal and subscription language and remove all placeholders.
-- [~] **P-005 — Cookie Policy foundation.** The page exists, but Cookie Settings and the production cookie inventory are missing.
-- [ ] **P-006 — Create a production cookie inventory.** List every cookie, local-storage key, provider, purpose, category, and duration.
-- [ ] **P-007 — Build Cookie Settings.** Let users grant, reject, or withdraw nonessential cookie consent by category.
-- [ ] **P-008 — Add a consent banner.** Prevent nonessential analytics and advertising from loading before consent where required.
-- [ ] **P-009 — Honor privacy preference signals.** Support Global Privacy Control where legally applicable.
+- [~] **P-005 — Cookie Policy foundation.** The page exists and now links Cookie Settings plus the first-party inventory; final legal review remains.
+- [~] **P-006 — Create a production cookie inventory.** First-party keys (`cubelabs_access_token`, `cubelabs_refresh_token`, `cl_consent`) are catalogued in `lib/consent.ts` with provider, purpose, category, and duration, and published on `/cookies/settings`; extend it before enabling any new storage-writing provider.
+- [~] **P-007 — Build Cookie Settings.** `components/CookieConsent.tsx` lets users grant, reject, or withdraw consent per category (preferences, analytics, advertising) via a reopenable modal; production/browser verification remains.
+- [~] **P-008 — Add a consent banner.** A banner blocks nonessential storage until a choice is recorded, and ad-tracking beacons are gated on advertising consent; analytics has no provider wired yet.
+- [~] **P-009 — Honor privacy preference signals.** Global Privacy Control is detected and pre-sets advertising/sharing to off; production verification against a GPC browser remains.
 - [~] **P-010 — Affiliate Disclosure foundation.** The disclosure page and sponsored-link labels exist but require launch review.
 - [ ] **P-011 — Add a Refund Policy.** Explain eligibility, timing, exceptions, and how users request refunds.
 - [ ] **P-012 — Add Subscription Terms.** Clearly explain prices, billing periods, renewal, trials, cancellation, and access after cancellation.
@@ -245,7 +245,7 @@
 - [ ] **MP-003 — Build checkout success page.** Explain that access is confirmed by the verified webhook.
 - [ ] **MP-004 — Build checkout canceled page.** Return users safely after abandoning payment.
 - [ ] **MP-005 — Build Privacy Choices page.** Provide legally required advertising and data-use opt-outs.
-- [ ] **MP-006 — Build Cookie Settings page or modal.** Let users change consent at any time.
+- [~] **MP-006 — Build Cookie Settings page or modal.** Both exist: a reopenable modal (`components/CookieConsent.tsx`) and a standing `/cookies/settings` page with the live inventory; production verification remains.
 - [ ] **MP-007 — Build DMCA page.** Publish copyright reporting and counter-notice instructions.
 - [ ] **MP-008 — Build Community Guidelines page.** Publish social and competitive conduct rules.
 - [ ] **MP-009 — Build Accessibility page.** Publish accessibility status and feedback contact.
