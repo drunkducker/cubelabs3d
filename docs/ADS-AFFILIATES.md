@@ -3,6 +3,11 @@
 Authoritative reference for managed advertising, banners, carousels, and
 affiliate products. Referenced by `docs/README.md`.
 
+**Status reviewed 2026-07-27:** management, public render components, preview,
+and tracking code are merged into `main`. Production migrations, placement
+choices, live browser/counter verification, affiliate activation controls, and
+the carousel slide editor remain incomplete.
+
 ## Principle
 
 Advertising is **database-driven**. Changing campaign content, scheduling, or

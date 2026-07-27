@@ -2,6 +2,68 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-27 — Rebuild Skewb interaction and add verified result sending
+
+- Author: OpenAI Codex working with the project owner.
+- Branch and review: `feature/skewb-puzzle`, draft PR #9.
+- Commits: local verified commit `15faac9`; published GitHub head `c3b5502`.
+  The PR records that the published Git tree exactly matches the local verified
+  tree even though the connector assigned a different commit SHA.
+- Purpose: make Skewb look, move, solve, save, and send like the established
+  3×3, 4×4, and Kilominx experiences instead of a separate sticker demo.
+- Replaced the stationary box/decal presentation with fourteen rigid moving
+  bodies: eight corners and six centers. Every legal turn moves four corners
+  and three centers with their black plastic borders.
+- Replaced the four-fixed-half gesture model with all eight physical corner
+  pivots. Any colored corner or center sticker can start a turn, and the
+  selected seven-piece layer follows the pointer before completing or
+  canceling the 120° motion.
+- Added explicit Turn Pieces and Rotate View modes and changed normal manual
+  pace from 280 ms to the shared 460 ms Cube Labs feel.
+- Added a real Three.js transform regression that runs the tutorial sequence
+  `R' F R F'` twice and checks stable seven-piece membership after every move.
+- Kept the exact state-based solver and marked Auto-solve attempts assisted so
+  they cannot be recorded as legitimate results.
+- Added `lib/puzzle-attempt.ts` and action-contract tests. The inline actions
+  now visibly expose Save Start, Share Link, Save Result, and Send to Friend.
+  Completed manual solves include elapsed time, move count, undo/touch/button
+  metrics, and move history; sent friend challenges attach the saved sender
+  result. Unsolved exact starts remain sendable.
+- Verification: 64/64 Vitest tests across nine files; `tsc --noEmit` clean;
+  lint exits 0 with existing unrelated warnings only; production build passes
+  and prerenders `/solver/skewb`.
+- Deployment: GitHub/Vercel preview status is successful for `c3b5502`. The PR
+  remains draft and unmerged; production `main` remains `c5f7b58`.
+- Known issues/gates: hosted real-phone turn direction and orientation,
+  native share/clipboard behavior, signed-in memory/result saving, and a
+  two-account friend challenge are not yet recorded.
+- Migration impact: none.
+- Rollback: revert PR #9's Skewb renderer/engine/action/test commits; no schema
+  rollback is needed.
+
+## 2026-07-27 — Reconcile the complete Markdown documentation set
+
+- Author: OpenAI Codex working with the project owner.
+- Branch: `feature/skewb-puzzle`; this documentation follow-up is committed
+  locally and remains unpublished until explicitly pushed.
+- Purpose: repair the documentation gap left by the Skewb implementation and
+  make future sessions read current notes before coding.
+- Read all 44 pre-existing tracked `.md` files, including root README/handoffs,
+  permanent docs, ADRs, dated checkpoints, and deploy-trigger records.
+- Updated current README, engine/perspective notes, documentation workflow,
+  architecture, status, health, roadmap/checklist, social, admin, and change-log
+  records; added a dedicated Skewb PR #9 checkpoint.
+- Preserved dated checkpoints, deploy triggers, and accepted ADR history rather
+  than rewriting them as current truth. Added historical/supersession notices
+  where a root handoff could misdirect a new session.
+- Verification source: GitHub reports PR #9 open/draft/mergeable at `c3b5502`,
+  nine commits ahead and zero behind `main`; Vercel status is successful.
+- Runtime/deployment impact: documentation only; no application or migration
+  change.
+- Rollback: revert only the documentation reconciliation commit after it
+  exists; doing so would restore known stale/conflicting notes and is not
+  recommended.
+
 ## 2026-07-26 — Make Skewb playable, state-solvable, and shareable
 
 - Author: OpenAI Codex working with the project owner.

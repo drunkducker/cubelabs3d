@@ -1,5 +1,12 @@
 # Cube Labs 3D Leaderboard Transfer Handoff
 
+> **Historical handoff, reviewed 2026-07-27.** This preserves the state of the
+> July 22 leaderboard prototype. Several routes and shared challenge systems
+> described as future work were implemented later. Current truth lives in
+> [`docs/CURRENT_STATUS.md`](./docs/CURRENT_STATUS.md),
+> [`docs/SOCIAL-AND-MULTIPLAYER.md`](./docs/SOCIAL-AND-MULTIPLAYER.md), and
+> [`docs/ROADMAP.md`](./docs/ROADMAP.md).
+
 Generated: 2026-07-22 20:09 EDT  
 Repository: `drunkducker/cubelabs3d`  
 Working branch: `claude/home-page-html-rebuild-q7qomi`

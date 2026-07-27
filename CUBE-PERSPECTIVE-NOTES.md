@@ -1,6 +1,6 @@
 # Cube Perspective Notes
 
-Last updated: 2026-07-22, America/New_York
+Last updated: 2026-07-27, America/New_York
 
 For engine-internals bugs (not visual framing) — animation-frame cleanup,
 scramble behavior — see `CUBE-ENGINE-NOTES.md`.
@@ -27,6 +27,32 @@ Use this as the baseline when recreating the current 4x4 perspective:
   out of proportion as `size` changes.
 - Keep the canvas transparent so the cube card background does the visual framing.
 - Do not add a platform ring or decorative circle under the cube.
+
+## Skewb parity recipe
+
+Draft PR #9 establishes the Skewb visual contract used for review:
+
+- Use the same dark stage, neutral camera, restrained lighting, and compact
+  control-card density as the 3×3, 4×4, and Kilominx.
+- Render eight corner bodies plus six center bodies. Do not return to a
+  stationary cube with colored decals sliding over it.
+- Preserve visible black plastic between pieces and let the black borders move
+  with the selected seven-piece layer.
+- Keep the puzzle large enough for phone raycasting without cropping it.
+- Use explicit **Turn Pieces** and **Rotate View** modes; the selected layer
+  follows the finger in Turn Pieces mode.
+- Use the shared 460 ms normal turn pace. Faster 280 ms turns were judged too
+  abrupt and made the puzzle feel unlike the other Cube Labs engines.
+- Accept drags from every colored sticker, including center diamonds. A
+  sticker-only corner hotspot is too small and does not match the established
+  puzzle interactions.
+- Keep Save Start, Share Link, Save Result, and Send to Friend in a compact
+  in-page card below the puzzle instead of floating outside the application
+  shell.
+
+This is review-branch guidance until PR #9 is merged. Phone drag feel, turn
+direction, orientation changes, and native share-sheet layout still need a
+recorded hosted-device pass.
 
 ## High-DPI Canvas Overflow (root cause of the 2026-07-22 centering bug)
 

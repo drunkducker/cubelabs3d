@@ -1,10 +1,16 @@
 # Cube Labs 3D Admin Portal
 
-## Implementation status (2026-07-23)
+## Implementation status (reviewed 2026-07-27)
 
-Coded and build/type/unit-test verified on `claude/cubelabs-admin-dashboard-4pe35q`
-(see ADR 0003, `docs/SECURITY.md`, `docs/CODING-STANDARDS.md`). **Not** yet deployed
-or production-verified.
+The admin platform was originally coded and verified on
+`claude/cubelabs-admin-dashboard-4pe35q`, then merged into `main`. PR #8 later
+ported the unique admin roadmap model, `/admin/todo` page, navigation item, and
+overview widget onto the current canonical history. See ADR 0003,
+`docs/SECURITY.md`, and `docs/CODING-STANDARDS.md`.
+
+The code is merged but production activation is not verified: migrations,
+service-role/Stripe configuration, private media bucket, owner bootstrap,
+browser role/denial checks, and live RLS verification remain open.
 
 | Route | Purpose | Permission |
 | --- | --- | --- |
@@ -30,9 +36,12 @@ actions/routes → `authorizeAction()`. Authorization is stored in `admin_member
 Migration: `supabase/migrations/20260723_admin_platform.sql`. Owner bootstrap:
 `select public.bootstrap_owner('you@example.com')`.
 
-Remaining before `[x]`: apply migration in production, set `SUPABASE_SERVICE_ROLE_KEY`,
-bootstrap owner, browser + RLS verification, rate limiting, public ad render components,
-carousel slide editor, full content authoring workflow.
+Remaining before `[x]`: apply all admin/ad/media/billing migrations in
+production, set `SUPABASE_SERVICE_ROLE_KEY` and Stripe keys, create the private
+media bucket, bootstrap owner, complete browser + RLS verification, add rate
+limiting, finish the carousel slide editor, and complete the content authoring
+workflow. Public ad render components already exist; selecting their public
+placements remains a product decision.
 
 ## Purpose
 

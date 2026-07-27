@@ -1,17 +1,89 @@
 # Cube Engine Notes
 
-Last updated: 2026-07-22, America/New_York (added mobile-first
-timer/undo/scramble-history/swipe-to-turn section)
+Last updated: 2026-07-27, America/New_York (added final Skewb renderer,
+gesture, solver, result-save, and friend-send architecture)
 
 This file tracks internals of the hand-rolled three.js cube engines —
 `app/NxNCubeGame.tsx` (the playable NxN engine behind `/play/10x10` and
 `/solver/4x4`), `components/NotationCube.tsx` (the homepage explainer
-cube), and `app/PyraminxGame.tsx` + `lib/pyraminx-engine.ts` (the Pyraminx
-at `/solver/pyraminx`) — which share the same low-level pattern: a manual
+cube), `app/PyraminxGame.tsx` + `lib/pyraminx-engine.ts` (the Pyraminx
+at `/solver/pyraminx`), and `app/SkewbGame.tsx` + `lib/skewb-engine.ts`
+(the Skewb at `/solver/skewb`) — which share the same low-level pattern: a manual
 `THREE.WebGLRenderer` plus `OrbitControls`, rather than `@react-three/fiber`.
 For visual framing (camera distance, centering, sticker look) see
 `CUBE-PERSPECTIVE-NOTES.md`. This file is for engine correctness/behavior
 bugs that aren't about how the cube looks, but about how it runs.
+
+## Skewb: final PR #9 engine and interaction model
+
+The first Skewb implementation went through several visibly different repairs.
+The final review version is draft PR #9, remote head `c3b5502` (local
+verification equivalent `15faac9`). Earlier 52/55/56/59-test records in the
+repository describe intermediate states and do not supersede this section.
+
+**Renderer/state split.** `lib/skewb-engine.ts` is the durable source of truth
+for corner and center positions, legal 120° turns, parsing, inverses, scramble
+generation, solved detection, and state search. `app/SkewbGame.tsx` owns Three.js
+objects and animation only. After each animation, the renderer snaps to the
+engine's exact discrete state so floating-point transforms cannot become puzzle
+truth.
+
+**Fourteen real moving bodies.** The renderer uses eight corner bodies and six
+center bodies rather than colored decals moving over a stationary black box.
+A legal turn moves exactly seven bodies: four corners and three centers. The
+black plastic gaps travel with those bodies, so the moving layer reads like the
+3×3, 4×4, and Kilominx instead of a sticker overlay.
+
+**All eight corner pivots are interaction targets.** The intermediate version
+exposed only four fixed corner halves. After several turns, a sticker could have
+one, two, or three candidate layers depending on where it moved, which caused
+the reported “breaks after about three moves” behavior. The final model exposes
+both directions of all four body diagonals—eight physical corner pivots—so
+every colored sticker keeps four valid turn choices after any legal sequence.
+
+**Direct drag preview.** In Turn Pieces mode, a raycast may start on any colored
+corner or center sticker. Candidate legal layers are resolved from the touched
+piece, their tangents are projected into screen space, and the closest legal
+120° direction follows the pointer continuously. Releasing commits the same
+engine move; canceling restores the layer. Rotate View mode gives OrbitControls
+the gesture instead. This explicit mode split avoids ambiguous camera/layer
+drags on phones.
+
+**Pace and regression sequence.** Normal turns use the shared Cube Labs
+460 ms pace, replacing the too-fast 280 ms version. The renderer regression
+runs the tutorial sequence `R' F R F'` twice and checks that each move still
+selects seven bodies and leaves exact transforms. This catches the original
+third/fourth-move failure at the visual layer, not only in the logical engine.
+
+**State-based solver.** Solve uses bidirectional search from the exact current
+engine state, prunes redundant same-axis turns, and verifies the returned
+sequence before playback. It does not rely on reversing session history.
+Auto-solve marks the attempt assisted, so it cannot be saved as a legitimate
+completed result.
+
+**Save and send contract.** The inline `UniversalPuzzleActions` instance
+receives the current Skewb scramble and a `PuzzleAttemptSnapshot`.
+`lib/puzzle-attempt.ts` validates completed unassisted attempts and builds the
+same tracked-result envelope used by the 3×3 flow: elapsed time, move count,
+undo count, touch/button counts, assistance flags, and move history. The visible
+actions are:
+
+- Save Start — stores the exact start state in solver memory;
+- Share Link — native share sheet with clipboard fallback;
+- Save Result — writes a completed unassisted timed result;
+- Send to Friend — sends the exact start state and attaches the saved result
+  when one is available.
+
+Unsolved starts can still be sent. A changed scramble invalidates a stale result
+fingerprint. Signed-in save/send and a two-account challenge remain hosted
+verification gates; the branch tests validate the request contract but do not
+replace production database/RLS proof.
+
+**Verification at the current review head.** 64 Vitest tests pass across nine
+files, including Skewb engine, Three.js renderer transforms, and shared puzzle
+attempt payloads. TypeScript is clean, lint exits successfully with existing
+unrelated warnings, the production build succeeds, `/solver/skewb` prerenders,
+and Vercel reports success for `c3b5502`. The branch is not merged into `main`.
 
 ## Animation-frame leak on unmount
 

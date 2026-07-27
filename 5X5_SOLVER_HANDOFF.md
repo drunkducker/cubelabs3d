@@ -2,6 +2,13 @@
 
 _Last updated: 2026-07-22. Branch: `claude/new-session-euaf6s`._
 
+> **Historical, feature-specific handoff.** Reviewed on 2026-07-27. This file
+> remains the detailed record of the deterministic 5×5 blocker, but it is not
+> the current whole-project status or the active Skewb handoff. Use
+> [`docs/CURRENT_STATUS.md`](./docs/CURRENT_STATUS.md) and
+> [`docs/ROADMAP.md`](./docs/ROADMAP.md) for current priorities. Re-verify this
+> branch against `main` before reusing any implementation detail.
+
 This document explains the current state of the 4×4 and 5×5 solver work so
 another engineer or AI can continue without re-deriving everything.
 

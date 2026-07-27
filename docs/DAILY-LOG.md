@@ -2,6 +2,81 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-27 — Final Skewb PR #9 state and full documentation audit
+
+**Checked**
+
+- [x] Read all 44 pre-existing tracked Markdown files, including root notes,
+      permanent docs, ADRs, checkpoints, and deploy triggers.
+- [x] Verified canonical GitHub `main` head `c5f7b58`.
+- [x] Verified draft PR #9 is open and mergeable at remote head `c3b5502`,
+      nine commits ahead and zero behind `main`.
+- [x] Confirmed the PR records that remote `c3b5502` has the same Git tree as
+      local verified commit `15faac9`.
+- [x] Verified Vercel reports success for `c3b5502`.
+- [x] Compared Skewb behavior and test coverage with 3×3, 4×4, and Kilominx
+      save/send expectations.
+
+**Completed**
+
+- [x] Rebuilt the Skewb renderer around eight corner bodies and six center
+      bodies; each turn moves four corners and three centers.
+- [x] Exposed all eight physical corner pivots so layer selection remains stable
+      after repeated move sequences.
+- [x] Added continuous selected-layer drag, explicit Turn Pieces/Rotate View
+      modes, and the shared 460 ms normal pace.
+- [x] Added a renderer-transform regression using `R' F R F'` twice.
+- [x] Added completed-attempt tracking for time, moves, undo, touch/button
+      counts, move history, and solver assistance.
+- [x] Added visible Save Start, Share Link, Save Result, and Send to Friend
+      actions; completed friend challenges attach the saved sender result.
+- [x] Blocked auto-solved attempts from legitimate result saving while
+      preserving exact unsolved-start sending.
+- [x] Reconciled current README, engine/perspective notes, status, health,
+      roadmap, master checklist, social/admin references, change log, and
+      documentation workflow.
+- [x] Added `checkpoints/2026-07-27-skewb-pr9.md`.
+
+**Verified**
+
+- `npm test` → 9 files and 64 tests passed for local `15faac9`.
+- `npx tsc --noEmit` → clean.
+- `npm run lint` → exit 0; existing unrelated warnings only.
+- `npm run build` → successful; `/solver/skewb` prerendered.
+- GitHub/Vercel status for published `c3b5502` → success.
+
+**Blocked or unverified**
+
+- [ ] Real-phone repeated turn direction, device orientation, Rotate View, and
+      final drag feel.
+- [ ] Native share-sheet and clipboard fallback.
+- [ ] Signed-in Save Start and Save Result against production data.
+- [ ] Two-account Send/Open/Submit and Supabase row/RLS verification.
+- [ ] Owner approval and merge of draft PR #9 into production `main`.
+- [ ] This documentation reconciliation is committed locally but not published.
+
+**Next priorities**
+
+1. Run the hosted phone and two-account checks above.
+2. Fix any evidence-backed regression without changing the approved shared
+   interaction contract.
+3. Merge PR #9 only after owner approval.
+4. Immediately replace branch-only notes with the merge commit and production
+   deployment evidence.
+
+**Commits / deployments / rollback notes**
+
+- Local implementation commit: `15faac9`.
+- Published implementation head: `c3b5502` (same verified tree).
+- Documentation commit: this documentation-only follow-up; record its remote
+  SHA after publishing.
+- Deployment: successful Vercel preview; not production.
+- Migration: none.
+- Rollback: revert the PR #9 Skewb changes or the future documentation commit
+  independently.
+
+---
+
 ## 2026-07-26 — Skewb swipe, verified solver, and inline share
 
 **Completed**

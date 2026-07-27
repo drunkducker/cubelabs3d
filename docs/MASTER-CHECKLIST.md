@@ -1,7 +1,9 @@
 # Cube Labs 3D — Atomic Master Checklist
 
-**Created:** 2026-07-26  
-**Purpose:** Work through the project one item at a time without losing legal, security, product, payment, competition, or deployment requirements.
+- **Created:** 2026-07-26
+- **Last reconciled:** 2026-07-27 (`main` `c5f7b58`; Skewb PR #9 `c3b5502`)
+- **Purpose:** Work through the project one item at a time without losing legal,
+  security, product, payment, competition, or deployment requirements.
 
 ## How to use this checklist
 
@@ -175,6 +177,7 @@
 - [ ] **PF-012 — Run two-account tests.** Verify send, receive, open, play, submit, and result storage for every puzzle.
 - [ ] **PF-013 — Verify memory database rows.** Check `solver_memories`, `scrambles`, and related ownership policies in production.
 - [ ] **PF-014 — Add challenge result/rematch page.** Show both results and allow a new challenge on the same or new scramble.
+- [~] **PF-015 — Skewb save, result, and friend play.** Draft PR #9 exposes Save Start, Share Link, Save Result, and Send to Friend; result/challenge payload tests pass, but hosted signed-in and two-account verification plus merge remain.
 
 # Phase 9 — Daily challenges
 
@@ -237,6 +240,10 @@
 - [ ] **Q-011 — Test low-end Android devices.** Verify rendering, touch, heat, memory, and responsiveness.
 - [ ] **Q-012 — Test iPhone and iPad.** Verify Safari layout, canvas, touch, and form controls.
 - [ ] **Q-013 — Test desktop browsers.** Cover current Chrome, Edge, Firefox, and Safari.
+- [~] **Q-014 — Skewb engine and renderer regressions.** PR #9 has engine,
+  repeated-algorithm Three.js transform, stable seven-piece layer, and
+  save/send contract coverage within the 64-test branch suite; real-phone
+  interaction and production merge remain.
 
 # Phase 12 — Missing product pages
 
@@ -322,6 +329,27 @@
 - [ ] **F-007 — Expand PWA support.** Verify installation, offline behavior, updates, and push only with consent.
 - [ ] **F-008 — Evaluate native apps.** Decide whether iOS/Android apps add enough value after the web product is stable.
 
+# Phase 17 — Documentation continuity
+
+- [x] **DOC-001 — Establish permanent documentation governance.** The index,
+  constitution, architecture, status, roadmap, log, changelog, checkpoint, and
+  ADR structure exist.
+- [x] **DOC-002 — Complete a full Markdown audit.** All 44 pre-existing tracked
+  Markdown files were read on 2026-07-27; current records were reconciled and a
+  Skewb PR #9 checkpoint was added.
+- [~] **DOC-003 — Enforce read-before-code and update-before-complete.** The rule
+  is documented, but future sessions must prove it by updating notes in the
+  same work turn.
+- [~] **DOC-004 — Record every publish transition.** Branch, local commit,
+  remote commit, PR, tests, deployment, mobile/browser status, known issues,
+  and rollback must be logged after each push, deployment, and merge.
+- [ ] **DOC-005 — Add documentation drift checks.** Add a lightweight release
+  check for stale canonical-head references, missing current-status links, and
+  broken relative Markdown links.
+- [ ] **DOC-006 — Re-audit after PR #9 merges.** Replace branch-only Skewb
+  language with the merge commit and production verification evidence without
+  rewriting historical entries.
+
 ---
 
 # Recommended 1-by-1 execution order
@@ -348,6 +376,8 @@ Start here and do not move to the next item until the current one is completed o
 18. **D-002 through D-018 — Build the production daily-challenge system.**
 19. **LB-003 through LB-022 — Build trustworthy per-puzzle leaderboards.**
 20. **AC-001 through AC-010 — Complete accessibility and release QA.**
+21. **DOC-003 through DOC-006 — Keep documentation synchronized through every
+    remaining push, deployment, and merge.**
 
 ## Completion rule
 

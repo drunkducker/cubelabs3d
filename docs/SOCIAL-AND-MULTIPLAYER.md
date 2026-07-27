@@ -1,7 +1,9 @@
 # Cube Labs 3D — Social and Multiplayer
 
-**Last reviewed:** 2026-07-22
-**Canonical status:** architecture and prototype work exist; production integration is incomplete.
+**Last reviewed:** 2026-07-27
+**Canonical status:** shared account-to-account puzzle routing and exact-start
+sending are merged; trusted production validation and two-account verification
+remain incomplete. Skewb completed-result attachment is branch-only on PR #9.
 
 This document consolidates the two overlapping social checklists recovered from `feature/social-challenges-foundation`. It is the permanent source of truth for Cube ID social features, asynchronous challenges, leaderboards, live multiplayer, safety, and rollout order.
 
@@ -36,6 +38,29 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [ ] Separate assisted and unassisted results before public ranking.
 - [ ] Add suspicious-result review, admin correction, and audit logging before trusting public results.
 
+## Shared Save & Friend Play status
+
+`main` includes PR #6's shared `UniversalPuzzleActions` panel and puzzle-aware
+challenge routing for 3×3, 4×4, 5×5, supported NxN, Pyraminx, and Kilominx.
+It can save an exact start in solver memory and send that puzzle type/start to
+another signed-in account. Native loading and two-account production proof vary
+by engine and remain `[~]`.
+
+Draft Skewb PR #9 extends the shared contract:
+
+- Save Start stores the exact Skewb scramble.
+- Share Link uses native share with clipboard fallback.
+- Save Result accepts only a completed unassisted timed attempt.
+- Send to Friend can attach the sender's saved solve ID, elapsed time, move
+  count, undo/touch/button metrics, and move history.
+- An unsolved exact start can still be sent.
+- Auto-solved attempts are marked assisted and cannot become legitimate saved
+  results.
+
+The payload shape is covered by unit tests, but signed-in save and a two-account
+send/open/submit flow have not been verified against production Supabase/RLS.
+PR #9 is draft and unmerged.
+
 ## Release 1 — Asynchronous challenges
 
 ### Cube-state integration
@@ -46,7 +71,9 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [~] Capture elapsed time, move count, solved status, undo use, and touch/button control type in the 3x3 prototype replay metadata.
 - [ ] Promote tracking fields such as test data, assistance flags, validation status, recipient time, and device/control type to explicit schema columns before production rankings.
 - [ ] Capture hint use, solver use, device class, and full renderer-independent puzzle state.
-- [ ] Add a Create Challenge action to supported playable puzzle controls.
+- [~] Add a Create Challenge action to supported playable puzzle controls.
+      The shared panel covers supported routes; native attempt/result data and
+      production verification are incomplete across engines.
 - [~] Load an official 3x3 scramble from `/leaderboard/3x3/play` and `/challenge/[id]`.
 - [ ] Lock the official starting state and validate it server-side when an attempt begins.
 - [ ] Validate submitted results server-side.
@@ -58,7 +85,9 @@ The following work exists on `feature/social-challenges-foundation`, but is not 
 - [ ] Allow guest attempts without registration.
 - [~] Add first send-to-account action from the tracked 3x3 challenge page using exact Cube Tag / username / public slug lookup.
 - [~] Allow a player-selected 3x3 scramble for signed-in direct challenges.
-- [ ] Add copy-link, native share, QR, email, and text-message actions.
+- [~] Add copy-link, native share, QR, email, and text-message actions. Skewb
+      PR #9 has native share plus clipboard fallback; QR/email/text and
+      cross-puzzle verification remain.
 - [~] Add sender target time to the recipient challenge page.
 - [ ] Add full sender/recipient comparison, including recipient time and move-count display from stored solve rows.
 - [ ] Add rematch flow.

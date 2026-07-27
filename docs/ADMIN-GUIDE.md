@@ -4,14 +4,19 @@ A plain-language how-to for the site owner and staff. This is the *operator*
 manual; the *engineering* rules live in `ADMIN-PORTAL.md`, `SECURITY.md`,
 `ADS-AFFILIATES.md`, and `CODING-STANDARDS.md`.
 
-> **Status note (2026-07-23):** The admin portal is built and enforces security
-> server-side. Two things are needed before it runs against real data, and one
-> feature is still to build:
+> **Status note (reviewed 2026-07-27):** The admin portal, public managed-content
+> render components, media/billing tools, and reconciled admin roadmap are
+> merged into `main`. Production activation is still unverified. Before real
+> operation:
 > 1. Apply `supabase/migrations/20260723_admin_platform.sql` in Supabase.
-> 2. Set `SUPABASE_SERVICE_ROLE_KEY` in Vercel (server-only) and bootstrap the owner.
-> 3. **Public display of ads/affiliates is not wired yet** — you can *enter* a
->    product/campaign, but the public pages don't render it until the `AdSlot` /
->    `AffiliateProductCard` components are built (see "What still needs building").
+> 2. Apply the later ad-rendering and media/billing migrations.
+> 3. Set `SUPABASE_SERVICE_ROLE_KEY` and Stripe variables in Vercel
+>    (server-only), create the private `admin-media` bucket, and bootstrap the
+>    owner.
+> 4. Run browser, role-denial, RLS, upload, tracking, and billing verification.
+>
+> Public `AdSlot`, `AffiliateProductGrid`, and `ManagedCarousel` components now
+> exist. Choosing and placing them on public pages is still a product decision.
 
 ---
 
@@ -168,4 +173,5 @@ They render nothing when no content is live, and every click is tracked
 - **Rate limiting** on sensitive endpoints and admin 2FA.
 - Applying the migrations + browser/RLS verification in production.
 
-See `ROADMAP.md` §6/§7 and `SECURITY.md` for the tracked list.
+See `ROADMAP.md` §6/§7, `MASTER-CHECKLIST.md`, and `SECURITY.md` for the tracked
+list.

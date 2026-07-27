@@ -19,6 +19,13 @@ The initial `challenges` table did not include explicit top-level columns for re
 
 2026-07-22 follow-up: `supabase/migrations/20260722_tracked_scrambles_solver_memory.sql` now adds the first durable schema layer for reusable scrambles, ranked scramble attempts, solver memories, and promoted tracking/test-data columns. The remaining boundary is production trust: browser proof, server-side validation, anti-cheat, admin audit UI, and paid-tier enforcement.
 
+2026-07-27 follow-up: PR #6 generalized exact-start memory and friend routing
+across supported puzzle routes. Draft Skewb PR #9 adds the first shared
+non-3×3 completed-attempt envelope through `lib/puzzle-attempt.ts`, including
+time, moves, undo/touch/button counts, move history, assistance blocking, and
+optional sender-result attachment. This extends the accepted prototype
+boundary; it does not change the production-trust requirements below.
+
 ## Decision
 
 Build the first usable 3x3 leaderboard challenge as a prototype on `claude/home-page-html-rebuild-q7qomi` by:
@@ -33,6 +40,10 @@ Build the first usable 3x3 leaderboard challenge as a prototype on `claude/home-
 - keeping Supabase access behind `app/lib/challenge-service.ts` and API routes;
 - marking manual override data in `replay_data` as `is_test_data` and `manual_time_override`.
 - marking tracking overrides in `replay_data` as test/admin data with actual and reported metrics.
+- allowing shared puzzle components to submit the same versioned tracking
+  envelope through existing APIs while keeping renderer logic independent from
+  persistence;
+- refusing to promote auto-solved/assisted attempts as legitimate results.
 
 Do not treat these prototype records as production leaderboard truth.
 

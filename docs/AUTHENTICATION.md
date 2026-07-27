@@ -3,6 +3,10 @@
 Authoritative reference for Cube ID login, sessions, recovery, and how the admin
 platform reuses this system. Referenced by `docs/README.md`.
 
+**Status reviewed 2026-07-27:** the code is merged into `main`; production
+migration confirmation, SES delivery/recovery proof, real OAuth providers, and
+full suspension/session invalidation remain open.
+
 ## Model
 
 - **Provider:** Supabase Auth (email/password today; OAuth gateway parked at

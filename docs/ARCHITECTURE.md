@@ -55,6 +55,35 @@ Puzzle rendering and puzzle logic should remain separable where practical:
 
 The working 3×3 interaction is the reference experience for other cube sizes. Larger cubes require camera zoom, panning, accurate layer selection, and stable viewport positioning without changing the approved 3×3 behavior.
 
+Skewb follows the same separation on draft PR #9:
+
+- `lib/skewb-engine.ts` owns renderer-independent 120° corner/center state,
+  notation, solved checks, scrambles, and verified state search;
+- `app/SkewbGame.tsx` owns fourteen Three.js piece bodies, layer picking,
+  continuous drag preview, camera mode, and animation;
+- every committed visual turn resolves back to the engine's discrete state;
+- all eight physical corner pivots remain selectable after arbitrary move
+  sequences.
+
+### Shared puzzle result and friend-play contract
+
+`components/UniversalPuzzleActions.tsx` is the shared account-facing action
+surface. Puzzle renderers provide a start state and, where supported, a
+renderer-independent `PuzzleAttemptSnapshot`. `lib/puzzle-attempt.ts` validates
+the snapshot and builds API payloads containing:
+
+- puzzle type and exact scramble/start state;
+- elapsed time and move count;
+- undo, touch, and button metrics;
+- move history and assistance flags;
+- the optional sender solve ID attached to a friend challenge.
+
+Renderers do not write directly to Supabase. The shared component calls the
+existing solve, solver-memory, and challenge APIs. Auto-solved/assisted attempts
+cannot be saved as legitimate completed results. This contract is implemented
+for Skewb on PR #9 and is the target for other puzzle engines as their native
+attempt data becomes available.
+
 ## Managed content
 
 Ads and promotional content attach to pages through named placements, for example:

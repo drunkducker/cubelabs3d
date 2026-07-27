@@ -16,8 +16,12 @@ Read, in order:
 ## Before coding
 
 - Confirm the active branch and deployment target.
+- Confirm the current remote PR head separately from the local commit; app-based
+  publishing may preserve the tree while assigning a different commit SHA.
 - Inspect existing shared components before creating new ones.
 - Identify which permanent documents must change with the feature.
+- Read the current status, relevant handoff/engine notes, and latest daily-log
+  entry before diagnosing a reported regression.
 - Protect approved layouts and unrelated pages.
 - Confirm whether the task affects authentication, security, user data, admin privileges, ads, rankings, migrations, or provider independence.
 
@@ -50,6 +54,24 @@ Every meaningful change must be logged in the documented structure. Update the r
 - approved UX conventions.
 
 The change log entry must include the date, author/agent, branch, purpose, affected systems, tests, deployment status, known issues, and rollback notes when applicable.
+
+Do not postpone documentation until a later conversation. Before saying a task
+is complete:
+
+- update `CURRENT_STATUS.md` when the active head, PR, production baseline, or
+  priorities changed;
+- append `DAILY-LOG.md` with checked/completed/unverified evidence;
+- append `CHANGELOG.md` for meaningful product or architecture changes;
+- update `ROADMAP.md` and `MASTER-CHECKLIST.md` without promoting branch-only
+  work to `[x]`;
+- update the feature-specific permanent document and any root engine/handoff
+  note another session is likely to read;
+- add a dated checkpoint for a major feature handoff, merge, migration, or
+  recovery point;
+- update the same records again after a push, deployment result, or merge.
+
+Historical entries stay intact. Add a new superseding entry instead of
+rewriting what was accurately known at the earlier time.
 
 ## Completion reporting
 
@@ -88,3 +110,6 @@ At the end of a substantial task, record:
 - remaining issues;
 - next recommended action;
 - documentation files updated.
+
+If local and hosted commits differ, include both SHAs and the verified tree
+relationship. If documentation is still uncommitted, say so explicitly.

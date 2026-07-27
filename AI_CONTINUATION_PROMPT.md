@@ -1,5 +1,12 @@
 # Task: finish the full arbitrary-state 5×5 Rubik's Cube solver
 
+> **Archived task brief, reviewed 2026-07-27.** This prompt is intentionally
+> scoped to the unfinished deterministic 5×5 solver and must not be treated as
+> the general Cube Labs continuation prompt. Start any new session with
+> `docs/README.md`, `docs/CURRENT_STATUS.md`, `docs/AI-INSTRUCTIONS.md`, and the
+> active branch/PR state. The currently active puzzle review is Skewb PR #9;
+> the 5×5 work described below remains a separate unmerged workstream.
+
 You're picking up a partially-built cube-solver web app (Next.js 14 + React +
 Three.js + TypeScript). A 4×4 full solver is done and shipped. Your job is the
 **full arbitrary-state 5×5 solver**, which is blocked on one hard piece.

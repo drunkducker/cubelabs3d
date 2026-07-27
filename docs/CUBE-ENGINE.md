@@ -1,6 +1,6 @@
 # Cube Labs 3D — Cube Engine
 
-**Last reviewed:** 2026-07-26
+**Last reviewed:** 2026-07-27
 
 This document defines the permanent cube-engine architecture and records recovered branch findings without treating unmerged work as shipped.
 
@@ -9,6 +9,8 @@ This document defines the permanent cube-engine architecture and records recover
 - `app/NxNCubeGame.tsx` — playable NxN engine used by larger cube routes.
 - `components/NotationCube.tsx` — notation/explainer cube.
 - `app/PyraminxGame.tsx` and `lib/pyraminx-engine.ts` — Pyraminx renderer, state model, and solver.
+- `app/KilominxGame.tsx` and `lib/kilominx-engine.ts` — Kilominx renderer,
+  state model, verified reduction solver, and saved-scramble integration.
 - `CUBE-ENGINE-NOTES.md` — detailed implementation and bug-analysis journal.
 - `CUBE-PERSPECTIVE-NOTES.md` — camera, framing, viewport, and visual positioning notes.
 
@@ -21,31 +23,55 @@ This document defines the permanent cube-engine architecture and records recover
 - Mobile touch behavior is a first-class requirement.
 - Homepage behavior must not be changed indirectly through shared engine work without explicit approval and verification.
 
-## Skewb engine repair on `feature/skewb-puzzle`
+## Skewb review implementation on `feature/skewb-puzzle`
 
-The Skewb feature branch now follows the same renderer/engine separation required
-for Pyraminx and Kilominx:
+Draft PR #9 now follows the same renderer, interaction, and result-tracking
+contract required for 3×3, 4×4, Pyraminx, and Kilominx:
 
 - `lib/skewb-engine.ts` owns exact corner/center transforms, notation, scramble
-  generation, inverses, and solved-state detection.
-- `app/SkewbGame.tsx` animates those transforms with Three.js and snaps rendered
-  pieces back to the engine's discrete state after every turn.
-- Scramble/setup moves remain in the current-state sequence but are excluded from
-  player move count and undo history.
-- Reset clears both renderer and logical state before a new scramble.
-- Sticker raycasting maps corner swipes to a legal diagonal axis and turn
-  direction while empty-space drags remain camera orbit gestures.
-- The solver uses bidirectional graph search over the exact current state rather
-  than depending on move history, and verifies every returned sequence before
-  playback.
-- The shared `cube-labs:load-scramble` event accepts saved and challenge Skewb
-  notation.
-- Skewb Save & Share is embedded in the route; shared links encode the exact
-  scramble and load it after the puzzle listener is ready.
+  generation, inverses, solved-state detection, and verified bidirectional
+  state search.
+- `app/SkewbGame.tsx` renders eight corner bodies and six center bodies. A legal
+  turn moves exactly four corners and three centers, then snaps every transform
+  back to the engine's discrete state.
+- All eight physical corner pivots remain available after arbitrary move
+  sequences. This replaces the four-fixed-half model that made swipe selection
+  inconsistent after roughly three moves.
+- Every colored corner and center sticker can start a layer gesture. The
+  selected layer follows the pointer continuously before completing or
+  canceling the 120° turn.
+- Turn Pieces and Rotate View are explicit modes. Camera gestures no longer
+  compete silently with piece gestures.
+- Manual turns use the Cube Labs 460 ms pace instead of the earlier 280 ms
+  version.
+- Scramble/setup moves are excluded from player count and undo history; reset
+  clears renderer, logical, timing, attempt, and assistance state together.
+- The solver uses the exact current state rather than session-history reversal,
+  verifies its solution before playback, and marks auto-solved attempts as
+  assisted.
+- Saved, shared, and challenged Skewb notation loads through the native game
+  callback so the exact start state is visible before play.
+- The inline action card exposes Save Start, Share Link, Save Result, and Send
+  to Friend. Completed manual attempts carry time, moves, undo/touch/button
+  counts, and move history; a friend challenge attaches that saved result.
+  Unsolved starts can still be sent, while auto-solved runs cannot be saved as
+  legitimate results.
 
-Automated evidence on the branch: nine Skewb engine tests, the full 55-test suite,
-clean TypeScript, lint exit 0, and a successful production build. This remains
-branch-only until merged; real mobile/browser interaction is still unverified.
+Current evidence:
+
+- local verified commit: `15faac9`;
+- GitHub PR head with the same verified tree: `c3b5502`;
+- PR #9 is open, draft, mergeable, nine commits ahead of `main`, and zero
+  behind;
+- Vercel status for `c3b5502` is successful;
+- 64/64 tests pass across nine files, including engine, renderer-transform, and
+  shared attempt-contract coverage;
+- TypeScript passes, lint exits 0 with existing unrelated warnings only, and
+  the production build succeeds with `/solver/skewb` prerendered.
+
+This remains branch-only until merged. Hosted phone drag feel/direction, native
+share or clipboard behavior, signed-in save, and a two-account friend challenge
+remain unverified.
 
 ## Verified fixes already documented on `main`
 
@@ -58,9 +84,11 @@ branch-only until merged; real mobile/browser interaction is still unverified.
 
 The detailed causes and implementation notes remain in `CUBE-ENGINE-NOTES.md`.
 
-## Recovered branch-only NxN tracked-state work
+## Recovered NxN tracked-state work
 
-The branch `claude/cube-engine-centering-zb2e9m` contains an additional section that is not present in the canonical `main` copy of `CUBE-ENGINE-NOTES.md`. It describes code intended to bring the NxN engine to the same tracked-state shape as the Pyraminx:
+The design was originally recovered from `claude/cube-engine-centering-zb2e9m`.
+Equivalent tracked-state behavior was later merged into canonical
+`app/NxNCubeGame.tsx`:
 
 - solved-state detection using each cubie's current `grid`, `home`, and orientation quaternion;
 - a timer using a long-lived interval plus refs;
@@ -71,12 +99,14 @@ The branch `claude/cube-engine-centering-zb2e9m` contains an additional section 
 ### Status
 
 - [x] Technical design recovered and preserved here.
-- [ ] Confirm whether the corresponding branch code should be rebased or manually ported.
-- [ ] Inspect current `main` for equivalent later implementation before copying code.
-- [ ] Run build, tests, and real-device checks after any port.
-- [ ] Update `CUBE-ENGINE-NOTES.md` only when the implementation is canonical.
+- [x] Current `main` contains equivalent solved detection, timer, setup-history
+      exclusion, scramble display, and reset tracking.
+- [x] The canonical implementation is documented in `CUBE-ENGINE-NOTES.md`.
+- [ ] Cross-puzzle result payloads and real-device release checks still need
+      consistent coverage.
 
-This distinction is intentional: documentation recovery does not mark branch-only code as production-complete.
+The original branch remains historical evidence and does not need a wholesale
+port.
 
 ## Cross-engine challenge-state target
 
@@ -95,7 +125,12 @@ Each supported puzzle should expose a consistent logical result shape:
 
 ## Solver memory target
 
-Logged-in users should be able to recover recent solver work. Paid users should receive deeper retained history and cross-device organization. The Supabase table and `/api/solver-memory` endpoint now exist; individual solver pages still need save/resume UI and paid-tier enforcement.
+Logged-in users should be able to recover recent solver work. Paid users should
+receive deeper retained history and cross-device organization. The Supabase
+table, `/api/solver-memory`, and shared Save & Friend Play panel now exist.
+Kilominx has merged native memory UI; Skewb has native start/result actions on
+draft PR #9. Other solver pages still need complete native load/resume behavior,
+and paid-tier enforcement remains open.
 
 The durable solver-memory shape should include:
 

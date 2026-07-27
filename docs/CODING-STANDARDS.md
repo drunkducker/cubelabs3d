@@ -73,6 +73,18 @@ Pure logic (permissions, redaction, validation, campaign selection) is unit
 tested with Vitest under `tests/` and must stay green (`npm test`). A green build
 is `[~]`, not `[x]` — real behavior must be confirmed where a user can see it.
 
+Puzzle changes should test each layer they can break:
+
+- engine invariants, inverse/round-trip behavior, and solved detection;
+- renderer membership and accumulated transforms across repeated algorithms;
+- gesture candidate stability after earlier moves;
+- serialized save/result/challenge payloads and assistance blocking;
+- browser/mobile behavior for touch direction, layout, native share/clipboard,
+  account persistence, and two-account challenge paths.
+
+Do not use a logic-only test to claim a Three.js interaction is verified, or a
+browser preview build to claim production database/RLS behavior is verified.
+
 ## Do not
 
 - Weaken RLS to make a feature work.

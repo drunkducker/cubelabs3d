@@ -3,6 +3,11 @@
 This document is the authoritative security reference for the admin platform and
 the surrounding application. It is referenced by `docs/README.md`.
 
+**Status reviewed 2026-07-27:** the documented admin boundary and hardening code
+are merged into `main`. Production migration/RLS proof, rate limits, admin
+step-up authentication, dependency remediation, secret scanning, and
+two-account challenge authorization tests remain open.
+
 ## Security boundary
 
 **The browser is never the security boundary.** Every protected page and every

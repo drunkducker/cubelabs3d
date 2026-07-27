@@ -6,6 +6,10 @@ Checkpoint files preserve what was believed, planned, or completed at a particul
 
 ## Known historical records to preserve
 
+- `2026-07-27-skewb-pr9.md` — current branch handoff for draft PR #9: exact
+  local/remote commits, fourteen-piece renderer, stable eight-pivot gestures,
+  verified state solver, result save/send contract, 64-test evidence, Vercel
+  status, and pre-merge hosted checks.
 - `2026-07-23-news-arcade-home-links.md` — homepage-linked News, My Arcade, and Learn route pass with remaining content/admin wiring.
 - `2026-07-22-3x3-scrambles-solver-memory-handoff.md` — current handoff for tracked 3x3 play, chosen scrambles, Supabase scramble ranking, solver memory, and remaining verification work.
 - `2026-07-22-mobile-profile-layout.md` — profile dashboard layout branch checkpoint, approved-layout wiring pass, connected profile subroutes, and remaining production QA items.

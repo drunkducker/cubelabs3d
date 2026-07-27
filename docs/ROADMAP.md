@@ -1,11 +1,11 @@
 # Cube Labs 3D — Master Roadmap
 
-**Last updated:** 2026-07-26
-**Repository audited:** `main` after the all-puzzle Save & Friend Play merge
+**Last updated:** 2026-07-27
+**Repository audited:** `main` at `c5f7b58` plus draft Skewb PR #9 at `c3b5502`
 
 This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST.md)** as the numbered, one-task-at-a-time execution checklist. Items are checked only when repository evidence and required documentation support completion.
 
-> **Current baseline:** `main` includes the admin platform, profile/social systems, tracked challenges, scramble and solver-memory infrastructure, News/My Arcade/Learn hubs, Kilominx, and the shared Save & Friend Play panel across supported puzzle routes. Items marked `[~]` are merged but still await production configuration, deployment, browser/RLS verification, native engine wiring, or deeper hardening.
+> **Current baseline:** `main` includes the admin platform and roadmap, profile/social systems, tracked challenges, scramble and solver-memory infrastructure, News/My Arcade/Learn hubs, Kilominx, the shared Save & Friend Play panel, and the switchable branded coming-soon homepage. Skewb is branch-only on draft PR #9. Items marked `[~]` are merged but unverified, branch-only, awaiting production configuration/deployment/browser/RLS proof, or still need deeper hardening.
 
 ## Status key
 
@@ -16,7 +16,8 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 
 ## Status and tracking rules
 
-1. `main` is the only source of truth.
+1. `main` is the only source of shipped truth. Branch evidence may justify
+   `[~]`, never `[x]`.
 2. Every completed item needs code, commit/PR, migration, test, or browser/device evidence.
 3. Database-backed features remain `[~]` until production migrations are recorded.
 4. Build and unit tests do not replace browser/device verification.
@@ -39,6 +40,12 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 ### P1 — browser and account verification
 
 - [ ] Verify the latest Vercel production deployment.
+- [ ] Test Skewb PR #9 on a real phone through repeated turns, direction,
+      orientation change, Turn Pieces/Rotate View, 460 ms pace, native share,
+      clipboard fallback, and compact save/send layout.
+- [ ] Run signed-in and two-account Skewb Save Start, Save Result, Send/Open/
+      Submit, database-row, and RLS verification; then merge PR #9 after owner
+      approval.
 - [ ] Test Kilominx on mobile and desktop: rendering, swipe turns, face buttons, scramble, undo, timer, reset, solver playback, and resize/orientation behavior.
 - [ ] Test shared Save & Friend Play across 3×3, 4×4, 5×5, NxN, Pyraminx, and Kilominx.
 - [ ] Add native automatic scramble loading to every puzzle engine.
@@ -96,7 +103,11 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 - [x] Permanent cube-engine architecture documented
 - [~] Kilominx interactive 3D puzzle and verified reduction solver merged; production mobile/browser QA remains
 - [x] Kilominx engine regression tests include geometry/move invariants, scramble round trips, and random-scramble solves
-- [~] Skewb engine, interactive puzzle, reset/undo/reverse solve, native saved-scramble loading, and regression tests are verified on `feature/skewb-puzzle`; merge and mobile/browser QA remain
+- [~] Skewb draft PR #9: exact state engine and verified solver, fourteen real
+  moving bodies, all eight stable corner pivots, continuous sticker drag,
+  460 ms turns, native state loading, completed-result tracking, and visible
+  Save Start/Share Link/Save Result/Send to Friend; 64 tests and Vercel pass,
+  while real-phone/account QA and merge remain
 - [~] Shared Save & Friend Play panel merged across supported puzzle routes; native load wiring and production verification remain
 - [~] 3×3 manual color entry and freeze fix; broader fixtures pending
 - [x] NxN timer, solved-state detection, and scramble history
@@ -130,6 +141,9 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 - [~] Friends search, suggestions, and request actions merged; block/report/rate limits and QA remain
 - [~] Signed-in account-to-account challenge flow now routes supported puzzle types
 - [~] Player-selected scramble save/send and replay metadata
+- [~] Skewb PR #9 can attach a completed unassisted time, moves, metrics, and
+  move history to a friend challenge while still allowing an unsolved exact
+  start state; two-account production proof remains
 - [~] Daily shared scramble wired to the prototype; production scheduling remains
 - [~] Scramble database and ranked attempt rows; trusted ranking service remains
 - [~] RootB community/challenge prototype remains in draft PR #1 and must be manually reconciled
@@ -184,6 +198,9 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 
 - [x] Merge Kilominx branch through PR #4
 - [x] Merge shared Save & Friend Play work through PR #6
+- [x] Merge reconciled admin roadmap work through PR #8
+- [x] Merge switchable coming-soon homepage through PR #7
+- [ ] Phone/account-test and merge draft Skewb PR #9
 - [ ] Delete merged feature branches only after production verification and final diff checks
 - [ ] Review and close or replace draft PR #1; RootB cannot be merged directly
 - [ ] Finish or archive `claude/more-cubelabs-yuom1x` after extracting deterministic 5×5 work
