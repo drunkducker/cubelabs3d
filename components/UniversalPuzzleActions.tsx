@@ -69,7 +69,7 @@ export default function UniversalPuzzleActions({
   const [busy, setBusy] = useState(false);
   const [attemptTime, setAttemptTime] = useState("");
   const [attemptMoves, setAttemptMoves] = useState("");
-  const expanded = placement === "inline" || open;
+  const expanded = open;
 
   const refresh = useCallback(async () => {
     if (!active || !puzzleType) return;
@@ -268,9 +268,13 @@ export default function UniversalPuzzleActions({
               <p className="text-[10px] font-black uppercase tracking-[.16em] text-[var(--green)]">{puzzleType} save + share</p>
               <h2 className="mt-1 text-lg font-black text-white">Load, save, or share this scramble.</h2>
             </div>
-            {placement === "floating"
-              ? <button onClick={() => setOpen(false)} className="glass h-9 w-9 rounded-full font-black" aria-label="Close puzzle actions">×</button>
-              : null}
+            <button
+              onClick={() => setOpen(false)}
+              className="glass h-9 w-9 rounded-full font-black"
+              aria-label={placement === "inline" ? "Collapse puzzle actions" : "Close puzzle actions"}
+            >
+              {placement === "inline" ? "−" : "×"}
+            </button>
           </div>
 
           <label className="mt-4 block text-xs font-black text-[var(--muted)]">
@@ -308,6 +312,24 @@ export default function UniversalPuzzleActions({
             </div>
             <button onClick={submitAttempt} disabled={busy || !attemptTime.trim()} className="cta-green mt-2 min-h-11 w-full rounded-xl font-black disabled:opacity-40">Submit solved attempt</button>
           </div> : null}
+        </section>
+      ) : placement === "inline" ? (
+        <section className="glass rounded-[18px] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[.16em] text-[var(--green)]">{puzzleType} save + share</p>
+              <p className="mt-1 truncate text-sm font-bold text-[var(--muted)]">
+                {scramble.trim() || "Scramble the puzzle to enable these actions."}
+              </p>
+            </div>
+            <button onClick={() => setOpen(true)} className="glass h-9 shrink-0 rounded-lg px-3 text-xs font-black">More</button>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button onClick={() => applyScramble(scramble)} disabled={busy || !scramble.trim()} className="glass min-h-11 rounded-xl text-xs font-black disabled:opacity-40">Load</button>
+            <button onClick={saveMemory} disabled={busy || !scramble.trim()} className="cta-green min-h-11 rounded-xl text-xs font-black disabled:opacity-40">Save</button>
+            <button onClick={shareScramble} disabled={busy || !scramble.trim()} className="cta-purple min-h-11 rounded-xl text-xs font-black disabled:opacity-40">Share</button>
+          </div>
+          {signedIn === false ? <p className="mt-3 text-xs leading-5 text-[var(--muted)]"><Link href="/auth" className="font-black text-[var(--blue)]">Sign in</Link> to save and sync puzzle memory.</p> : null}
         </section>
       ) : (
         <button

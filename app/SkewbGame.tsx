@@ -28,10 +28,12 @@ import {
 } from "@/lib/skewb-engine";
 
 type MovePhase = "play" | "scramble" | "load" | "undo" | "solve";
+type ViewMode = "turn" | "view";
 type QueuedMove = SkewbMove & {
   record?: boolean;
   fast?: boolean;
   phase?: MovePhase;
+  startAngle?: number;
 };
 type PointerStart = {
   pointerId: number;
@@ -41,8 +43,15 @@ type PointerStart = {
   group: THREE.Group;
 };
 type SwipeGesture = { axis: AxisName; direction: Direction };
+type DragPreview = {
+  gesture: SwipeGesture;
+  groups: THREE.Group[];
+  pivot: THREE.Group;
+  angle: number;
+};
 
 const FACE_COLORS = ["#f4f4f1", "#ffd500", "#00a85a", "#1557d5", "#ef3340", "#ff7a00"];
+const TURN_ANGLE = (2 * Math.PI) / 3;
 const FACE_DATA = [
   { normal: new THREE.Vector3(0, 1, 0), u: new THREE.Vector3(1, 0, 0), v: new THREE.Vector3(0, 0, -1) },
   { normal: new THREE.Vector3(0, -1, 0), u: new THREE.Vector3(1, 0, 0), v: new THREE.Vector3(0, 0, 1) },
@@ -80,6 +89,41 @@ function insetPolygon(points: THREE.Vector3[], scale: number) {
   return points.map(point => center.clone().add(point.clone().sub(center).multiplyScalar(scale)));
 }
 
+/**
+ * Give every Skewb surface piece real depth. The old renderer rotated flat
+ * sticker cards over one stationary cube, so a turn looked like decals sliding
+ * through a box. These shallow piece shells rotate with their stickers and
+ * expose black plastic walls during the live drag, like the other CubeLabs
+ * puzzle renderers.
+ */
+function pieceShellGeometry(
+  points: THREE.Vector3[],
+  normal: THREE.Vector3,
+  anchor: THREE.Vector3,
+  depth: number,
+) {
+  const back = points.map(point => point.clone().addScaledVector(normal, -depth));
+  const positions: number[] = [];
+  const add = (point: THREE.Vector3) => {
+    const local = point.clone().sub(anchor);
+    positions.push(local.x, local.y, local.z);
+  };
+
+  for (let index = 1; index < points.length - 1; index++) {
+    [points[0], points[index + 1], points[index]].forEach(add);
+    [back[0], back[index], back[index + 1]].forEach(add);
+  }
+  for (let index = 0; index < points.length; index++) {
+    const next = (index + 1) % points.length;
+    [points[index], points[next], back[next], points[index], back[next], back[index]].forEach(add);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function samePosition(a: readonly number[], b: THREE.Vector3) {
   return a[0] === b.x && a[1] === b.y && a[2] === b.z;
 }
@@ -93,6 +137,7 @@ export default function SkewbGame() {
     solve: () => void;
     resetPuzzle: () => void;
     resetView: () => void;
+    setViewMode: (mode: ViewMode) => void;
     loadScramble: (notation: string) => void;
   } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,6 +148,7 @@ export default function SkewbGame() {
   const [scrambleText, setScrambleText] = useState("");
   const [solutionText, setSolutionText] = useState("");
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [viewMode, setViewMode] = useState<ViewMode>("turn");
 
   const accumulatedMsRef = useRef(0);
   const segmentStartRef = useRef<number | null>(null);
@@ -135,13 +181,14 @@ export default function SkewbGame() {
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#d8dde3");
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-    camera.position.set(5.4, 4.7, 6.2);
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+    const distance = 6.25;
+    camera.position.set(distance * 0.82, distance * 0.68, distance);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.55));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setClearAlpha(0);
     renderer.shadowMap.enabled = true;
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
@@ -151,43 +198,46 @@ export default function SkewbGame() {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.075;
     controls.enablePan = false;
-    controls.minDistance = 4.2;
-    controls.maxDistance = 11;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.9;
+    controls.rotateSpeed = 0.72;
+    controls.minDistance = 3.6;
+    controls.maxDistance = 13;
     controls.target.set(0, 0, 0);
+    controls.touches.ONE = THREE.TOUCH.ROTATE;
+    controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
     controls.update();
     controls.saveState();
 
-    scene.add(new THREE.HemisphereLight("#ffffff", "#77808b", 2.3));
-    const key = new THREE.DirectionalLight("#ffffff", 3.1);
-    key.position.set(7, 10, 8);
+    scene.add(new THREE.HemisphereLight("#ffffff", "#223052", 2.2));
+    const key = new THREE.DirectionalLight("#ffffff", 2.4);
+    key.position.set(8, 12, 10);
     key.castShadow = true;
     scene.add(key);
+    const rim = new THREE.DirectionalLight("#5c7cff", 1.4);
+    rim.position.set(-10, 3, -8);
+    scene.add(rim);
 
     const root = new THREE.Group();
-    root.rotation.y = -0.18;
     scene.add(root);
-
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(2.025, 2.025, 2.025),
-      new THREE.MeshStandardMaterial({ color: "#08090b", roughness: 0.56, metalness: 0.02 }),
-    );
-    body.castShadow = true;
-    body.receiveShadow = true;
-    root.add(body);
 
     const pieceGroups: THREE.Group[] = [];
     const pickables: THREE.Mesh[] = [];
     const geometries: THREE.BufferGeometry[] = [];
-    const outlineMaterial = new THREE.MeshStandardMaterial({
-      color: "#050607",
-      roughness: 0.5,
-      metalness: 0.01,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -1,
+    const plasticMaterial = new THREE.MeshStandardMaterial({
+      color: "#0b0d12",
+      roughness: 0.42,
+      metalness: 0.05,
+      side: THREE.DoubleSide,
     });
-    const materials: THREE.Material[] = [body.material as THREE.Material, outlineMaterial];
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.78, 28, 18), plasticMaterial);
+    core.castShadow = true;
+    core.receiveShadow = true;
+    root.add(core);
+    geometries.push(core.geometry);
+    const materials: THREE.Material[] = [plasticMaterial];
     const groupFor = (keyName: string, anchor: THREE.Vector3, kind: "corner" | "center") => {
       let group = pieceGroups.find(candidate => candidate.userData.keyName === keyName);
       if (!group) {
@@ -207,12 +257,13 @@ export default function SkewbGame() {
       const plane = face.normal.clone().multiplyScalar(1.035);
       const point = (x: number, y: number) => plane.clone().addScaledVector(face.u, x).addScaledVector(face.v, y);
       const middle = 0.37;
+      const outer = 0.98;
       const polygons = [
         { points: [point(0, middle), point(middle, 0), point(0, -middle), point(-middle, 0)], kind: "center" as const, signs: [0, 0] },
-        { points: [point(-0.93, 0.93), point(0, 0.93), point(-middle, 0), point(-0.93, 0)], kind: "corner" as const, signs: [-1, 1] },
-        { points: [point(0, 0.93), point(0.93, 0.93), point(0.93, 0), point(middle, 0)], kind: "corner" as const, signs: [1, 1] },
-        { points: [point(0.93, 0), point(0.93, -0.93), point(0, -0.93), point(middle, 0)], kind: "corner" as const, signs: [1, -1] },
-        { points: [point(0, -0.93), point(-0.93, -0.93), point(-0.93, 0), point(-middle, 0)], kind: "corner" as const, signs: [-1, -1] },
+        { points: [point(-outer, outer), point(0, outer), point(-middle, 0), point(-outer, 0)], kind: "corner" as const, signs: [-1, 1] },
+        { points: [point(0, outer), point(outer, outer), point(outer, 0), point(middle, 0)], kind: "corner" as const, signs: [1, 1] },
+        { points: [point(outer, 0), point(outer, -outer), point(0, -outer), point(middle, 0)], kind: "corner" as const, signs: [1, -1] },
+        { points: [point(0, -outer), point(-outer, -outer), point(-outer, 0), point(-middle, 0)], kind: "corner" as const, signs: [-1, -1] },
       ];
 
       polygons.forEach(poly => {
@@ -226,24 +277,30 @@ export default function SkewbGame() {
             );
         const keyName = `${poly.kind}:${anchor.x},${anchor.y},${anchor.z}`;
         const group = groupFor(keyName, anchor, poly.kind);
-        const backingPoints = poly.points
-          .map(point => point.clone().addScaledVector(face.normal, -0.005));
-        const stickerPoints = insetPolygon(poly.points, 0.91)
-          .map(point => point.addScaledVector(face.normal, 0.009));
-        const backingGeometry = polygonGeometry(backingPoints, anchor);
+        const shellPoints = poly.points
+          .map(point => point.clone().addScaledVector(face.normal, -0.012));
+        const stickerPoints = insetPolygon(poly.points, 0.875)
+          .map(point => point.addScaledVector(face.normal, 0.006));
+        const shellGeometry = pieceShellGeometry(
+          shellPoints,
+          face.normal,
+          anchor,
+          poly.kind === "corner" ? 0.34 : 0.46,
+        );
         const stickerGeometry = polygonGeometry(stickerPoints, anchor);
-        const backing = new THREE.Mesh(backingGeometry, outlineMaterial);
-        backing.userData.pieceGroup = group;
-        backing.userData.isPickSurface = true;
-        backing.receiveShadow = true;
-        pickables.push(backing);
-        group.add(backing);
+        const shell = new THREE.Mesh(shellGeometry, plasticMaterial);
+        shell.userData.pieceGroup = group;
+        shell.userData.isPickSurface = true;
+        shell.castShadow = true;
+        shell.receiveShadow = true;
+        pickables.push(shell);
+        group.add(shell);
         const material = new THREE.MeshStandardMaterial({
           color: FACE_COLORS[faceIndex],
           emissive: FACE_COLORS[faceIndex],
-          emissiveIntensity: 0.04,
-          roughness: 0.36,
-          metalness: 0,
+          emissiveIntensity: 0.035,
+          roughness: 0.28,
+          metalness: 0.025,
           polygonOffset: true,
           polygonOffsetFactor: -3,
           polygonOffsetUnits: -3,
@@ -252,8 +309,9 @@ export default function SkewbGame() {
         mesh.castShadow = true;
         mesh.userData.isSticker = true;
         mesh.userData.pieceGroup = group;
+        pickables.push(mesh);
         group.add(mesh);
-        geometries.push(backingGeometry, stickerGeometry);
+        geometries.push(shellGeometry, stickerGeometry);
         materials.push(material);
       });
     });
@@ -311,6 +369,30 @@ export default function SkewbGame() {
       highlighted.forEach(group => glowPiece(group, 0.28));
     };
 
+    let dragPreview: DragPreview | null = null;
+    const clearDragPreview = () => {
+      if (!dragPreview) return;
+      dragPreview.groups.forEach(group => root.attach(group));
+      root.remove(dragPreview.pivot);
+      dragPreview = null;
+      syncRenderer();
+    };
+    const showDragPreview = (gesture: SwipeGesture, angle: number) => {
+      if (!dragPreview || dragPreview.gesture.axis !== gesture.axis) {
+        clearDragPreview();
+        highlightMove(gesture);
+        const groups = groupsForMove(gesture.axis);
+        const pivot = new THREE.Group();
+        root.add(pivot);
+        groups.forEach(group => pivot.attach(group));
+        dragPreview = { gesture, groups, pivot, angle: 0 };
+      }
+      dragPreview.gesture = gesture;
+      dragPreview.angle = angle;
+      const axis = new THREE.Vector3(...AXES[gesture.axis]).normalize();
+      dragPreview.pivot.quaternion.setFromAxisAngle(axis, angle);
+    };
+
     const syncUi = () => {
       const solvedNow = skewbIsSolved(logicalState);
       setMoves(history.length);
@@ -326,6 +408,7 @@ export default function SkewbGame() {
       queue.length = 0;
       history.length = 0;
       logicalState = skewbSolved();
+      clearDragPreview();
       syncRenderer();
       clearHighlight();
       resetTimer();
@@ -347,13 +430,17 @@ export default function SkewbGame() {
       root.add(pivot);
       selected.forEach(group => pivot.attach(group));
       const started = performance.now();
-      const angle = move.direction * (2 * Math.PI / 3);
-      const duration = move.fast ? 115 : 300;
+      const angle = move.direction * TURN_ANGLE;
+      const startAngle = THREE.MathUtils.clamp(move.startAngle ?? 0, -TURN_ANGLE, TURN_ANGLE);
+      pivot.quaternion.setFromAxisAngle(axis, startAngle);
+      const remaining = Math.abs(angle - startAngle) / TURN_ANGLE;
+      const duration = move.fast ? 115 : Math.max(90, 280 * remaining);
+      clearHighlight();
       const animate = (now: number) => {
         if (disposed) return;
         const progress = Math.min(1, (now - started) / duration);
         const eased = 1 - Math.pow(1 - progress, 3);
-        pivot.quaternion.setFromAxisAngle(axis, angle * eased);
+        pivot.quaternion.setFromAxisAngle(axis, startAngle + (angle - startAngle) * eased);
         if (progress < 1) {
           moveFrame = requestAnimationFrame(animate);
           return;
@@ -387,14 +474,14 @@ export default function SkewbGame() {
       queue.push(move);
       runNext();
     };
-    const turn = (axis: AxisName, direction: Direction) => {
+    const turn = (axis: AxisName, direction: Direction, startAngle = 0) => {
       if (active || queue.length) return;
       setSolutionText("");
       if (skewbIsSolved(logicalState)) {
         resetTimer();
         startTimer();
       }
-      enqueue({ axis, direction, phase: "play" });
+      enqueue({ axis, direction, phase: "play", startAngle });
     };
     const loadMoves = (sequence: SkewbMove[], notation: string, phase: "scramble" | "load") => {
       if (active || queue.length || !sequence.length) return;
@@ -449,6 +536,15 @@ export default function SkewbGame() {
       setScrambleText("");
       setStatus("Skewb ready");
     };
+    let currentMode: ViewMode = "turn";
+    const changeViewMode = (mode: ViewMode) => {
+      currentMode = mode;
+      clearDragPreview();
+      clearHighlight();
+      controls.enabled = true;
+      renderer.domElement.style.cursor = mode === "view" ? "grab" : "default";
+      setStatus(mode === "view" ? "Rotate view: drag anywhere" : "Turn mode: drag a colored piece");
+    };
 
     actionsRef.current = {
       turn,
@@ -457,6 +553,7 @@ export default function SkewbGame() {
       solve,
       resetPuzzle,
       resetView: () => controls.reset(),
+      setViewMode: changeViewMode,
       loadScramble,
     };
 
@@ -514,7 +611,13 @@ export default function SkewbGame() {
       activePointers += 1;
       pointerStart = null;
       previewGesture = null;
+      clearDragPreview();
       clearHighlight();
+      if (currentMode === "view") {
+        controls.enabled = true;
+        renderer.domElement.style.cursor = "grabbing";
+        return;
+      }
       if (active || queue.length || activePointers > 1) {
         controls.enabled = true;
         return;
@@ -547,11 +650,17 @@ export default function SkewbGame() {
       const dy = event.clientY - pointerStart.clientY;
       if (Math.hypot(dx, dy) < 14) return;
       previewGesture = resolveGesture(pointerStart, dx, dy);
-      highlightMove(previewGesture);
-      setStatus(`Selected ${moveLabel(previewGesture)}`);
+      const progress = THREE.MathUtils.clamp((Math.hypot(dx, dy) - 8) / 82, 0, 1);
+      showDragPreview(previewGesture, previewGesture.direction * TURN_ANGLE * progress);
+      setStatus(`${moveLabel(previewGesture)} · release to turn`);
     };
     const finishPointer = (event: PointerEvent, canceled = false) => {
       activePointers = Math.max(0, activePointers - 1);
+      if (currentMode === "view") {
+        renderer.domElement.style.cursor = "grab";
+        if (activePointers === 0) controls.enabled = true;
+        return;
+      }
       if (!pointerStart || event.pointerId !== pointerStart.pointerId) {
         if (activePointers === 0) controls.enabled = true;
         return;
@@ -562,13 +671,15 @@ export default function SkewbGame() {
       pointerStart = null;
       const dx = event.clientX - start.clientX;
       const dy = event.clientY - start.clientY;
-      if (!canceled && Math.hypot(dx, dy) >= 32 && !active && !queue.length) {
-        const gesture = previewGesture ?? resolveGesture(start, dx, dy);
-        turn(gesture.axis, gesture.direction);
+      const gesture = dragPreview?.gesture ?? previewGesture ?? resolveGesture(start, dx, dy);
+      const startAngle = dragPreview?.angle ?? 0;
+      clearDragPreview();
+      if (!canceled && Math.hypot(dx, dy) >= 30 && !active && !queue.length) {
+        turn(gesture.axis, gesture.direction, startAngle);
       } else {
-        clearHighlight();
         setStatus(skewbIsSolved(logicalState) ? "Solved!" : "Your turn");
       }
+      clearHighlight();
       previewGesture = null;
       if (renderer.domElement.hasPointerCapture(event.pointerId)) {
         renderer.domElement.releasePointerCapture(event.pointerId);
@@ -614,11 +725,15 @@ export default function SkewbGame() {
       actionsRef.current = null;
       geometries.forEach(geometry => geometry.dispose());
       materials.forEach(material => material.dispose());
-      body.geometry.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
   }, []);
+
+  const changeMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    actionsRef.current?.setViewMode(mode);
+  };
 
   useEffect(() => {
     const onLoadScramble = (event: Event) => {
@@ -641,9 +756,9 @@ export default function SkewbGame() {
         <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play &amp; solve<br /><span className="accent-text">the Skewb.</span></h1>
         <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Swipe any colored sticker for a true 120° turn, then use the verified solver from any state.</p>
       </section>
-      <section className="mt-4 overflow-hidden rounded-[24px] border border-black/10 bg-[#d8dde3] shadow-[0_18px_55px_rgba(0,0,0,.3)]">
-        <div className="flex items-center justify-between border-b border-black/10 bg-white/55 px-4 py-3 text-sm text-slate-700">
-          <span>{status}</span><span className="flex gap-3"><span className="tabular-nums">{formatElapsed(elapsedMs)}</span><strong>{moves} moves</strong></span>
+      <section className="cube-card mt-4 overflow-hidden rounded-[22px]">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
+          <span>{status}</span><span className="flex gap-3"><span className="tabular-nums text-[var(--text)]">{formatElapsed(elapsedMs)}</span><strong className="text-[var(--text)]">{moves} moves</strong></span>
         </div>
         <div
           ref={mountRef}
@@ -652,8 +767,14 @@ export default function SkewbGame() {
           data-testid="skewb-canvas"
           className="h-[430px] w-full touch-none sm:h-[480px]"
         />
-        <div className="bg-white/45 px-4 py-3 text-center text-[13px] font-semibold text-slate-600">Swipe any sticker to turn • Drag empty space to rotate</div>
+        <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">
+          {viewMode === "turn" ? "Drag a colored piece to turn • Pinch to zoom" : "Drag anywhere to rotate • Pinch to zoom"}
+        </div>
       </section>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button onClick={() => changeMode("turn")} className={`${viewMode === "turn" ? "cta-purple" : "glass"} min-h-12 rounded-xl font-extrabold`}>Turn Pieces</button>
+        <button onClick={() => changeMode("view")} className={`${viewMode === "view" ? "cta-purple" : "glass"} min-h-12 rounded-xl font-extrabold`}>Rotate View</button>
+      </div>
       <section data-puzzle-scramble={scrambleText} className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to begin."}</p></section>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
@@ -687,8 +808,8 @@ export default function SkewbGame() {
       </details>
 
       <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p><strong className="text-[var(--text)]">Play:</strong> swipe across any colored sticker; the touched piece and drag direction choose the turn.</p>
-        <p><strong className="text-[var(--text)]">Look around:</strong> drag the gray space around the puzzle to rotate the camera.</p>
+        <p><strong className="text-[var(--text)]">Turn Pieces:</strong> drag any colored piece and its full Skewb layer follows your finger through the 120° turn.</p>
+        <p><strong className="text-[var(--text)]">Rotate View:</strong> drag anywhere to inspect the puzzle; pinch to zoom.</p>
         <p><strong className="text-[var(--text)]">Solver:</strong> finds and verifies a solution from the actual current state, even after manual swipes.</p>
       </section>
     </div>
