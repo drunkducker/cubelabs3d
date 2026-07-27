@@ -113,6 +113,7 @@ export default function KilominxGame() {
   const [isSolvedNow, setIsSolvedNow] = useState(true);
   const [canUndo, setCanUndo] = useState(false);
   const [scrambleText, setScrambleText] = useState("");
+  const [solutionText, setSolutionText] = useState("");
   const [elapsedMs, setElapsedMs] = useState(0);
 
   // A single long-lived interval drives the live timer display (see the same
@@ -278,6 +279,7 @@ export default function KilominxGame() {
       if (active) return;
       const seq = randomScramble(30);
       setScrambleText(seq.map(moveLabel).join(" "));
+      setSolutionText("");
       setStatus("Scrambling…");
       history.length = 0; setCanUndo(false); setMoves(0);
       resetTimer(); startTimer();
@@ -287,8 +289,12 @@ export default function KilominxGame() {
       if (active) return;
       const sequence = kiloSolve(logicalState);
       if (!sequence.length) { setStatus("Already solved"); return; }
-      setStatus(`Solving… ${sequence.length} moves`);
-      queueSequence(sequence, { fast: true });
+      // Show the verified solution and play it back at the normal, watchable
+      // twist pace (not the brisk scramble/reset pace) so the solve reads as a
+      // move-by-move solve model rather than a blur.
+      setSolutionText(sequence.map(moveLabel).join(" "));
+      setStatus(`Solving ${sequence.length} moves…`);
+      queueSequence(sequence);
     };
     const resetPuzzle = () => {
       if (active || kiloIsSolved(logicalState)) return;
@@ -296,7 +302,7 @@ export default function KilominxGame() {
       // verified solver and queue, not a second untested transform path.
       queue.length = 0;
       history.length = 0; setCanUndo(false); setMoves(0);
-      setScrambleText(""); stopTimer(); resetTimer();
+      setScrambleText(""); setSolutionText(""); stopTimer(); resetTimer();
       setStatus("Resetting…");
       queueSequence(kiloSolve(logicalState), { record: false, fast: true });
     };
@@ -324,6 +330,7 @@ export default function KilominxGame() {
       hardReset();
       history.length = 0; setCanUndo(false); setMoves(0);
       setScrambleText(notation);
+      setSolutionText("");
       setStatus("Loading scramble…");
       resetTimer(); startTimer();
       queueSequence(indices, { record: false, fast: true });
@@ -464,6 +471,8 @@ export default function KilominxGame() {
 
       <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to start a timed attempt."}</p></section>
 
+      {solutionText ? <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--purple)]">SOLUTION</p><p className="mt-2 break-words font-mono text-xs leading-6 text-[var(--text)]">{solutionText}</p></section> : null}
+
       <Suspense fallback={<section className="glass mt-3 min-h-[72px] rounded-[18px]" />}>
         <UniversalPuzzleActions
           placement="inline"
@@ -493,7 +502,7 @@ export default function KilominxGame() {
       <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
         <p><strong className="text-[var(--text)]">Swipe a sticker:</strong> drag across any face sticker to turn that face — the puzzle picks the direction from the drag.</p>
         <p><strong className="text-[var(--text)]">Drag empty space:</strong> rotate the camera to inspect all twelve faces.</p>
-        <p><strong className="text-[var(--text)]">Solver:</strong> a verified reduction solver — every solution is checked against the engine. Solutions are correct but not move-optimal, so playback runs briskly.</p>
+        <p><strong className="text-[var(--text)]">Solver:</strong> a verified reduction solver — every solution is checked against the engine. Tap <strong className="text-[var(--text)]">Solve</strong> to see the full solution and watch the puzzle twist through it move by move. Solutions are correct but not move-optimal, so a solve can be long.</p>
       </section>
     </div>
   </main>;
