@@ -19,7 +19,8 @@
  * `pivot.rotation[axis] = angle` (which only works when axis is literally x/y/z).
  */
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import SiteHeader from "@/components/SiteHeader";
@@ -581,6 +582,10 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       </section>
 
       <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleSequence || "Tap Scramble to start a timed attempt."}</p></section>
+
+      <Suspense fallback={<section className="glass mt-3 min-h-[72px] rounded-[18px]" />}>
+        <UniversalPuzzleActions placement="inline" puzzleType="pyraminx" currentScramble={scrambleSequence} />
+      </Suspense>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>

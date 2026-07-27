@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import FourSolver from "@/components/FourSolver";
+import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 
 export const metadata: Metadata = {
   title: "4×4 Solver | Cube Lab 3D",
@@ -24,6 +26,9 @@ export default function FourByFourSolverPage() {
         <div className="mt-5">
           <FourSolver />
         </div>
+        <Suspense fallback={<section className="glass mt-5 min-h-[72px] rounded-[18px]" />}>
+          <UniversalPuzzleActions placement="inline" puzzleType="4x4" />
+        </Suspense>
       </div>
     </main>
   );

@@ -24,7 +24,7 @@
  * from the face's home corners, exactly as PyraminxGame reads `ep[slot]`.
  */
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import SiteHeader from "@/components/SiteHeader";
@@ -34,7 +34,7 @@ import {
   randomScramble, solve as kiloSolve, faceOfMove, dirOfMove, inverseMoveIndex,
   moveLabel, parseMove, type KiloState,
 } from "@/lib/kilominx-engine";
-import SavedScrambles from "@/components/SavedScrambles";
+import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 
 const toVec3 = (v: readonly [number, number, number]) => new THREE.Vector3(v[0], v[1], v[2]);
 const TURN = (2 * Math.PI) / 5;
@@ -464,7 +464,14 @@ export default function KilominxGame() {
 
       <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to start a timed attempt."}</p></section>
 
-      <SavedScrambles puzzleType="kilominx" currentScramble={scrambleText} onLoad={(s) => actionsRef.current?.loadScramble(s)} />
+      <Suspense fallback={<section className="glass mt-3 min-h-[72px] rounded-[18px]" />}>
+        <UniversalPuzzleActions
+          placement="inline"
+          puzzleType="kilominx"
+          currentScramble={scrambleText}
+          onLoadScramble={(notation) => actionsRef.current?.loadScramble(notation)}
+        />
+      </Suspense>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
