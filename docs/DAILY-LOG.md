@@ -2,6 +2,20 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-27 — Safety and policy pages
+
+**Completed**
+
+- [x] Added four `LegalPage` content pages: `/community-guidelines` (P-015/MP-008), `/moderation` (P-016), `/security` (P-020/MP-010), and `/dmca` (P-017/MP-007). They cross-link each other and document the block/report system shipped earlier today.
+- [x] Added a "Safety" footer group in `components/EcosystemSections.tsx` linking all four.
+- [x] Verified: `tsc` clean, `npm run lint` no new issues, `npm run build` OK (all four prerendered as static), `npm test` 63/63.
+
+**Blocked or unverified**
+
+- [ ] Final legal counsel review of all policy text remains; DMCA designated-agent registration (P-018) and the dedicated security contact/key are still to be finalized before launch. Accessibility page (MP-009) exists but its content/review is not yet confirmed.
+
+---
+
 ## 2026-07-27 — User blocking and abuse reporting
 
 **Completed**

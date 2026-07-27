@@ -2,6 +2,13 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-27 — Safety and policy pages
+
+- Added four policy pages built on the shared `LegalPage` shell: `/community-guidelines` (conduct rules — respect, no impersonation, fair competition, appropriate content, no spam, reporting/blocking, enforcement), `/moderation` (intake, review, actions, notice, appeals, repeat/severe violations), `/security` (vulnerability reporting, good-faith safe harbor, out-of-scope actions, expectations, scope), and `/dmca` (notice, counter-notice, repeat-infringer, misrepresentation, with a reserved designated-agent placeholder).
+- Pages cross-link each other and document the block/report system added earlier today. New footer "Safety" group links all four.
+- Maps to MASTER-CHECKLIST P-015, P-016, P-017, P-020, MP-007, MP-008, MP-010 (now `[~]`).
+- Testing: `tsc` clean; `npm run lint` no new issues; `npm run build` OK (all four static-prerendered); `npm test` 63/63. All text is a launch draft pending legal review; DMCA agent registration (P-018) and the security contact/key remain to be finalized.
+
 ## 2026-07-27 — User blocking and abuse reporting
 
 - **Migration** `20260727_user_blocks_and_reporting.sql`: new `public.user_blocks` (deny-by-default RLS; owner-scoped select/insert/delete; unique blocker/blocked pair) and a tightly scoped member path on the existing `public.moderation_reports` — an insert policy pins `reporter_id = auth.uid()` and forces `status='open'`, `severity in (low,normal)`, and null triage fields, plus a read-own-reports policy. Admin tooling keeps full control via the service role.

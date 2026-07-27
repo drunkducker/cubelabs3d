@@ -49,12 +49,12 @@
 - [ ] **P-012 — Add Subscription Terms.** Clearly explain prices, billing periods, renewal, trials, cancellation, and access after cancellation.
 - [ ] **P-013 — Add Your Privacy Choices.** Provide opt-outs for sale, sharing, and targeted advertising where applicable.
 - [ ] **P-014 — Add a Data Rights page.** Explain access, correction, deletion, portability, appeal, and authorized-agent requests.
-- [ ] **P-015 — Add Community Guidelines.** Define prohibited harassment, impersonation, cheating, spam, illegal content, and abusive conduct.
-- [ ] **P-016 — Add a Moderation and Appeals Policy.** Explain reports, review, removals, suspensions, bans, and appeals.
-- [ ] **P-017 — Add a Copyright/DMCA Policy.** Publish notice, counter-notice, repeat-infringer, and takedown procedures.
-- [ ] **P-018 — Register a DMCA agent.** Register and publish the designated agent if user-hosted content requires safe-harbor protection.
+- [~] **P-015 — Add Community Guidelines.** Published at `/community-guidelines` (respect, no impersonation, fair competition, appropriate content, no spam, reporting/blocking, enforcement); final legal review remains.
+- [~] **P-016 — Add a Moderation and Appeals Policy.** Published at `/moderation` (intake, review, actions, notice, appeals, repeat/severe violations); final legal review remains.
+- [~] **P-017 — Add a Copyright/DMCA Policy.** Published at `/dmca` (notice, counter-notice, repeat-infringer, misrepresentation); designated-agent registration (P-018) and legal review remain.
+- [ ] **P-018 — Register a DMCA agent.** Register and publish the designated agent if user-hosted content requires safe-harbor protection. (The `/dmca` page reserves a placeholder for the agent contact.)
 - [ ] **P-019 — Add an Accessibility Statement.** State the accessibility goal, known limitations, and contact method.
-- [ ] **P-020 — Add a Security Reporting page.** Give researchers a safe method for reporting vulnerabilities.
+- [~] **P-020 — Add a Security Reporting page.** Published at `/security` (how to report, good-faith safe harbor, out-of-scope actions, expectations, scope); dedicated security contact/key to be finalized before launch.
 - [ ] **P-021 — Add a Child Safety/Parent page.** Explain age limits, parental requests, and child-data deletion procedures.
 - [ ] **P-022 — Add a Data Retention schedule.** Define how long each data category is kept and when it is deleted.
 - [ ] **P-023 — Add a law-enforcement request policy.** Define validation, scope, preservation, and disclosure handling before it becomes necessary.
@@ -246,10 +246,10 @@
 - [ ] **MP-004 — Build checkout canceled page.** Return users safely after abandoning payment.
 - [ ] **MP-005 — Build Privacy Choices page.** Provide legally required advertising and data-use opt-outs.
 - [~] **MP-006 — Build Cookie Settings page or modal.** Both exist: a reopenable modal (`components/CookieConsent.tsx`) and a standing `/cookies/settings` page with the live inventory; production verification remains.
-- [ ] **MP-007 — Build DMCA page.** Publish copyright reporting and counter-notice instructions.
-- [ ] **MP-008 — Build Community Guidelines page.** Publish social and competitive conduct rules.
-- [ ] **MP-009 — Build Accessibility page.** Publish accessibility status and feedback contact.
-- [ ] **MP-010 — Build Security page.** Publish vulnerability-reporting expectations.
+- [~] **MP-007 — Build DMCA page.** Published at `/dmca`; linked from the footer Safety group.
+- [~] **MP-008 — Build Community Guidelines page.** Published at `/community-guidelines`; linked from the footer Safety group.
+- [~] **MP-009 — Build Accessibility page.** Present at `/accessibility` (linked from the footer Company group); content/final review still to confirm.
+- [~] **MP-010 — Build Security page.** Published at `/security`; linked from the footer Safety group.
 - [ ] **MP-011 — Build daily challenge hub.** Let users choose today’s puzzle challenge.
 - [ ] **MP-012 — Build per-puzzle leaderboard pages.** Give each puzzle and NxN size its own rankings.
 - [ ] **MP-013 — Build monthly leaderboard pages.** Show current and archived periods.
