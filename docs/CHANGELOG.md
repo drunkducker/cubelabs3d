@@ -2,6 +2,20 @@
 
 This file records meaningful product, architecture, security, database, deployment, and documentation changes. Small mechanical edits may remain in Git history.
 
+## 2026-07-26 — Repair Skewb engine and shared puzzle actions
+
+- Author: OpenAI Codex working with the project owner.
+- Branch: `feature/skewb-puzzle`.
+- Purpose: replace the isolated, history-based Skewb behavior with a renderer-independent state engine and connect Skewb to the existing Save & Friend Play system.
+- Added `lib/skewb-engine.ts`: exact discrete 120° body-diagonal transforms for eight corners and six centers, canonical `U/R/L/B` parsing, random scrambles, inverse sequences, and solved-state checks.
+- Updated `app/SkewbGame.tsx`: Three.js now renders the engine state; scramble resets before applying a new sequence; scramble moves no longer count as player moves; undo, reset, reverse solve, timer, and shared saved/challenge scramble loading use one state model.
+- Updated `components/UniversalPuzzleActions.tsx`: registered `/solver/skewb`, automatically dispatches URL-provided scrambles to native engines, and centers the fixed panel within the 460px application shell instead of the browser's right edge.
+- Added `tests/skewb-engine.test.ts` with move-order, inverse, parser, deterministic-state, and random scramble round-trip coverage.
+- Verification: `npm test` passes 52/52; `npx tsc --noEmit` is clean; `npm run lint` exits 0 with pre-existing warnings only; `npm run build` succeeds and prerenders `/solver/skewb`.
+- Deployment status: coded and verified locally on the feature branch; not merged, deployed, or browser/mobile verified.
+- Known issue: pointer/swipe-to-turn is not implemented for Skewb; turns use the existing buttons while drag rotates the camera.
+- Rollback: revert the Skewb game/engine/tests and restore the shared action route/position changes; no database migration is involved.
+
 ## 2026-07-23 — Merge admin/profile work into main
 
 - Branches merged: `claude/cubelabs-admin-dashboard-4pe35q`, `origin/gpt/mobile-profile-page-20260722`, and local `gpt/mobile-profile-page-20260722` follow-up commits.

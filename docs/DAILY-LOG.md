@@ -2,6 +2,38 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-26 — Skewb engine and Save/Friend repair
+
+**Completed**
+
+- [x] Added a renderer-independent Skewb state engine with exact 120° corner-axis moves.
+- [x] Rewired scramble, solved detection, undo, reset, reverse solve, move count, and timer to the logical engine.
+- [x] Added native loading for saved and challenge Skewb scrambles.
+- [x] Registered `/solver/skewb` in the shared Save & Friend Play system.
+- [x] Centered the shared fixed action panel inside the Cube Labs application shell.
+- [x] Added six Skewb engine regression tests.
+
+**Verified**
+
+- `npm test` → 7 files and 52 tests passed.
+- `npx tsc --noEmit` → clean.
+- `npm run lint` → exit 0; only pre-existing warnings.
+- `npm run build` → successful; `/solver/skewb` prerendered.
+
+**Unverified**
+
+- [ ] Feature branch is not merged or deployed.
+- [ ] Real mobile and desktop browser interaction, saved-memory account flow, and two-account friend challenge remain to be tested.
+- [ ] Skewb currently uses buttons for turns; touch drag rotates the camera and sticker swipe turns are future work.
+
+**Branch / rollback**
+
+- Branch: `feature/skewb-puzzle`.
+- No migration or provider change.
+- Rollback by reverting the Skewb engine/game/tests and shared action registration/position changes.
+
+---
+
 ## 2026-07-23 — Main merge: admin, profile, hubs, security headers
 
 **Completed**

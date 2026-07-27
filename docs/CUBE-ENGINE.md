@@ -1,6 +1,6 @@
 # Cube Labs 3D — Cube Engine
 
-**Last reviewed:** 2026-07-22
+**Last reviewed:** 2026-07-26
 
 This document defines the permanent cube-engine architecture and records recovered branch findings without treating unmerged work as shipped.
 
@@ -20,6 +20,26 @@ This document defines the permanent cube-engine architecture and records recover
 - Shared challenge payloads must be versioned and independent of camera position and Three.js object identity.
 - Mobile touch behavior is a first-class requirement.
 - Homepage behavior must not be changed indirectly through shared engine work without explicit approval and verification.
+
+## Skewb engine repair on `feature/skewb-puzzle`
+
+The Skewb feature branch now follows the same renderer/engine separation required
+for Pyraminx and Kilominx:
+
+- `lib/skewb-engine.ts` owns exact corner/center transforms, notation, scramble
+  generation, inverses, and solved-state detection.
+- `app/SkewbGame.tsx` animates those transforms with Three.js and snaps rendered
+  pieces back to the engine's discrete state after every turn.
+- Scramble/setup moves remain in the current-state sequence but are excluded from
+  player move count and undo history.
+- Reset clears both renderer and logical state before a new scramble.
+- Reverse solve inverts the full current-state sequence, not only player history.
+- The shared `cube-labs:load-scramble` event accepts saved and challenge Skewb
+  notation.
+
+Automated evidence on the branch: six Skewb engine tests, the full 52-test suite,
+clean TypeScript, lint exit 0, and a successful production build. This remains
+branch-only until merged; real mobile/browser interaction is still unverified.
 
 ## Verified fixes already documented on `main`
 

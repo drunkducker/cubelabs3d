@@ -15,6 +15,7 @@ type MemoryRow = {
 };
 
 const ROUTE_TYPES: Array<[RegExp, string]> = [
+  [/\/skewb(?:\/|$)/, "skewb"],
   [/\/kilominx(?:\/|$)/, "kilominx"],
   [/\/pyraminx(?:\/|$)/, "pyraminx"],
   [/\/(?:solver\/)?3x3(?:\/|$)/, "3x3"],
@@ -84,6 +85,11 @@ export default function UniversalPuzzleActions() {
       if (found) setScramble(found);
     };
     update();
+    if (queryScramble) {
+      window.dispatchEvent(new CustomEvent("cube-labs:load-scramble", {
+        detail: { puzzleType, scramble: queryScramble },
+      }));
+    }
     const observer = new MutationObserver(update);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     void refresh().catch((error) => toast(error instanceof Error ? error.message : "Unable to load puzzle memory."));
@@ -211,7 +217,7 @@ export default function UniversalPuzzleActions() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-[80] w-[min(92vw,390px)]">
+    <div className="fixed bottom-4 left-1/2 z-[80] w-[min(calc(100vw-2rem),428px)] -translate-x-1/2">
       {open ? (
         <section className="glass max-h-[78dvh] overflow-y-auto rounded-[20px] border border-white/15 p-4 shadow-2xl">
           <div className="flex items-center justify-between gap-3">
