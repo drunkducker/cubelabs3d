@@ -2,7 +2,7 @@
 
 **Last verified:** 2026-07-27
 **Canonical branch:** `main`
-**Current canonical head:** `__MERGE_SHA__` (Skewb + documentation-reconciliation merge)
+**Current canonical head:** `4123239` (Skewb + documentation-reconciliation merge)
 **Repository:** `drunkducker/cubelabs3d`
 
 This document is the single current-state summary. Dated checkpoints and unmerged branches are historical or in-progress evidence and must not override this file.
@@ -18,7 +18,7 @@ This document is the single current-state summary. Dated checkpoints and unmerge
 
 ## Latest `main` change — 2026-07-27 Skewb + documentation reconciliation
 
-Merge `__MERGE_SHA__` brought draft PR #9 (`feature/skewb-puzzle`) onto `main` and reconciled the documentation into a single canonical set:
+Merge `4123239` brought draft PR #9 (`feature/skewb-puzzle`) onto `main` and reconciled the documentation into a single canonical set:
 
 - **Skewb** puzzle, solver route (`/solver/skewb`), engine (`lib/skewb-engine.ts`), renderer (`app/SkewbGame.tsx`), shared attempt contract (`lib/puzzle-attempt.ts`), and the extended Save/Share/Save-Result/Send-to-Friend panel are now on `main`.
 - **Documentation** was consolidated from 45 Markdown files to 13 routed canonical documents, with every retired source preserved verbatim under `<!-- CONSOLIDATED SOURCE -->` markers. The two 2026-07-27 engineering documents that PR #9 predated — the software-engineering best-practices reference and the dependency-graph handbook — plus the expanded coding standards were folded into `GOVERNANCE.md` and `ARCHITECTURE.md` so no context was lost.
@@ -81,8 +81,8 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 
 | Branch | History | Purpose | State |
 | --- | --- | --- | --- |
-| `main` | RootA | Canonical branch | ✅ current at `c5f7b58` |
-| `feature/skewb-puzzle` | RootA | Rebuilt Skewb, solver, results, save/send | 🟡 draft PR #9 at `c3b5502`; Vercel passed; not merged |
+| `main` | RootA | Canonical branch | ✅ current at `4123239` (Skewb + doc reconciliation) |
+| `feature/skewb-puzzle` | RootA | Rebuilt Skewb, solver, results, save/send | ✔ merged into `main` via the 2026-07-27 reconciliation merge |
 | `claude/puzzle-gen-twisting-69clo3` | RootA | Kilominx + saved scrambles | ✔ merged through PR #4; safe to delete after production verification |
 | `gpt/all-puzzle-memory-friend-play-20260726` | RootA | Shared memory and friend play | ✔ merged through PR #6; safe to delete after verification |
 | `gpt/reconcile-admin-dashboard-20260726` | RootA | Reconciled admin roadmap | ✔ merged through PR #8; safe to delete after verification |

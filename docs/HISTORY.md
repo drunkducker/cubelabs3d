@@ -15,7 +15,7 @@ log, changelog, checkpoint, transfer, or deploy-trigger Markdown file.
 ## 2026-07-27 — Reconcile Skewb branch and documentation into `main`
 
 - **Author:** Claude, requested by the project owner.
-- **Branch:** integrated on `integration/skewb-docs`, merged to `main` as `__MERGE_SHA__`.
+- **Branch:** integrated on `integration/skewb-docs`, merged to `main` as `4123239`.
 - **Parents:** `f97ddd8` (prior `main`) and `453f039` (PR #9 `feature/skewb-puzzle` head), so both histories are preserved.
 - **Purpose:** bring the Skewb puzzle (draft PR #9) onto `main` and unify the two competing documentation states into one canonical set without losing context.
 - **Code change:** merged PR #9's Skewb engine/renderer/route, shared attempt contract, and extended Save & Friend Play panel. Because `main` added no application code after PR #9's base (`c5f7b58`), the feature applied without code conflicts.
@@ -23,7 +23,7 @@ log, changelog, checkpoint, transfer, or deploy-trigger Markdown file.
 - **Superseded:** the earlier accuracy-only stewardship commit `ff3babe` on `claude/cubelabs3d-architecture-4444ve`; its corrections are subsumed by PR #9's structure plus this reconciliation, so that branch was not merged.
 - **Verification:** `npm run docs:check` OK (13 routed files, 37 source sections, no broken links); `tsc --noEmit` clean; `npm test` all passing; `npm run lint` exit 0 (existing warnings only); `npm run build` succeeds with `/solver/skewb` prerendered.
 - **Deployment:** merged to `main`, which is the Vercel production source; hosted/mobile Skewb verification and the standing Supabase migration/configuration/RLS gates remain open.
-- **Known issue / rollback:** to roll back, revert the merge commit `__MERGE_SHA__` on `main`; all retired sources remain recoverable from Git history.
+- **Known issue / rollback:** to roll back, revert the merge commit `4123239` on `main`; all retired sources remain recoverable from Git history.
 
 ## 2026-07-27 — Consolidate the documentation system
 
