@@ -133,7 +133,7 @@ export const learnPuzzleModels: Record<LearnPuzzleId, LearnPuzzleModel> = {
       { id: "U", notation: "U", name: "Up", description: "Turn the top pentagonal face.", color: cubeColors.U, polygon: "140,18 213,70 185,154 95,154 67,70", textX: 140, textY: 89 },
       { id: "F", notation: "F", name: "Front", description: "Turn the front-facing pentagonal region.", color: cubeColors.F, polygon: "95,154 140,184 185,154 167,207 113,207", textX: 140, textY: 184 },
       { id: "R", notation: "R", name: "Right", description: "Turn the right adjacent pentagonal face.", color: cubeColors.R, polygon: "213,70 240,132 185,154 167,207 185,154", textX: 205, textY: 130 },
-      { id: "L", notation: "L", name: "Left", description: "Turn the left adjacent pentagonal face.", color: cubeColors.O, polygon: "67,70 40,132 95,154 113,207 95,154", textX: 75, textY: 130 },
+      { id: "L", notation: "L", name: "Left", description: "Turn the left adjacent pentagonal face.", color: cubeColors.L, polygon: "67,70 40,132 95,154 113,207 95,154", textX: 75, textY: 130 },
     ],
     starterAlgorithm: {
       name: "Pentagon trigger",
