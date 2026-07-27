@@ -136,6 +136,23 @@ export const CORNER_FACES: number[][] = VERTEX_UNIT.map((vn) => {
   return faces.sort((x, y) => angle(x) - angle(y));
 });
 
+/**
+ * FACE_CORNERS_CCW[f] = the 5 corner slots of face f, ordered COUNTERCLOCKWISE
+ * around the face's outward normal (so consecutive entries are pentagon-adjacent).
+ * This is the same ordering the 3D scene lays kite stickers with; keeping it in
+ * the engine lets the flat-net layout and the facelet<->state mapping below
+ * share one source of truth with the geometry rather than re-deriving it.
+ */
+export const FACE_CORNERS_CCW: number[][] = FACE_UNIT.map((fn, f) => {
+  const corners = FACE_CORNERS[f];
+  const centroid = scale(corners.reduce<Vec3>((a, c) => add(a, VERTICES[c]), [0, 0, 0]), 1 / 5);
+  let t = sub(VERTICES[corners[0]], centroid);
+  t = normalize(sub(t, scale(fn, dot(t, fn)))); // project onto the face plane
+  const b = cross(fn, t);
+  const angle = (c: number) => { const p = sub(VERTICES[c], centroid); return Math.atan2(dot(p, b), dot(p, t)); };
+  return corners.slice().sort((x, y) => angle(x) - angle(y));
+});
+
 const TURN = (2 * Math.PI) / 5;
 
 /** One corner's transition under a face turn: the piece in slot `from` moves to
@@ -208,6 +225,94 @@ export const solved = (): KiloState => ({ cp: Array.from({ length: 20 }, (_, i) 
 export const clone = (s: KiloState): KiloState => ({ cp: [...s.cp], co: [...s.co] });
 export const isSolved = (s: KiloState) => s.cp.every((p, i) => p === i) && s.co.every(o => o === 0);
 export const equal = (a: KiloState, b: KiloState) => a.cp.every((p, i) => p === b.cp[i]) && a.co.every((o, i) => o === b.co[i]);
+
+// ---- Facelet (sticker-colour) representation ----
+// A Kilominx has 60 corner stickers: 12 faces x 5 kites. FACELET index
+// `f * 5 + k` is the kite at CCW position k of face f (FACE_CORNERS_CCW[f][k]).
+// A facelet value is the FACE COLOUR shown there, encoded as the face index
+// 0..11 whose canonical colour it is (or -1 for "not entered yet" during manual
+// input). Unlike our permutation-based CubeState, this is a flat, engine-free
+// snapshot — the shape a person typing in their own cube naturally produces,
+// and all the flat-net UI ever needs.
+export const FACELET_COUNT = 60;
+
+/** The CCW kite position of face f occupied by corner slot c (inverse of FACE_CORNERS_CCW). */
+const kiteIndex = (f: number, c: number) => FACE_CORNERS_CCW[f].indexOf(c);
+
+/**
+ * Render a state to its 60 facelet colours. For each face-slot the sticker
+ * facing f belongs to the piece currently in that slot: with piece `p` at slot
+ * `c` twisted by `o`, the sticker on face f = CORNER_FACES[c].indexOf(f) shows
+ * that piece's (j - o) canonical colour. Used both to draw the net during
+ * scramble/playback and to generate exhaustive round-trip tests.
+ */
+export function stateToFacelets(s: KiloState): number[] {
+  const out = new Array(FACELET_COUNT).fill(-1);
+  for (let f = 0; f < 12; f++) {
+    for (let k = 0; k < 5; k++) {
+      const c = FACE_CORNERS_CCW[f][k];
+      const j = CORNER_FACES[c].indexOf(f);
+      out[f * 5 + k] = CORNER_FACES[s.cp[c]][((j - s.co[c]) % 3 + 3) % 3];
+    }
+  }
+  return out;
+}
+
+/**
+ * Reconstruct a state from 60 entered facelet colours, or return null if the
+ * colours don't describe a real arrangement of pieces (a wrong/omitted sticker).
+ * Each corner is uniquely identified by its three face colours, so for every
+ * slot we read the observed CCW colour triple and find the single piece + twist
+ * whose canonical triple is that rotation. A slot whose triple matches no piece,
+ * or a piece used twice, means the entry is not a real cube. Solvability (parity
+ * / twist) is a separate, cheaper check — see isSolvableKiloState.
+ */
+export function faceletsToState(facelets: number[]): KiloState | null {
+  if (facelets.length !== FACELET_COUNT || facelets.some((v) => v < 0 || v > 11 || !Number.isInteger(v))) return null;
+  const cp = new Array(20).fill(-1);
+  const co = new Array(20).fill(0);
+  for (let c = 0; c < 20; c++) {
+    const observed = CORNER_FACES[c].map((f) => facelets[f * 5 + kiteIndex(f, c)]);
+    let matched = false;
+    for (let p = 0; p < 20 && !matched; p++) {
+      for (let o = 0; o < 3 && !matched; o++) {
+        if (observed.every((col, j) => col === CORNER_FACES[p][((j - o) % 3 + 3) % 3])) { cp[c] = p; co[c] = o; matched = true; }
+      }
+    }
+    if (!matched) return null;
+  }
+  if (new Set(cp).size !== 20) return null; // a piece can only be in one place
+  return { cp, co };
+}
+
+/** Parity of a permutation via cycle decomposition (0 = even, 1 = odd). */
+export function permutationParity(perm: number[]): number {
+  const visited = new Array(perm.length).fill(false);
+  let parity = 0;
+  for (let i = 0; i < perm.length; i++) {
+    if (visited[i]) continue;
+    let length = 0, j = i;
+    while (!visited[j]) { visited[j] = true; j = perm[j]; length++; }
+    parity += length - 1;
+  }
+  return parity % 2;
+}
+
+/**
+ * Whether a state is reachable from solved (and so safe to hand to solve()).
+ * A Kilominx face turn is a 5-cycle of corners — an even permutation — so the
+ * corner permutation is always even; and the corner-twist sum is invariant mod
+ * 3. Those two conditions are exactly the reachability conditions (3-cycles
+ * generate every even permutation and the twist primitives fix any twist with
+ * sum 0). An entry passing faceletsToState but failing this describes a real
+ * set of pieces assembled into an impossible cube.
+ */
+export function isSolvableKiloState(s: KiloState): boolean {
+  if (s.cp.length !== 20 || new Set(s.cp).size !== 20) return false;
+  if (permutationParity(s.cp) !== 0) return false;
+  if (s.co.length !== 20 || !s.co.every((o) => o === 0 || o === 1 || o === 2)) return false;
+  return s.co.reduce<number>((a, b) => a + b, 0) % 3 === 0;
+}
 
 export function applyMoveIndex(s: KiloState, mi: number): KiloState {
   const t = MOVES[mi];
