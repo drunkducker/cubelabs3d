@@ -92,7 +92,7 @@ export async function getSecuritySummary(): Promise<{ checks: SecurityCheck[]; e
     id: "rls_admin_tables",
     label: "Exposed tables have RLS enabled",
     status: "manual",
-    detail: "The admin migration enables RLS on every new table with no permissive anon/user policy. Verify with the RLS checklist (docs/SECURITY.md) using the Supabase advisor.",
+    detail: "The admin migration enables RLS on every new table with no permissive anon/user policy. Verify with the RLS checklist in docs/ARCHITECTURE.md using the Supabase advisor.",
   });
 
   // Storage policies — provider dashboard concern.

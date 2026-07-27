@@ -28,15 +28,21 @@ by holding a static angled pose.
 Open `index.html` in any browser — it needs no build step or server.
 
 ## How it's served in the app
-The app serves this page at **`/learn`**:
+
+This prototype is preserved as the standalone version at
+**`/learn/standalone`**. The canonical **`/learn`** route is now the Next.js app
+page under `app/learn/`.
+
+To rebuild the standalone artifact:
+
 - `node design/learn/build-embed.mjs` inlines `styles.css` + `script.js` into a
   single self-contained `public/learn.html` (byte-faithful to the prototype).
-- `next.config.mjs` rewrites `/learn` → `/learn.html`.
+- `next.config.mjs` rewrites `/learn/standalone` → `/learn.html`.
 - Re-run the build step after editing any of the three source files here.
 
-**Navigation wired:** Home's "Learn" tile → `/learn`; this page's "Getting
-Started" tile → `/cube-notation`; bottom-nav Home → `/`, Solvers → `/solve`,
-Profile → `/profile`.
+**Navigation wired:** Home's "Learn" tile → the canonical `/learn` app route.
+The standalone page's "Getting Started" tile → `/cube-notation`; bottom-nav
+Home → `/`, Solvers → `/solve`, Profile → `/profile`.
 
 ## Notes
 - Fully responsive: 2-column desktop → stacked sidebar → single column on phones.

@@ -62,7 +62,7 @@ export default async function ExportsPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-[var(--muted)]">Committed to the repo. Applied-in-production status must be confirmed in Supabase and recorded in DAILY-LOG.md — it cannot be auto-detected here.</p>
+          <p className="mt-2 text-xs text-[var(--muted)]">Committed to the repo. Applied-in-production status must be confirmed in Supabase and recorded in docs/HISTORY.md — it cannot be auto-detected here.</p>
         </Card>
 
         <Card>

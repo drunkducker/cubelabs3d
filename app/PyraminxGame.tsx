@@ -8,7 +8,7 @@
  * All puzzle GEOMETRY (vertices, faces, edges, which piece touches which
  * face) and all discrete MOVE/SOLVE logic come from lib/pyraminx-engine.ts,
  * which is independently verified (see the round-trip tests referenced in
- * CUBE-ENGINE-NOTES.md). This component's own job is narrow: place sticker
+ * docs/CUBE-ENGINE.md). This component's own job is narrow: place sticker
  * triangles at the right spots and physically turn the right pieces —
  * it does not re-derive any combinatorics of its own.
  *
@@ -57,7 +57,7 @@ function formatElapsed(ms: number) {
  * a zero coordinate lies flush against one of the face's 3 real edges; the
  * remaining 3 cells belong to the center) was verified numerically before
  * being used here — see the barycentric-subdivision check referenced in
- * CUBE-ENGINE-NOTES.md — rather than assumed from a mental picture of the
+ * docs/CUBE-ENGINE.md — rather than assumed from a mental picture of the
  * puzzle, which is easy to get subtly wrong (this file's author did, once).
  */
 function faceCells(faceIndex: number) {
