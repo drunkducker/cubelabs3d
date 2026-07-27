@@ -69,6 +69,7 @@ export default function UniversalPuzzleActions({
   const [busy, setBusy] = useState(false);
   const [attemptTime, setAttemptTime] = useState("");
   const [attemptMoves, setAttemptMoves] = useState("");
+  const expanded = placement === "inline" || open;
 
   const refresh = useCallback(async () => {
     if (!active || !puzzleType) return;
@@ -89,8 +90,7 @@ export default function UniversalPuzzleActions({
     setScramble(queryScramble);
     const update = () => {
       if (queryScramble) return;
-      const found = readVisibleScramble();
-      if (found) setScramble(found);
+      setScramble(readVisibleScramble());
     };
     update();
     let loadTimer = 0;
@@ -261,14 +261,16 @@ export default function UniversalPuzzleActions({
     <div className={placement === "inline"
       ? "mt-3 w-full"
       : "fixed bottom-4 left-1/2 z-[80] w-[min(calc(100vw-2rem),428px)] -translate-x-1/2"}>
-      {open ? (
+      {expanded ? (
         <section className={`glass overflow-y-auto rounded-[20px] border border-white/15 p-4 ${placement === "inline" ? "" : "max-h-[78dvh] shadow-2xl"}`}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[.16em] text-[var(--green)]">{puzzleType} save + share</p>
-              <h2 className="mt-1 text-lg font-black text-white">Save it or send the link.</h2>
+              <h2 className="mt-1 text-lg font-black text-white">Load, save, or share this scramble.</h2>
             </div>
-            <button onClick={() => setOpen(false)} className="glass h-9 w-9 rounded-full font-black" aria-label="Close puzzle actions">×</button>
+            {placement === "floating"
+              ? <button onClick={() => setOpen(false)} className="glass h-9 w-9 rounded-full font-black" aria-label="Close puzzle actions">×</button>
+              : null}
           </div>
 
           <label className="mt-4 block text-xs font-black text-[var(--muted)]">
@@ -310,19 +312,9 @@ export default function UniversalPuzzleActions({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className={placement === "inline"
-            ? "glass flex min-h-[72px] w-full items-center justify-between gap-3 rounded-[18px] px-4 text-left"
-            : "cta-purple ml-auto flex min-h-12 items-center gap-2 rounded-full px-5 font-black shadow-2xl"}
+          className="cta-purple ml-auto flex min-h-12 items-center gap-2 rounded-full px-5 font-black shadow-2xl"
         >
-          {placement === "inline" ? <>
-            <span>
-              <span className="block text-xs font-black uppercase tracking-[.16em] text-[var(--gold)]">Save &amp; share</span>
-              <span className="mt-1 block text-sm font-bold text-[var(--text)]">Store this scramble or send a playable link</span>
-            </span>
-            <span className="text-lg font-black text-[var(--text)]" aria-hidden>→</span>
-          </> : <>
-            <span aria-hidden>↗</span> Save &amp; Friend Play
-          </>}
+          <span aria-hidden>↗</span> Save &amp; Friend Play
         </button>
       )}
     </div>

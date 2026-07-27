@@ -3,9 +3,11 @@ import {
   AXES,
   applyMove,
   applyMoves,
+  axesForPosition,
   equal,
   inverseMove,
   inverseSequence,
+  isPositionInLayer,
   isSolved,
   parseSequence,
   randomScramble,
@@ -41,6 +43,24 @@ describe("skewb move geometry", () => {
     for (const axis of Object.keys(AXES) as Array<keyof typeof AXES>) {
       const move = { axis, direction: 1 as const };
       expect(isSolved(applyMoves(solved(), [move, inverseMove(move)]))).toBe(true);
+    }
+  });
+
+  it("exposes every sticker's legal swipe layers", () => {
+    const state = solved();
+
+    for (const corner of state.corners) {
+      expect([1, 3]).toContain(axesForPosition(corner.position).length);
+    }
+    for (const center of state.centers) {
+      expect(axesForPosition(center.position)).toHaveLength(2);
+    }
+
+    for (const axis of Object.keys(AXES) as Array<keyof typeof AXES>) {
+      const movingCorners = state.corners.filter(piece => isPositionInLayer(piece.position, axis));
+      const movingCenters = state.centers.filter(piece => isPositionInLayer(piece.position, axis));
+      expect(movingCorners).toHaveLength(4);
+      expect(movingCenters).toHaveLength(3);
     }
   });
 });

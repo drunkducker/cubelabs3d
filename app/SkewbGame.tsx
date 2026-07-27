@@ -15,7 +15,9 @@ import {
   type PieceTransform,
   type SkewbMove,
   applyMove,
+  axesForPosition,
   inverseMove,
+  isPositionInLayer,
   isSolved as skewbIsSolved,
   moveLabel,
   parseSequence,
@@ -69,6 +71,13 @@ function polygonGeometry(points: THREE.Vector3[], anchor: THREE.Vector3) {
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.computeVertexNormals();
   return geometry;
+}
+
+function insetPolygon(points: THREE.Vector3[], scale: number) {
+  const center = points
+    .reduce((sum, point) => sum.add(point), new THREE.Vector3())
+    .multiplyScalar(1 / points.length);
+  return points.map(point => center.clone().add(point.clone().sub(center).multiplyScalar(scale)));
 }
 
 function samePosition(a: readonly number[], b: THREE.Vector3) {
@@ -160,7 +169,7 @@ export default function SkewbGame() {
     scene.add(root);
 
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(2.04, 2.04, 2.04),
+      new THREE.BoxGeometry(2.025, 2.025, 2.025),
       new THREE.MeshStandardMaterial({ color: "#08090b", roughness: 0.56, metalness: 0.02 }),
     );
     body.castShadow = true;
@@ -170,7 +179,15 @@ export default function SkewbGame() {
     const pieceGroups: THREE.Group[] = [];
     const pickables: THREE.Mesh[] = [];
     const geometries: THREE.BufferGeometry[] = [];
-    const materials: THREE.Material[] = [body.material as THREE.Material];
+    const outlineMaterial = new THREE.MeshStandardMaterial({
+      color: "#050607",
+      roughness: 0.5,
+      metalness: 0.01,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+    });
+    const materials: THREE.Material[] = [body.material as THREE.Material, outlineMaterial];
     const groupFor = (keyName: string, anchor: THREE.Vector3, kind: "corner" | "center") => {
       let group = pieceGroups.find(candidate => candidate.userData.keyName === keyName);
       if (!group) {
@@ -209,24 +226,34 @@ export default function SkewbGame() {
             );
         const keyName = `${poly.kind}:${anchor.x},${anchor.y},${anchor.z}`;
         const group = groupFor(keyName, anchor, poly.kind);
-        const geometry = polygonGeometry(poly.points, anchor);
+        const backingPoints = poly.points
+          .map(point => point.clone().addScaledVector(face.normal, -0.005));
+        const stickerPoints = insetPolygon(poly.points, 0.91)
+          .map(point => point.addScaledVector(face.normal, 0.009));
+        const backingGeometry = polygonGeometry(backingPoints, anchor);
+        const stickerGeometry = polygonGeometry(stickerPoints, anchor);
+        const backing = new THREE.Mesh(backingGeometry, outlineMaterial);
+        backing.userData.pieceGroup = group;
+        backing.userData.isPickSurface = true;
+        backing.receiveShadow = true;
+        pickables.push(backing);
+        group.add(backing);
         const material = new THREE.MeshStandardMaterial({
           color: FACE_COLORS[faceIndex],
           emissive: FACE_COLORS[faceIndex],
-          emissiveIntensity: 0.025,
-          roughness: 0.42,
+          emissiveIntensity: 0.04,
+          roughness: 0.36,
           metalness: 0,
           polygonOffset: true,
           polygonOffsetFactor: -3,
           polygonOffsetUnits: -3,
         });
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(stickerGeometry, material);
         mesh.castShadow = true;
         mesh.userData.isSticker = true;
         mesh.userData.pieceGroup = group;
-        if (poly.kind === "corner") pickables.push(mesh);
         group.add(mesh);
-        geometries.push(geometry);
+        geometries.push(backingGeometry, stickerGeometry);
         materials.push(material);
       });
     });
@@ -262,13 +289,8 @@ export default function SkewbGame() {
       });
     };
 
-    const groupsForMove = (axisName: AxisName) => {
-      const axis = AXES[axisName];
-      return pieceGroups.filter(group => {
-        const position = pieceState(group).position;
-        return position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2] > 0;
-      });
-    };
+    const groupsForMove = (axisName: AxisName) =>
+      pieceGroups.filter(group => isPositionInLayer(pieceState(group).position, axisName));
 
     let highlighted: THREE.Group[] = [];
     const glowPiece = (group: THREE.Group, intensity: number) => {
@@ -276,7 +298,7 @@ export default function SkewbGame() {
         if (!(child instanceof THREE.Mesh) || !child.userData.isSticker) return;
         const material = child.material as THREE.MeshStandardMaterial;
         material.emissive.set(intensity ? "#ffffff" : material.color);
-        material.emissiveIntensity = intensity || 0.025;
+        material.emissiveIntensity = intensity || 0.04;
       });
     };
     const clearHighlight = () => {
@@ -438,11 +460,11 @@ export default function SkewbGame() {
       loadScramble,
     };
 
-    // Swipe a corner sticker to choose a legal corner-axis turn. A corner
-    // belongs to one or three playable layers depending on its current slot;
-    // projecting each candidate's rotation tangent into screen space lets the
-    // drag direction select both the axis and turn sign. Empty-space drags
-    // remain camera orbit gestures.
+    // Swipe any sticker to choose a legal corner-axis turn. The exact engine
+    // reports every layer containing the touched piece (one or three for a
+    // corner, two for a center); projecting those candidates into screen space
+    // lets the drag choose both the axis and turn sign. Empty-space drags
+    // remain camera orbit gestures, matching the Kilominx interaction model.
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerStart: PointerStart | null = null;
@@ -465,10 +487,7 @@ export default function SkewbGame() {
     };
     const resolveGesture = (start: PointerStart, dx: number, dy: number): SwipeGesture => {
       const position = pieceState(start.group).position;
-      const candidates = (Object.keys(AXES) as AxisName[]).filter(axisName => {
-        const axis = AXES[axisName];
-        return position[0] * axis[0] + position[1] * axis[1] + position[2] * axis[2] > 0;
-      });
+      const candidates = axesForPosition(position);
       const drag = new THREE.Vector2(dx, dy).normalize();
       const rootOrigin = root.getWorldPosition(new THREE.Vector3());
       const relativeHit = start.hitPoint.clone().sub(rootOrigin);
@@ -620,14 +639,20 @@ export default function SkewbGame() {
       <section className="mt-5">
         <p className="text-xs font-extrabold tracking-[.18em] text-[var(--blue)]">SKEWB</p>
         <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play &amp; solve<br /><span className="accent-text">the Skewb.</span></h1>
-        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Swipe corner stickers for true 120° turns, then use the verified solver from any state.</p>
+        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Swipe any colored sticker for a true 120° turn, then use the verified solver from any state.</p>
       </section>
       <section className="mt-4 overflow-hidden rounded-[24px] border border-black/10 bg-[#d8dde3] shadow-[0_18px_55px_rgba(0,0,0,.3)]">
         <div className="flex items-center justify-between border-b border-black/10 bg-white/55 px-4 py-3 text-sm text-slate-700">
           <span>{status}</span><span className="flex gap-3"><span className="tabular-nums">{formatElapsed(elapsedMs)}</span><strong>{moves} moves</strong></span>
         </div>
-        <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-        <div className="bg-white/45 px-4 py-3 text-center text-[13px] font-semibold text-slate-600">Swipe a corner sticker to turn • Drag empty space to rotate</div>
+        <div
+          ref={mountRef}
+          role="application"
+          aria-label="Interactive Skewb puzzle"
+          data-testid="skewb-canvas"
+          className="h-[430px] w-full touch-none sm:h-[480px]"
+        />
+        <div className="bg-white/45 px-4 py-3 text-center text-[13px] font-semibold text-slate-600">Swipe any sticker to turn • Drag empty space to rotate</div>
       </section>
       <section data-puzzle-scramble={scrambleText} className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to begin."}</p></section>
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -662,7 +687,7 @@ export default function SkewbGame() {
       </details>
 
       <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p><strong className="text-[var(--text)]">Play:</strong> swipe across a colored corner sticker; the touched piece and drag direction choose the turn.</p>
+        <p><strong className="text-[var(--text)]">Play:</strong> swipe across any colored sticker; the touched piece and drag direction choose the turn.</p>
         <p><strong className="text-[var(--text)]">Look around:</strong> drag the gray space around the puzzle to rotate the camera.</p>
         <p><strong className="text-[var(--text)]">Solver:</strong> finds and verifies a solution from the actual current state, even after manual swipes.</p>
       </section>

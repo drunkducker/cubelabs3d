@@ -38,6 +38,28 @@ const cloneVec = (v: Vec3): Vec3 => [...v] as Vec3;
 const cloneMat = (m: Mat3): Mat3 => [...m] as Mat3;
 const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
+/**
+ * Whether a piece currently occupies the moving half of a corner turn.
+ *
+ * The renderer uses this same predicate for picking and animation, so a
+ * sticker can never select a layer that disagrees with the exact state engine.
+ */
+export function isPositionInLayer(position: Vec3, axisName: AxisName): boolean {
+  return dot(position, AXES[axisName]) > 0;
+}
+
+/**
+ * Legal corner axes reachable from a sticker at the supplied slot.
+ *
+ * Corner stickers belong to one or three playable layers. A center sticker
+ * belongs to two. Exposing both cases lets the UI make the whole colored
+ * surface swipeable instead of limiting play to the small corner stickers.
+ */
+export function axesForPosition(position: Vec3): AxisName[] {
+  return (Object.keys(AXES) as AxisName[])
+    .filter(axisName => isPositionInLayer(position, axisName));
+}
+
 const multiply = (a: Mat3, b: Mat3): Mat3 => [
   a[0] * b[0] + a[1] * b[3] + a[2] * b[6],
   a[0] * b[1] + a[1] * b[4] + a[2] * b[7],
@@ -102,10 +124,9 @@ export function clone(state: SkewbState): SkewbState {
 
 export function applyMove(state: SkewbState, move: SkewbMove): SkewbState {
   const out = clone(state);
-  const axis = AXES[move.axis];
   const rotation = rotationMatrix(move.axis, move.direction);
   const turn = (piece: PieceTransform) => {
-    if (dot(piece.position, axis) <= 0) return;
+    if (!isPositionInLayer(piece.position, move.axis)) return;
     piece.position = transform(rotation, piece.position);
     piece.orientation = multiply(rotation, piece.orientation);
   };
