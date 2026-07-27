@@ -1,23 +1,5 @@
 "use client";
 
-/**
- * Playable + solver Pyraminx engine, mirroring app/NxNCubeGame.tsx's shape:
- * one raw three.js scene, a turn queue driving pivot-group animations, and
- * an actionsRef exposing imperative controls to the React shell below.
- *
- * All puzzle GEOMETRY (vertices, faces, edges, which piece touches which
- * face) and all discrete MOVE/SOLVE logic come from lib/pyraminx-engine.ts,
- * which is independently verified (see the round-trip tests referenced in
- * CUBE-ENGINE-NOTES.md). This component's own job is narrow: place sticker
- * triangles at the right spots and physically turn the right pieces —
- * it does not re-derive any combinatorics of its own.
- *
- * One geometric difference from the NxN cube engine matters here: a Pyraminx
- * turn axis passes through a VERTEX, not through a world X/Y/Z axis, so the
- * turn animation rotates each pivot group with
- * `quaternion.setFromAxisAngle(axis, angle)` instead of the NxN engine's
- * `pivot.rotation[axis] = angle` (which only works when axis is literally x/y/z).
- */
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -32,13 +14,15 @@ import {
 
 const toVec3 = (v: readonly [number, number, number]) => new THREE.Vector3(v[0], v[1], v[2]);
 const TWO_PI_3 = (2 * Math.PI) / 3;
-// `record` is a UI-only bookkeeping flag for undo (mirrors NxNCubeGame's
-// `Move.record`) — kept as a local extension rather than added to the
-// shared, pure `PyraMove` type in lib/pyraminx-engine.ts.
 type QueuedMove = PyraMove & { record?: boolean };
 type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; hitPoint: THREE.Vector3; pick: Pick };
 type Gesture = { vertex: 0 | 1 | 2 | 3; direction: 1 | -1; depth: "shallow" | "deep" };
+
+type CellTarget =
+  | { kind: "tip"; vertex: number }
+  | { kind: "edge"; edge: number }
+  | { kind: "center"; vertex: number };
 
 function formatElapsed(ms: number) {
   const totalTenths = Math.floor(ms / 100);
@@ -48,75 +32,56 @@ function formatElapsed(ms: number) {
   return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
 }
 
-/**
- * Splits triangular face `faceIndex` into its 9 standard cells (a Pyraminx
- * face divided into 3 rows) using integer barycentric coordinates (denominator
- * n=3), and classifies each cell as belonging to a tip, an edge, or the
- * face's center piece. This exact classification rule (a cell touching one
- * of the face's 3 real corners is a tip cell; a cell with 2 corners sharing
- * a zero coordinate lies flush against one of the face's 3 real edges; the
- * remaining 3 cells belong to the center) was verified numerically before
- * being used here — see the barycentric-subdivision check referenced in
- * CUBE-ENGINE-NOTES.md — rather than assumed from a mental picture of the
- * puzzle, which is easy to get subtly wrong (this file's author did, once).
- */
 function faceCells(faceIndex: number) {
-  // FACE_VERTICES[k] lists 3 vertex indices with no guarantee they wind
-  // counter-clockwise as seen from outside the tetrahedron — for a
-  // tetrahedron specifically, "vertices other than k, in ascending index
-  // order" alternates between CCW and CW depending on k's parity. Rendering
-  // every face's triangles with whatever winding falls out of that ordering
-  // left 2 of the 4 faces backwards: normals pointing inward, which THREE.js's
-  // face culling reads as "facing the camera" whenever that face should
-  // actually be hidden on the far side of the puzzle — the wrong face wins
-  // the depth conversation and bleeds through the correct one. Verify the
-  // winding against the face's true outward direction and swap two vertices
-  // to correct it, rather than hardcoding which faces need it.
   let [vA, vB, vC] = FACE_VERTICES[faceIndex];
   const outwardCheck = toVec3(VERTICES[faceIndex]).multiplyScalar(-1);
-  const rawA = toVec3(VERTICES[vA]), rawB = toVec3(VERTICES[vB]), rawC = toVec3(VERTICES[vC]);
-  const windingNormal = new THREE.Vector3().subVectors(rawB, rawA).cross(new THREE.Vector3().subVectors(rawC, rawA));
+  const rawA = toVec3(VERTICES[vA]);
+  const rawB = toVec3(VERTICES[vB]);
+  const rawC = toVec3(VERTICES[vC]);
+  const windingNormal = new THREE.Vector3()
+    .subVectors(rawB, rawA)
+    .cross(new THREE.Vector3().subVectors(rawC, rawA));
   if (windingNormal.dot(outwardCheck) < 0) [vB, vC] = [vC, vB];
 
   const verts = [vA, vB, vC];
-  const A = toVec3(VERTICES[vA]), B = toVec3(VERTICES[vB]), C = toVec3(VERTICES[vC]);
+  const A = toVec3(VERTICES[vA]);
+  const B = toVec3(VERTICES[vB]);
+  const C = toVec3(VERTICES[vC]);
   const P = (i: number, j: number, k: number) =>
     new THREE.Vector3().addScaledVector(A, i / 3).addScaledVector(B, j / 3).addScaledVector(C, k / 3);
 
-  type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center" } };
+  type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: CellTarget };
   const cells: Cell[] = [];
 
-  const classify = (ijk: [number, number, number][]): Cell["target"] => {
-    const tipPos = ijk.findIndex(c => c.some(v => v === 3));
+  const classify = (ijk: [number, number, number][]): CellTarget => {
+    const tipPos = ijk.findIndex(c => c.some(value => value === 3));
     if (tipPos >= 0) {
-      const axisIndex = ijk[tipPos].findIndex(v => v === 3);
+      const axisIndex = ijk[tipPos].findIndex(value => value === 3);
       return { kind: "tip", vertex: verts[axisIndex] };
     }
+
     for (let pos = 0; pos < 3; pos++) {
       if (ijk.filter(c => c[pos] === 0).length >= 2) {
         const otherTwo = [0, 1, 2].filter(p => p !== pos).map(p => verts[p]);
         const [lo, hi] = otherTwo.sort((a, b) => a - b);
-        const edge = EDGE_PAIRS.findIndex(([i, j]) => i === lo && j === hi);
-        return { kind: "edge", edge };
+        return { kind: "edge", edge: EDGE_PAIRS.findIndex(([i, j]) => i === lo && j === hi) };
       }
     }
-    return { kind: "center" };
+
+    // Each downward-facing center sticker belongs to one of the four axial
+    // center pieces, not to a fixed face. Its dominant barycentric coordinate
+    // identifies the vertex/axis it surrounds. A deep turn must carry this
+    // center piece with the tip and the three adjacent edge pieces.
+    const totals = [0, 1, 2].map(pos => ijk.reduce((sum, corner) => sum + corner[pos], 0));
+    const axisIndex = totals.indexOf(Math.max(...totals));
+    return { kind: "center", vertex: verts[axisIndex] };
   };
 
-  // 6 upward cells: i+j+k = 2.
   for (let i = 0; i <= 2; i++) for (let j = 0; j <= 2 - i; j++) {
     const k = 2 - i - j;
     const ijk: [number, number, number][] = [[i + 1, j, k], [i, j + 1, k], [i, j, k + 1]];
     cells.push({ corners: [P(...ijk[0]), P(...ijk[1]), P(...ijk[2])], target: classify(ijk) });
   }
-  // 3 downward cells: i+j+k = 1. Their natural corner order
-  // ([i+1,j+1,k], [i+1,j,k+1], [i,j+1,k+1]) winds opposite to the upward
-  // cells' — confirmed by computing both cells' cross-product normals
-  // against the same reference and finding downward cells consistently
-  // flipped, regardless of which face they're on. `classify` only cares
-  // about the barycentric values, not their order, so it keeps the natural
-  // ijk; only the rendered `corners` swap the last two to match upward
-  // cells' winding.
   for (let i = 0; i <= 1; i++) for (let j = 0; j <= 1 - i; j++) {
     const k = 1 - i - j;
     const ijk: [number, number, number][] = [[i + 1, j + 1, k], [i + 1, j, k + 1], [i, j + 1, k + 1]];
@@ -125,28 +90,14 @@ function faceCells(faceIndex: number) {
   return cells;
 }
 
-/**
- * Builds a shrunk (gapped) copy of `corners` sitting exactly on the true
- * face plane — no outward offset.
- *
- * An earlier version nudged the sticker outward along the face normal to
- * avoid it z-fighting with its own backing triangle underneath. That works
- * for a flat cube face, but a Pyraminx's 4 faces meet at a sharp ~70.5°
- * dihedral angle: near a shared vertex or edge, even a small outward push
- * can carry a sticker's geometry past the plane of the *neighboring* face,
- * making it visible where it shouldn't be — confirmed by reproducing the
- * bug and watching it get worse as the offset was increased, not better.
- * `polygonOffset` on the sticker material (set where it's created) resolves
- * the sticker/backing z-fight in depth-buffer space instead, so neither
- * layer ever actually leaves the true face plane and neither can overshoot
- * into a neighboring face.
- */
 function triangleGeometry(corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3], shrink: number) {
   const centroid = new THREE.Vector3().add(corners[0]).add(corners[1]).add(corners[2]).multiplyScalar(1 / 3);
   const positions = new Float32Array(9);
   corners.forEach((corner, i) => {
     const shrunk = new THREE.Vector3().lerpVectors(centroid, corner, shrink);
-    positions[i * 3] = shrunk.x; positions[i * 3 + 1] = shrunk.y; positions[i * 3 + 2] = shrunk.z;
+    positions[i * 3] = shrunk.x;
+    positions[i * 3 + 1] = shrunk.y;
+    positions[i * 3 + 2] = shrunk.z;
   });
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -157,7 +108,12 @@ function triangleGeometry(corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]
 export default function PyraminxGame({ variant = "full" }: { variant?: "full" | "focus" }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<{
-    scramble: () => void; solveNow: () => void; resetPuzzle: () => void; resetView: () => void; undo: () => void; turnLabel: (label: string) => void;
+    scramble: () => void;
+    solveNow: () => void;
+    resetPuzzle: () => void;
+    resetView: () => void;
+    undo: () => void;
+    turnLabel: (label: string) => void;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Pyraminx ready");
@@ -167,13 +123,6 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
   const [scrambleSequence, setScrambleSequence] = useState("");
   const [elapsedMs, setElapsedMs] = useState(0);
 
-  // A single long-lived interval drives the live timer display. It ticks
-  // for the component's whole lifetime but only produces a visible update
-  // while `segmentStartRef` is non-null (i.e. a timed attempt is actually
-  // running) — this sidesteps the usual "setInterval closing over stale
-  // state" and "effect restarts every tick" pitfalls of timer state in
-  // React, since start/stop/reset are plain functions over refs, not
-  // effect dependencies.
   const accumulatedMsRef = useRef(0);
   const segmentStartRef = useRef<number | null>(null);
   const startTimer = () => { if (segmentStartRef.current === null) segmentStartRef.current = performance.now(); };
@@ -184,9 +133,12 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     setElapsedMs(accumulatedMsRef.current);
   };
   const resetTimer = () => { accumulatedMsRef.current = 0; segmentStartRef.current = null; setElapsedMs(0); };
+
   useEffect(() => {
     const id = setInterval(() => {
-      if (segmentStartRef.current !== null) setElapsedMs(accumulatedMsRef.current + (performance.now() - segmentStartRef.current));
+      if (segmentStartRef.current !== null) {
+        setElapsedMs(accumulatedMsRef.current + performance.now() - segmentStartRef.current);
+      }
     }, 100);
     return () => clearInterval(id);
   }, []);
@@ -199,7 +151,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const focusLayout = variant === "focus";
     scene.background = focusLayout ? null : new THREE.Color("#080b14");
     const camera = new THREE.PerspectiveCamera(focusLayout ? 37 : 34, 1, 0.1, 100);
-    const distance = 6.4 / 1.5; // ~1.5x larger on first paint than the original framing
+    const distance = 6.4 / 1.5;
     camera.position.set(distance * 0.82, distance * 0.68, distance);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -231,10 +183,6 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
 
     const root = new THREE.Group();
     scene.add(root);
-
-    // 14 rigid piece groups: 4 tips + 6 edges + 4 centers. Every sticker cell
-    // computed below gets added as a child of exactly one of these, so
-    // turning a piece later is just "pivot this group."
     const tipGroups = [0, 1, 2, 3].map(() => { const g = new THREE.Group(); root.add(g); return g; });
     const edgeGroups = [0, 1, 2, 3, 4, 5].map(() => { const g = new THREE.Group(); root.add(g); return g; });
     const centerGroups = [0, 1, 2, 3].map(() => { const g = new THREE.Group(); root.add(g); return g; });
@@ -251,37 +199,29 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         const backingGeo = triangleGeometry(cell.corners, 0.94);
         geometries.push(stickerGeo, backingGeo);
         const stickerMat = new THREE.MeshStandardMaterial({
-          color: FACE_COLORS[face], roughness: 0.3, metalness: 0.02, emissive: FACE_COLORS[face], emissiveIntensity: 0.035,
-          // Deliberately NOT THREE.DoubleSide. With winding verified correct
-          // (see faceCells' comments), every sticker's front side already
-          // faces outward. Rendering both sides let the FAR side of the
-          // tetrahedron — normally hidden — show through the intentional
-          // gaps between near-side stickers (the gaps have nothing blocking
-          // that view once the near sticker doesn't cover the ray). Bright,
-          // differently-lit interior surfaces bled through as streaks
-          // exactly tracing the gap pattern. FrontSide culls those interior
-          // faces properly, so only genuinely visible geometry renders.
+          color: FACE_COLORS[face], roughness: 0.3, metalness: 0.02,
+          emissive: FACE_COLORS[face], emissiveIntensity: 0.035,
           polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
         });
         materials.push(stickerMat);
         const sticker = new THREE.Mesh(stickerGeo, stickerMat);
         const backing = new THREE.Mesh(backingGeo, bodyMaterial);
         sticker.userData.isSticker = true;
-        // Only tip/edge stickers are grabbable — centers never turn, so
-        // tapping one should fall through to camera orbit like empty space.
-        if (cell.target.kind === "tip") { sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick; pickables.push(sticker); }
-        else if (cell.target.kind === "edge") { sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick; pickables.push(sticker); }
-
+        if (cell.target.kind === "tip") {
+          sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick;
+          pickables.push(sticker);
+        } else if (cell.target.kind === "edge") {
+          sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick;
+          pickables.push(sticker);
+        }
         const group = cell.target.kind === "tip" ? tipGroups[cell.target.vertex]
           : cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
-          : centerGroups[face];
+          : centerGroups[cell.target.vertex];
         group.add(backing);
         group.add(sticker);
       }
     }
 
-    // ---- Turn machinery: mirrors NxNCubeGame's queue/runNext, but pivots
-    // around an arbitrary vertex axis via quaternion instead of a world axis.
     let logicalState: PyraState = pyraSolved();
     let disposed = false;
     let moveFrame = 0;
@@ -289,23 +229,10 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const queue: QueuedMove[] = [];
     const history: QueuedMove[] = [];
 
-    // `edgeGroups[p]` is indexed by piece IDENTITY (its home slot at
-    // construction), not by current position — a piece's colored stickers
-    // never get reassigned, so the group itself is what physically moves
-    // between slots as turns are made. Selecting "which pieces to turn" by
-    // EDGES_AT_VERTEX[vertex] directly would grab whichever pieces call
-    // this vertex home, not whichever pieces are actually sitting there
-    // right now — correct only for a freshly-solved puzzle. After a single
-    // scramble move it grabs the wrong pieces, and every following move
-    // compounds the error, which is exactly why the puzzle still looked
-    // scrambled after a "solve" that the logical engine verified as
-    // correct: the logical state was right, but the wrong physical pieces
-    // were being rotated the whole time. `logicalState.ep[slot]` gives the
-    // piece CURRENTLY at each slot — same principle as NxNCubeGame
-    // filtering cubies by current grid position rather than original index.
     const groupsForMove = (move: PyraMove): THREE.Group[] => {
       const groups = [tipGroups[move.vertex]];
       if (move.depth === "deep") {
+        groups.push(centerGroups[move.vertex]);
         EDGES_AT_VERTEX[move.vertex].forEach(slot => groups.push(edgeGroups[logicalState.ep[slot]]));
       }
       return groups;
@@ -323,18 +250,20 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const clearHighlight = () => { highlighted.forEach(g => glowPiece(g, 0)); highlighted = []; };
     const highlightMove = (gesture: Gesture) => {
       clearHighlight();
-      highlighted = groupsForMove({ vertex: gesture.vertex, direction: gesture.direction, depth: gesture.depth });
+      highlighted = groupsForMove(gesture);
       highlighted.forEach(g => glowPiece(g, 0.32));
     };
 
     const runNext = () => {
       if (active || !queue.length) return;
-      active = true; setBusy(true);
+      active = true;
+      setBusy(true);
       const move = queue.shift()!;
       const axisVec = toVec3(VERTICES[move.vertex]).normalize();
       const angle = move.direction === 1 ? TWO_PI_3 : -TWO_PI_3;
       const pieces = groupsForMove(move);
-      const pivot = new THREE.Group(); root.add(pivot);
+      const pivot = new THREE.Group();
+      root.add(pivot);
       pieces.forEach(g => pivot.attach(g));
       const started = performance.now();
       const animate = (now: number) => {
@@ -348,11 +277,6 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         root.remove(pivot);
         logicalState = pyraApplyMove(logicalState, move);
         const solvedNow = pyraIsSolved(logicalState);
-        // Scramble setup and reset cleanup are queued with record:false —
-        // excluded from the move count and the undo stack, since neither
-        // represents the player's own solving effort. Everything else
-        // (manual turns, swipe turns, and the auto-solver's moves) counts,
-        // matching NxNCubeGame's history-length-is-the-move-count model.
         if (move.record !== false) history.push(move);
         setCanUndo(history.length > 0);
         setMoves(history.length);
@@ -360,21 +284,25 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         setStatus(solvedNow ? "Solved!" : "Pyraminx ready");
         if (solvedNow) stopTimer(); else startTimer();
         clearHighlight();
-        active = false; setBusy(queue.length > 0); runNext();
+        active = false;
+        setBusy(queue.length > 0);
+        runNext();
       };
       moveFrame = requestAnimationFrame(animate);
     };
 
     const queueLabel = (label: string, record = true) => { queue.push({ ...parseMove(label), record }); runNext(); };
-    const queueSequence = (labels: string[], record = true) => { labels.forEach(l => queue.push({ ...parseMove(l), record })); runNext(); };
-
+    const queueSequence = (labels: string[], record = true) => { labels.forEach(label => queue.push({ ...parseMove(label), record })); runNext(); };
     const scramble = () => {
       if (active) return;
       const seq = randomScramble(9);
       setScrambleSequence(seq);
       setStatus("Scrambling…");
-      history.length = 0; setCanUndo(false); setMoves(0);
-      resetTimer(); startTimer();
+      history.length = 0;
+      setCanUndo(false);
+      setMoves(0);
+      resetTimer();
+      startTimer();
       queueSequence(seq.split(" "), false);
     };
     const solveNow = () => {
@@ -386,15 +314,13 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     };
     const resetPuzzle = () => {
       if (active || pyraIsSolved(logicalState)) return;
-      // "Reset" is just "solve" — both mean "animate back to the solved
-      // state" — so this reuses the same verified solver and turn queue
-      // rather than snapping transforms directly through a second,
-      // untested code path. Queued with record:false and the trackers are
-      // cleared immediately: reset abandons the current attempt rather than
-      // completing it, so it shouldn't count toward moves/time/undo.
       queue.length = 0;
-      history.length = 0; setCanUndo(false); setMoves(0);
-      setScrambleSequence(""); stopTimer(); resetTimer();
+      history.length = 0;
+      setCanUndo(false);
+      setMoves(0);
+      setScrambleSequence("");
+      stopTimer();
+      resetTimer();
       setStatus("Resetting…");
       queueSequence(pyraSolve(logicalState), false);
     };
@@ -404,41 +330,16 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       const previous = history.pop()!;
       setCanUndo(history.length > 0);
       setMoves(history.length);
-      const inverse: QueuedMove = { vertex: previous.vertex, direction: previous.direction === 1 ? -1 : 1, depth: previous.depth, record: false };
-      queue.push(inverse);
+      queue.push({ vertex: previous.vertex, direction: previous.direction === 1 ? -1 : 1, depth: previous.depth, record: false });
       runNext();
     };
-
     actionsRef.current = { scramble, solveNow, resetPuzzle, resetView, undo, turnLabel: queueLabel };
 
-    // ---- Swipe-to-turn: mobile-first primary interaction. Tap+drag a tip
-    // or edge sticker to turn it; drag empty space (or a center sticker,
-    // which is never pickable) to orbit the camera instead.
-    //
-    // A Pyraminx turn axis passes through a VERTEX, not a world axis, so
-    // resolving "which way did the user drag" can't reuse a fixed
-    // axis-to-screen-direction table the way a cube's face turns can. For a
-    // candidate vertex, the instantaneous screen-space direction a point at
-    // the touched location would move under a small POSITIVE rotation is
-    // `axis × hitPoint` (standard rotational-velocity formula; the axis
-    // passes through the origin, so the touched point's position vector IS
-    // its offset from the axis). Projecting that to screen space and taking
-    // its dot product with the actual drag vector scores how well each
-    // candidate vertex explains the drag; the best-scoring vertex wins, and
-    // the sign of that dot product gives the turn direction. A tip sticker
-    // only has one candidate vertex (itself); an edge sticker has two (its
-    // two endpoints), exactly mirroring how NxNCubeGame's resolveGesture
-    // picks among candidate axes for a cube layer swipe.
-    //
-    // Depth (shallow tip-only twist vs. deep full-layer turn) is decided by
-    // WHAT was touched, not the drag itself — see the comment on
-    // resolveGesture below.
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerStart: PointerStart | null = null;
     let previewGesture: Gesture | null = null;
     let activePointers = 0;
-
     const setPointerFromEvent = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -450,22 +351,11 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
       const endpointProjected = origin.clone().add(worldDirection).project(camera);
       return new THREE.Vector2(endpointProjected.x - originProjected.x, -(endpointProjected.y - originProjected.y)).normalize();
     };
-    // A swipe's DEPTH is decided by what the player actually put their
-    // finger on, not derived from the drag itself: touching a tip sticker
-    // grabs only that corner piece (a "shallow" twist — mirrors the
-    // lowercase u/l/r/b buttons), while touching an edge sticker grabs the
-    // whole vertex layer including its 3 neighboring edges (a "deep" turn —
-    // mirrors the uppercase U/L/R/B buttons). This matches how a physical
-    // Pyraminx works: you can pinch just the small tip and twist it
-    // independently of the layer beneath it, or grab further down to turn
-    // the full layer. Before this, every swipe forced "deep" regardless of
-    // which piece was touched, so a tip sticker's swipe always dragged its
-    // neighboring edges along with it — there was no way to isolate a
-    // tip-only twist by touch, only via the on-screen tip-twist buttons.
     const resolveGesture = (start: PointerStart, dx: number, dy: number): Gesture => {
       const candidates = start.pick.kind === "tip" ? [start.pick.vertex] : EDGE_PAIRS[start.pick.edge];
       const drag = new THREE.Vector2(dx, dy).normalize();
-      let bestVertex = candidates[0], bestScore = 0;
+      let bestVertex = candidates[0];
+      let bestScore = 0;
       for (const vertex of candidates) {
         const axis = toVec3(VERTICES[vertex]).normalize();
         const tangent = axis.clone().cross(start.hitPoint);
@@ -473,10 +363,12 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         const score = drag.dot(projectedScreenDirection(tangent.normalize(), start.hitPoint));
         if (Math.abs(score) > Math.abs(bestScore)) { bestVertex = vertex; bestScore = score; }
       }
-      const depth: Gesture["depth"] = start.pick.kind === "tip" ? "shallow" : "deep";
-      return { vertex: bestVertex as Gesture["vertex"], direction: (bestScore >= 0 ? 1 : -1) as 1 | -1, depth };
+      return {
+        vertex: bestVertex as Gesture["vertex"],
+        direction: (bestScore >= 0 ? 1 : -1) as 1 | -1,
+        depth: start.pick.kind === "tip" ? "shallow" : "deep",
+      };
     };
-
     const onPointerDown = (event: PointerEvent) => {
       activePointers += 1;
       previewGesture = null;
@@ -495,21 +387,27 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const onPointerMove = (event: PointerEvent) => {
       if (!pointerStart || event.pointerId !== pointerStart.pointerId || activePointers > 1) return;
       event.preventDefault();
-      const dx = event.clientX - pointerStart.clientX, dy = event.clientY - pointerStart.clientY;
+      const dx = event.clientX - pointerStart.clientX;
+      const dy = event.clientY - pointerStart.clientY;
       if (Math.hypot(dx, dy) < 16) return;
       const gesture = resolveGesture(pointerStart, dx, dy);
       previewGesture = gesture;
       highlightMove(gesture);
-      setStatus(`Selected ${moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: gesture.depth })}`);
+      setStatus(`Selected ${moveLabel(gesture)}`);
     };
     const finishPointer = (event: PointerEvent) => {
       activePointers = Math.max(0, activePointers - 1);
-      if (!pointerStart || event.pointerId !== pointerStart.pointerId) { if (activePointers === 0) controls.enabled = true; return; }
-      const start = pointerStart; pointerStart = null;
-      const dx = event.clientX - start.clientX, dy = event.clientY - start.clientY;
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId) {
+        if (activePointers === 0) controls.enabled = true;
+        return;
+      }
+      const start = pointerStart;
+      pointerStart = null;
+      const dx = event.clientX - start.clientX;
+      const dy = event.clientY - start.clientY;
       if (Math.hypot(dx, dy) >= 34 && !active) {
         const gesture = previewGesture ?? resolveGesture(start, dx, dy);
-        queueLabel(moveLabel({ vertex: gesture.vertex, direction: gesture.direction, depth: gesture.depth }));
+        queueLabel(moveLabel(gesture));
       } else {
         clearHighlight();
         setStatus(pyraIsSolved(logicalState) ? "Solved!" : "Pyraminx ready");
@@ -523,7 +421,8 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     renderer.domElement.addEventListener("pointercancel", finishPointer, true);
 
     const resize = () => {
-      const w = Math.max(1, mount.clientWidth), h = Math.max(1, mount.clientHeight);
+      const w = Math.max(1, mount.clientWidth);
+      const h = Math.max(1, mount.clientHeight);
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -532,29 +431,31 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     observer.observe(mount);
     window.addEventListener("resize", resize);
     resize();
-
     let frame = 0;
     const render = () => { frame = requestAnimationFrame(render); controls.update(); renderer.render(scene, camera); };
     render();
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(frame); cancelAnimationFrame(moveFrame); observer.disconnect();
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(moveFrame);
+      observer.disconnect();
       window.removeEventListener("resize", resize);
       renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);
       renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
       renderer.domElement.removeEventListener("pointerup", finishPointer, true);
       renderer.domElement.removeEventListener("pointercancel", finishPointer, true);
-      controls.dispose(); actionsRef.current = null;
-      materials.forEach(m => m.dispose());
-      geometries.forEach(g => g.dispose());
-      renderer.dispose(); renderer.domElement.remove();
+      controls.dispose();
+      actionsRef.current = null;
+      materials.forEach(material => material.dispose());
+      geometries.forEach(geometry => geometry.dispose());
+      renderer.dispose();
+      renderer.domElement.remove();
     };
   }, [variant]);
 
   const deepMoves = ["U", "L", "R", "B"];
   const tipMoves = ["u", "l", "r", "b"];
-
   const description = "Swipe a sticker to turn it. Scramble to start a timed attempt, or let the verified solver play back the full solution.";
 
   return <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-hidden px-5 pb-[calc(28px+env(safe-area-inset-bottom))] pt-[22px]">
@@ -567,27 +468,20 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         <h1 className="mt-2 text-[39px] font-extrabold leading-[1.02] tracking-[-1px]">Play &amp; solve<br /><span className="accent-text">the Pyraminx</span></h1>
         <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">{description}</p>
       </section>
-
       <section className="glass mt-3 overflow-hidden rounded-[22px]">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
           <span>{status}</span>
-          <span className="flex items-center gap-3">
-            <span className="tabular-nums text-[var(--text)]">{formatElapsed(elapsedMs)}</span>
-            <strong className="text-[var(--text)]">{moves} moves</strong>
-          </span>
+          <span className="flex items-center gap-3"><span className="tabular-nums text-[var(--text)]">{formatElapsed(elapsedMs)}</span><strong className="text-[var(--text)]">{moves} moves</strong></span>
         </div>
         <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
         <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Swipe a sticker to turn • Drag empty space to rotate</div>
       </section>
-
       <section className="glass mt-3 rounded-[18px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleSequence || "Tap Scramble to start a timed attempt."}</p></section>
-
       <div className="mt-3 grid grid-cols-3 gap-2">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || !canUndo} onClick={() => actionsRef.current?.undo()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">↶ Undo</button>
         <button disabled={busy || isSolvedNow} onClick={() => actionsRef.current?.solveNow()} className="cta-green min-h-12 rounded-xl font-extrabold disabled:opacity-40">Solve</button>
       </div>
-
       <details className="glass mt-3 rounded-[18px] p-3">
         <summary className="cursor-pointer text-sm font-extrabold text-[var(--muted)]">Controls if needed</summary>
         <div className="mt-3 grid grid-cols-4 gap-2">{deepMoves.map(label => <button key={label} disabled={busy} onClick={() => actionsRef.current?.turnLabel(label)} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">{label}</button>)}</div>
@@ -600,7 +494,6 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
           <button disabled={busy || isSolvedNow} onClick={() => actionsRef.current?.resetPuzzle()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">Reset Puzzle</button>
         </div>
       </details>
-
       <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
         <p><strong className="text-[var(--text)]">Swipe a sticker:</strong> drag across a tip or edge sticker to turn that vertex — the puzzle picks the layer and direction from the drag.</p>
         <p><strong className="text-[var(--text)]">Drag empty space:</strong> rotate the camera to inspect all four faces.</p>
