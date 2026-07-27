@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useToast } from "@/components/Toast";
 import {
   buildFriendChallengePayload,
@@ -61,6 +61,32 @@ function formatElapsed(ms: number) {
   return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
 }
 
+/*
+ * Inline-mount store. A puzzle page mounts its own inline panel (pinned inside
+ * the site column, matching Skewb) instead of relying on the global floating
+ * pill. While any inline panel is mounted, the global floating instance hides
+ * itself so the two never double-stack. A module-level store with
+ * useSyncExternalStore keeps the callbacks stable (a context whose value
+ * changed on every mount would re-fire the registration effect in a loop).
+ */
+let inlineMountCount = 0;
+const inlineMountListeners = new Set<() => void>();
+function subscribeInlineMounts(listener: () => void) {
+  inlineMountListeners.add(listener);
+  return () => inlineMountListeners.delete(listener);
+}
+function emitInlineMounts() {
+  inlineMountListeners.forEach((listener) => listener());
+}
+function addInlineMount() {
+  inlineMountCount += 1;
+  emitInlineMounts();
+}
+function removeInlineMount() {
+  inlineMountCount = Math.max(0, inlineMountCount - 1);
+  emitInlineMounts();
+}
+
 type UniversalPuzzleActionsProps = {
   placement?: "floating" | "inline";
   puzzleType?: string;
@@ -81,7 +107,10 @@ export default function UniversalPuzzleActions({
   const toast = useToast();
   const routePuzzleType = useMemo(() => detectPuzzleType(pathname), [pathname]);
   const puzzleType = explicitPuzzleType || routePuzzleType;
-  const active = Boolean(puzzleType) && !(placement === "floating" && puzzleType === "skewb");
+  // The global floating pill hides whenever a page mounts its own inline panel,
+  // so the pinned-in-site inline panel is the only one shown on those routes.
+  const inlineMounts = useSyncExternalStore(subscribeInlineMounts, () => inlineMountCount, () => 0);
+  const active = Boolean(puzzleType) && (placement === "inline" || inlineMounts === 0);
   const challengeId = searchParams.get("challengeId") || searchParams.get("challenge_id") || "";
   const queryScramble = searchParams.get("scramble") || "";
 
@@ -153,6 +182,13 @@ export default function UniversalPuzzleActions({
     );
     setChallengeLink("");
   }, [attemptFingerprint]);
+
+  // Register this inline panel so the global floating pill suppresses itself.
+  useEffect(() => {
+    if (placement !== "inline" || !puzzleType) return;
+    addInlineMount();
+    return () => removeInlineMount();
+  }, [placement, puzzleType]);
 
   if (!active || !puzzleType) return null;
 
