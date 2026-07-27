@@ -103,8 +103,8 @@
 - [ ] **S-007 — Add ad-tracking rate limits.** Reduce fake impression and click inflation.
 - [ ] **S-008 — Add admin-action rate limits.** Protect destructive and high-impact admin operations.
 - [ ] **S-009 — Add admin step-up authentication.** Require recent authentication or 2FA for owner-only actions.
-- [ ] **S-010 — Add blocking.** Let users block accounts from friendship, search, messaging, and challenges.
-- [ ] **S-011 — Add reporting.** Let users report accounts, names, avatars, challenges, scores, and content.
+- [~] **S-010 — Add blocking.** `user_blocks` table (RLS owner-scoped) + block/unblock actions remove the account from friendships and hide it from the blocker's search and suggestions; messaging/challenge-send enforcement and production verification remain.
+- [~] **S-011 — Add reporting.** Members can file abuse reports from a profile; a scoped RLS insert policy pins `reporter_id` and forces a fresh open/normal row into the existing admin `moderation_reports` queue. Reporting other target types (messages, challenges, scores) and production verification remain.
 - [ ] **S-012 — Build a moderation queue.** Give authorized admins review, action, notes, evidence, and appeal controls.
 - [ ] **S-013 — Add anti-spam controls.** Detect repeated invitations, duplicate messages, and automated behavior.
 - [ ] **S-014 — Add dependency scanning.** Automatically detect vulnerable packages.
@@ -256,7 +256,7 @@
 - [ ] **MP-014 — Build friends leaderboard pages.** Show rankings among accepted friends.
 - [ ] **MP-015 — Build challenge results page.** Compare players and allow rematches.
 - [ ] **MP-016 — Build saved-memory library.** Centralize all saved puzzle states, scrambles, folders, notes, and filters.
-- [ ] **MP-017 — Build report/block interface.** Make safety actions available from profiles and challenges.
+- [~] **MP-017 — Build report/block interface.** Block/unblock and a report form are available on public profiles (`components/SafetyActions.tsx`), with a `/profile/blocked` management page; surfacing the same actions on challenges remains.
 - [ ] **MP-018 — Build notifications center.** Show friend, challenge, moderation, billing, and system events.
 - [ ] **MP-019 — Build collection editor.** Add, edit, and remove cubes from a user’s collection.
 - [ ] **MP-020 — Build avatar upload.** Include moderation, file validation, cropping, and deletion.

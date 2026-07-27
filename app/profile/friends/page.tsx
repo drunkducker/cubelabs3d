@@ -43,6 +43,9 @@ export default async function ProfileFriendsPage({ searchParams }: { searchParam
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
               Search public Cube IDs, review smart suggestions, send friend requests, and jump straight into challenges.
             </p>
+            <Link href="/profile/blocked" className="mt-3 inline-flex text-xs font-black uppercase tracking-[.12em] text-[var(--muted)] underline-offset-2 hover:text-white hover:underline">
+              Manage blocked accounts →
+            </Link>
           </div>
         </section>
 

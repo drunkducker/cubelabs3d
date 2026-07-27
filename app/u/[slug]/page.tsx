@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicProfilePageData, type ProfileCollectionItem, type ProfileSolve } from "@/app/lib/profile-service";
 import { sendFriendRequest } from "@/app/profile/friends/actions";
+import SafetyActions from "@/components/SafetyActions";
 import { ChevronRightIcon, CubeIcon, TrophyIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default async function PublicProfilePage({ params }: { params: { slug: st
   const data = await getPublicProfilePageData(decodeURIComponent(params.slug));
   if (!data) notFound();
 
-  const { currentUser, profile, stats, solves, achievements, collection, relationship } = data;
+  const { currentUser, profile, stats, solves, achievements, collection, relationship, viewerHasBlocked } = data;
   const name = profile.display_name || profile.username || profile.cube_tag || "Cube Player";
   const handle = profile.cube_tag || profile.username || profile.public_slug || profile.id.slice(0, 8);
   const challengeTarget = profile.cube_tag || profile.username || profile.public_slug || profile.id;
@@ -111,6 +112,10 @@ export default async function PublicProfilePage({ params }: { params: { slug: st
             </div>
           ) : null}
         </ProfilePanel>
+
+        {currentUser && !isSelf ? (
+          <SafetyActions targetId={profile.id} slug={profile.public_slug ?? undefined} isBlocked={Boolean(viewerHasBlocked)} name={name} />
+        ) : null}
       </div>
     </main>
   );

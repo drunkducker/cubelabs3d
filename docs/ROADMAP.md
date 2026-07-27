@@ -126,7 +126,7 @@ This is the high-level roadmap. Use **[`MASTER-CHECKLIST.md`](./MASTER-CHECKLIST
 - [x] Permanent social and multiplayer architecture consolidated
 - [~] Cube ID/profile and connected social-discovery foundation
 - [~] Mobile leaderboard and tracked 3×3 challenge prototypes merged; production ranking/verification remain
-- [~] Friends search, suggestions, and request actions merged; block/report/rate limits and QA remain
+- [~] Friends search, suggestions, and request actions merged; user blocking + abuse reporting now implemented (block hides accounts from discovery and feeds the admin moderation queue); rate limits, challenge-surface enforcement, and QA remain
 - [~] Signed-in account-to-account challenge flow now routes supported puzzle types
 - [~] Player-selected scramble save/send and replay metadata
 - [~] Daily shared scramble wired to the prototype; production scheduling remains

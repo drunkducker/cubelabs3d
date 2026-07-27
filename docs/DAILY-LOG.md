@@ -2,6 +2,23 @@
 
 Use this file for concise daily project check-ins. The newest entry goes first. Do not mark work complete without repository evidence.
 
+## 2026-07-27 — User blocking and abuse reporting
+
+**Completed**
+
+- [x] Migration `20260727_user_blocks_and_reporting.sql`: new `user_blocks` table (RLS: a member sees/creates/deletes only their own blocks; nobody can read who blocked them) and a scoped insert/read policy on the existing `moderation_reports` table so members can file reports that pin `reporter_id` and force a fresh open/normal row.
+- [x] Pure validators `lib/safety.ts` (report reasons/target types, reason builder with control-char stripping, block-reason cleaner, UUID guard) + `tests/safety.test.ts` (10 tests).
+- [x] Server actions `app/safety/actions.ts`: `blockUser` (also tears down any friendship), `unblockUser`, `reportUser`; read helpers `app/lib/safety-service.ts`.
+- [x] UI: `components/SafetyActions.tsx` (block/report forms, no client JS) on `/u/[slug]`; `/profile/blocked` management page with unblock; "Manage blocked accounts" link on the friends page.
+- [x] Enforcement: blocked accounts filtered out of friend suggestions and search (`getFriendSuggestions`/`searchPublicProfiles`).
+- [x] Verified: `tsc` clean, `npm run lint` no new issues, `npm run build` OK (`/profile/blocked` built), `npm test` **63/63**.
+
+**Blocked or unverified**
+
+- [ ] Migration not applied to production; two-account browser/RLS verification pending. Challenge-surface block enforcement, message reporting, and rate limits (S-004/S-005) remain.
+
+---
+
 ## 2026-07-27 — Cookie consent, settings, and inventory
 
 **Completed**

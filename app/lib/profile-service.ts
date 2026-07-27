@@ -1,4 +1,5 @@
 import { getAccessToken, supabaseRequest } from "@/app/lib/supabase-rest";
+import { getBlockedIds, hasBlocked } from "@/app/lib/safety-service";
 
 type AuthUser = { id: string; email?: string };
 
@@ -386,9 +387,11 @@ export async function getFriendSuggestions(
   friends: ProfileFriend[],
   solves: ProfileSolve[],
   limit = 8,
+  blockedIds: string[] = [],
 ) {
   const relationshipIds = new Set(friends.map((friend) => friend.friend_id));
   relationshipIds.add(userId);
+  for (const id of blockedIds) relationshipIds.add(id);
 
   const candidates = await safeProfileRequest(
     supabaseRequest<ProfileProfile[]>(
@@ -497,12 +500,14 @@ export async function searchPublicProfiles(
   friends: ProfileFriend[],
   query: string,
   limit = 12,
+  blockedIds: string[] = [],
 ) {
   const cleaned = query.trim().replace(/[(),*]/g, "").slice(0, 48);
   if (!cleaned) return [];
 
   const relationshipIds = new Set(friends.map((friend) => friend.friend_id));
   relationshipIds.add(userId);
+  for (const id of blockedIds) relationshipIds.add(id);
   const like = `*${cleaned}*`;
   const exactFilter = encodeURIComponent(
     `(display_name.ilike.${like},username.ilike.${like},cube_tag.ilike.${like},public_slug.ilike.${like})`,
@@ -608,14 +613,15 @@ export async function getProfileAchievementsPageData() {
 
 export async function getProfileFriendsPageData(query = "") {
   const { token, user } = await requireProfileSession();
-  const [profile, friends, solves] = await Promise.all([
+  const [profile, friends, solves, blockedIds] = await Promise.all([
     safeProfileRequest(getProfileById(token, user.id), undefined),
     safeProfileRequest(getProfileFriends(token, user.id, 80), []),
     safeProfileRequest(getProfileSolves(token, user.id, 60), []),
+    getBlockedIds(token, user.id),
   ]);
   const [suggestions, searchResults] = await Promise.all([
-    safeProfileRequest(getFriendSuggestions(token, user.id, profile, friends, solves, 10), []),
-    safeProfileRequest(searchPublicProfiles(token, user.id, friends, query, 12), []),
+    safeProfileRequest(getFriendSuggestions(token, user.id, profile, friends, solves, 10, blockedIds), []),
+    safeProfileRequest(searchPublicProfiles(token, user.id, friends, query, 12, blockedIds), []),
   ]);
   return { user, profile, friends, suggestions, searchResults, searchQuery: query.trim() };
 }
@@ -650,7 +656,8 @@ export async function getPublicProfilePageData(slug: string) {
   const canSeeActivity = profile.show_activity !== false || currentUser?.id === profile.id;
   const canSeeCollection = profile.show_collection !== false || currentUser?.id === profile.id;
 
-  const [stats, solves, achievements, collection, friends] = await Promise.all([
+  const viewingOther = Boolean(token && currentUser?.id && currentUser.id !== profile.id);
+  const [stats, solves, achievements, collection, friends, viewerHasBlocked] = await Promise.all([
     safeProfileRequest(getProfileStats(token, profile.id), undefined),
     canSeeActivity
       ? safeProfileRequest(getProfileSolves(token, profile.id, 10), [])
@@ -660,6 +667,7 @@ export async function getPublicProfilePageData(slug: string) {
       ? safeProfileRequest(getProfileCollection(token, profile.id, 6), [])
       : Promise.resolve([]),
     token && currentUser?.id ? safeProfileRequest(getProfileFriends(token, currentUser.id, 80), []) : Promise.resolve([]),
+    viewingOther ? hasBlocked(token, currentUser!.id, profile.id) : Promise.resolve(false),
   ]);
 
   return {
@@ -670,6 +678,7 @@ export async function getPublicProfilePageData(slug: string) {
     achievements,
     collection,
     relationship: friends.find((friend) => friend.friend_id === profile.id),
+    viewerHasBlocked,
   };
 }
 
