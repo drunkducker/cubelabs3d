@@ -1,6 +1,6 @@
 # Cube Labs 3D — Learn Engine
 
-**Last reviewed:** 2026-07-27
+**Last reviewed:** 2026-07-28
 
 This document defines the architecture for interactive Learn pages that teach puzzle notation, piece selection, move direction, algorithms, and step-by-step solving without creating a second puzzle engine.
 
@@ -147,10 +147,24 @@ The uploaded phone video captured the failures the refactor must remove:
 - touch matrix reading as a viewport overlay instead of a surface-local guide;
 - guide appearing after movement without a clear physical start point;
 - displayed direction and committed layer feeling disconnected;
-- state jumps instead of canonical continuous drag feedback;
+- state jumps instead of canonical movement feedback;
 - highlighted labels losing contrast.
 
 Keep this list as a hosted mobile acceptance test, not merely a visual preference list.
+
+## Parked gesture-physics experiment
+
+The velocity/flick/direct-manipulation prototype is preserved outside the active Learn branch behavior:
+
+- branch: `experiment/kilominx-gesture-physics`;
+- preserved commit: `b7699c9e996c24e70f26fafc30159a4087ad3fec`;
+- design and re-entry notes: `docs/experiments/KILOMINX-GESTURE-PHYSICS.md`.
+
+The experiment includes pointer velocity, flick-to-commit, partial layer tracking, snap-forward completion, spring-back cancellation, and custom resistance. These are useful future ideas, but they are not the current product gesture and must remain disabled.
+
+The active Learn gesture must match the approved 3×3/4×4 contract first: select after a small drag, commit one turn after the shared release threshold, cancel below threshold, and restore camera controls on every exit path.
+
+Any future revival must use a shared, disabled-by-default interaction profile with bounded server-authorized settings and an administrator kill switch. It must not be copied back into a single puzzle renderer.
 
 ## Kilominx refactor plan
 
