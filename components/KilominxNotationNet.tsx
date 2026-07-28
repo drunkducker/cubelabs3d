@@ -18,6 +18,26 @@ function readableText(color: string) {
   return color === "#f5f5f5" || color === "#ffd500" || color === "#59a7ff" || color === "#8fe36b" || color === "#9aa3ad" ? "#0b0d12" : "#ffffff";
 }
 
+function readSequenceSection(labelText: "SOLUTION" | "SCRAMBLE") {
+  const labels = Array.from(document.querySelectorAll<HTMLElement>("p,span,h2,h3"));
+  const label = labels.find(node => node.textContent?.trim().toUpperCase() === labelText);
+  const section = label?.closest("section");
+  if (!section) return "";
+  const text = Array.from(section.querySelectorAll("p"))
+    .filter(node => node !== label)
+    .map(node => node.textContent?.trim() ?? "")
+    .find(Boolean) ?? "";
+  if (!text || /tap .*scramble|already solved|loading/i.test(text)) return "";
+  const tokens = text.split(/\s+/).filter(Boolean);
+  if (!tokens.length) return "";
+  try {
+    tokens.forEach(parseMove);
+    return tokens.join(" ");
+  } catch {
+    return "";
+  }
+}
+
 export default function KilominxNotationNet() {
   const [algorithmText, setAlgorithmText] = useState(DEFAULT_ALGORITHM);
   const [step, setStep] = useState(0);
@@ -25,12 +45,29 @@ export default function KilominxNotationNet() {
   const [speed, setSpeed] = useState(1);
   const [selectedFace, setSelectedFace] = useState<number | null>(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const importedSequence = useRef("");
 
   const moves = useMemo(() => algorithmText.trim().split(/\s+/).filter(Boolean).flatMap(token => {
     try { return [parseMove(token)]; } catch { return []; }
   }), [algorithmText]);
   const activeMove = moves[Math.min(step, Math.max(0, moves.length - 1))];
   const activeFace = activeMove === undefined ? selectedFace : faceOfMove(activeMove);
+
+  useEffect(() => {
+    const syncFromModel = () => {
+      const sequence = readSequenceSection("SOLUTION") || readSequenceSection("SCRAMBLE");
+      if (!sequence || sequence === importedSequence.current) return;
+      importedSequence.current = sequence;
+      setAlgorithmText(sequence);
+      setStep(0);
+      setPlaying(false);
+    };
+
+    syncFromModel();
+    const observer = new MutationObserver(syncFromModel);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -61,7 +98,7 @@ export default function KilominxNotationNet() {
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Flat labeled reference</p>
           <h2 className="mt-1 text-2xl font-extrabold text-white">Kilominx face map</h2>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The same twelve engine faces unfolded into two flowers. Tap a face to identify it, or play an algorithm to highlight the face you should grab.</p>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The same twelve engine faces unfolded into two flowers. Scramble and Solve above automatically transfer here for highlighting and playback.</p>
         </div>
         <button type="button" onClick={() => window.print()} className="rounded-xl border border-[var(--border)] bg-black/25 px-4 py-2 text-sm font-extrabold text-white">Print reference</button>
       </div>
@@ -95,8 +132,8 @@ export default function KilominxNotationNet() {
         <div className="space-y-3 print:hidden">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <label htmlFor="kilominx-algorithm" className="text-xs font-extrabold uppercase tracking-[.16em] text-[var(--muted)]">Algorithm</label>
-            <textarea id="kilominx-algorithm" value={algorithmText} onChange={event => { setAlgorithmText(event.target.value); setStep(0); setPlaying(false); }} rows={3} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-sm text-white outline-none focus:border-violet-400" />
-            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Use the engine&apos;s numbered face notation: 1–12, with an apostrophe for reverse turns.</p>
+            <textarea id="kilominx-algorithm" value={algorithmText} onChange={event => { importedSequence.current = event.target.value.trim(); setAlgorithmText(event.target.value); setStep(0); setPlaying(false); }} rows={3} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-sm text-white outline-none focus:border-violet-400" />
+            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Uses the engine&apos;s numbered face notation: 1–12, with an apostrophe for reverse turns.</p>
           </div>
 
           <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
