@@ -22,6 +22,7 @@ import {
 const TURN = (2 * Math.PI) / 5;
 const LETTERS = ["A", "B", "C", "D", "E"] as const;
 const GRAB_FACE_EVENT = "kilominx-notation-grab-face";
+const GRAB_GLOW = "#7CFF00";
 
 type QueuedMove = { moveIndex: number; fast?: boolean };
 type Kite = {
@@ -29,7 +30,6 @@ type Kite = {
   kite: number;
   quad: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3];
 };
-
 type GrabFaceEvent = CustomEvent<{ face: number | null; move: number | null }>;
 
 const toVec3 = (value: readonly [number, number, number]) => new THREE.Vector3(value[0], value[1], value[2]);
@@ -66,10 +66,7 @@ function quadGeometry(quad: Kite["quad"], shrink: number) {
     points[0]!.x, points[0]!.y, points[0]!.z, points[1]!.x, points[1]!.y, points[1]!.z, points[2]!.x, points[2]!.y, points[2]!.z,
     points[0]!.x, points[0]!.y, points[0]!.z, points[2]!.x, points[2]!.y, points[2]!.z, points[3]!.x, points[3]!.y, points[3]!.z,
   ]);
-  const uvs = new Float32Array([
-    0, 0, 1, 0, 1, 1,
-    0, 0, 1, 1, 0, 1,
-  ]);
+  const uvs = new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
@@ -224,8 +221,8 @@ export default function KilominxNotationModel() {
         const worldNormal = new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld);
         if (worldNormal.dot(targetNormal) < 0.94) continue;
         const material = sticker.material as THREE.MeshStandardMaterial;
-        material.emissive.set("#8b5cf6");
-        material.emissiveIntensity = 1.1;
+        material.emissive.set(GRAB_GLOW);
+        material.emissiveIntensity = 2.4;
       }
     };
 
@@ -235,7 +232,7 @@ export default function KilominxNotationModel() {
       controls.autoRotate = false;
       highlightGrabFace(face);
       setGrabFace(face);
-      if (face !== null) setStatus(`Grab face ${face + 1} • highlighted from the flat lesson`);
+      if (face !== null) setStatus(`Grab face ${face + 1} • neon green highlight`);
     };
     window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
 
@@ -429,7 +426,7 @@ export default function KilominxNotationModel() {
         <span className="font-bold text-[var(--text)]">{grabFace === null ? (solvedNow ? "Solved" : "In motion") : `Grab face ${grabFace + 1}`}</span>
       </div>
       <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Purple glow = current grab face • swipe a labeled sticker to turn</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Neon green glow = current grab face • swipe a labeled sticker to turn</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
