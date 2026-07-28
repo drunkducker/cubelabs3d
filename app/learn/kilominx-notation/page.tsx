@@ -4,8 +4,8 @@ import KilominxNotationTouchGuard from "@/components/KilominxNotationTouchGuard"
 import KilominxNotationClient from "@/components/KilominxNotationClient";
 
 export const metadata: Metadata = {
-  title: "Kilominx Notation Explainer | Cube Lab 3D",
-  description: "A touchable labeled Kilominx explainer with the engine-derived twelve-face flat reference.",
+  title: "Kilominx Human Solve Guide | Cube Lab 3D",
+  description: "A touchable labeled Kilominx that guides a human through the next solver-selected twist.",
 };
 
 export default function KilominxNotationPage() {
@@ -20,36 +20,45 @@ export default function KilominxNotationPage() {
             ← Learn
           </Link>
           <div className="rounded-full border border-[rgba(52,208,88,.28)] bg-black/30 px-3 py-2 text-xs font-extrabold tracking-[.14em] text-[var(--green)]">
-            KILOMINX NOTATION
+            KILOMINX GUIDE
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="kilominx-human-guide mt-3">
           <KilominxNotationTouchGuard />
         </div>
 
         <section className="mt-4">
-          <p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">KILOMINX NOTATION</p>
+          <p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">HUMAN SOLVE GUIDE</p>
           <h1 className="mt-2 text-[34px] font-extrabold leading-[1.02] tracking-[-1px]">
-            Explainer <span className="accent-text">Kilominx</span>
+            Follow the <span className="accent-text">next twist</span>
           </h1>
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
-            Spin the labeled Kilominx, tap stickers to identify their engine face and kite position, swipe stickers to test numbered turns, scramble it, and watch the verified solver play moves through the same engine.
+            Scramble the Kilominx, then follow the glowing sticker and move label. The engine computes the first move needed from the current state and recalculates after every twist you make.
           </p>
         </section>
 
         <section className="glass mt-3 rounded-[22px] p-4">
-          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FLAT REFERENCE</p>
+          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FLAT SOLVE GUIDE</p>
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-            The same twelve engine faces unfolded into two flowers. The current scramble or solution transfers from the labeled 3D model for grab-point highlighting and playback.
+            The matching dot on the flower marks the same physical sticker. It is a next-move instruction, not a general selection marker.
           </p>
           <div className="mt-3"><KilominxNotationClient /></div>
         </section>
 
         <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-          <p><strong className="text-[var(--text)]">Sticker labels:</strong> the number is the engine face, and A–E is the counter-clockwise kite position on that face. A prime mark turns the same face in reverse.</p>
+          <p><strong className="text-[var(--text)]">How to use it:</strong> touch the glowing sticker, perform the displayed face move, and wait for the dot to advance. A different move is accepted, then the solver creates a new route from that state.</p>
         </section>
       </div>
+
+      <style>{`
+        .kilominx-human-guide section > .grid.grid-cols-4 {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .kilominx-human-guide section > .grid.grid-cols-4 > button:nth-child(2) {
+          display: none;
+        }
+      `}</style>
     </main>
   );
 }
