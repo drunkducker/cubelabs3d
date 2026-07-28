@@ -12,6 +12,25 @@ commit or working-tree state, purpose, affected systems, tests, deployment,
 known issues, migration impact, and rollback notes. Create no separate daily
 log, changelog, checkpoint, transfer, or deploy-trigger Markdown file.
 
+## 2026-07-27 — Kilominx manual-entry solver on a flat pentagon net
+
+- **Author:** Claude, requested by the project owner.
+- **Branch:** `claude/manual-solver-input-jja9t0`, commits `b4e5dae` (feature) and `515aef6` (docs), then reconciled onto `main` at `4123239` (Skewb + doc-reconciliation) with this history entry replacing the earlier changelog/daily-log/ADR-file edits that pre-dated the documentation consolidation.
+- **Working-tree state:** merged `origin/main` into the branch; not merged to `main`, not deployed, not browser-verified.
+- **Purpose:** give the Kilominx the same "Enter My Cube" manual solver the 3×3/4×4/5×5 already have, so a player can type in their own physical puzzle instead of only scrambling one on screen.
+- **Code change:**
+  - `lib/kilominx-engine.ts`: added a facelet (sticker-colour) representation — `FACE_CORNERS_CCW`, `stateToFacelets`, `faceletsToState`, `permutationParity`, `isSolvableKiloState`, `FACELET_COUNT` — all derived from the existing dodecahedron geometry. Reconstruction matches each corner's colour triple to a piece+twist and rejects impossible cubes (odd permutation or twist-sum ≢ 0 mod 3) before `solve()` runs.
+  - `lib/kilominx-net-layout.ts` (new): the standard two-flower net, each petal unfolded about its shared edge from the real geometry; every one of the 60 kites tagged `(face, kite, corner-slot)`.
+  - `components/KilominxSolver.tsx` (new): scramble + manual modes, a 60-sticker paint net, verified solution with a move stepper, and net-based step playback. A Kilominx has no fixed centres, so entry is relative to the standard colour scheme — each face shows a numbered reference-colour anchor.
+  - Route split (ADR 0005): `/solver/kilominx` now renders the solver; the playable 3D game moved verbatim to the new `/play/kilominx` (`app/KilominxGame.tsx` unchanged). `/solve` copy updated. Challenge routing already pointed at `/solver/kilominx` and stays consistent.
+- **Reconciliation note:** `main` advanced 27 commits during the session (Skewb, learn-model engine, watchable Kilominx solve, and the documentation consolidation). The merge took `main`'s improved `app/KilominxGame.tsx` (so `/play/kilominx` inherits the watchable solve) and `main`'s Skewb `/solve` entry; the branch's original `docs/CHANGELOG.md`, `docs/DAILY-LOG.md`, and `docs/decisions/0004-*.md` edits were dropped in favour of this entry and ADR 0005 under the new 13-file structure.
+- **Affected systems:** Kilominx engine, new net-layout module and solver component, `/solver/kilominx` and `/play/kilominx` routes, `/solve` hub copy.
+- **Tests:** `npm run build` passes (adds `/play/kilominx`); `npm test` **62/62** after the merge (adds 8 Kilominx facelet tests: 100-scramble state↔facelet round-trip, legality rejection, reconstruct-then-solve); `npm run docs:check` OK; `npm run lint` exit 0 (pre-existing warnings only).
+- **Deployment:** none; unmerged branch.
+- **Known issues:** no mobile/browser verification; manual entry assumes the standard colour scheme (documented in-UI, since a Kilominx has no fixed centres); solution playback is on the flat net rather than a dedicated 3D view (a `KilominxSolverCube3D` extraction is a possible follow-up).
+- **Migration impact:** none (no schema or configuration change).
+- **Rollback:** revert commits on the branch, or simply do not merge it; no changes to shared engine files that other puzzles depend on.
+
 ## 2026-07-27 — Reconcile Skewb branch and documentation into `main`
 
 - **Author:** Claude, requested by the project owner.

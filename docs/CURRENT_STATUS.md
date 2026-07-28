@@ -88,6 +88,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 | `gpt/reconcile-admin-dashboard-20260726` | RootA | Reconciled admin roadmap | ✔ merged through PR #8; safe to delete after verification |
 | `gpt/coming-soon-page-20260726` | RootA | Switchable coming-soon homepage | ✔ merged through PR #7; safe to delete after verification |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged |
+| `claude/manual-solver-input-jja9t0` | RootA | Kilominx manual-entry solver + flat net; `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005) | ⛔ coded, build/test-verified, unmerged; mobile/browser QA pending |
 | `claude/working-status-mumm9x` | RootA | Older staging/session handoff | superseded — review before delete |
 | `claude/home-page-html-rebuild-q7qomi` | RootA | Learn/home rebuild, leaderboard, tracked challenge | ✔ merged — safe to delete after verification |
 | `gpt/mobile-profile-page-20260722` | RootA | Profile/social/privacy/hubs | ✔ merged — safe to delete after verification |

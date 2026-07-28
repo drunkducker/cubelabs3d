@@ -315,3 +315,58 @@ continuation-prompt Markdown file.
 Git can restore any retired file exactly. If a consolidated document becomes
 too broad, split only a durable subject boundary, retain a clear index mapping,
 and record a superseding ADR; do not recreate per-session notes.
+
+---
+
+## ADR 0005 — Kilominx solver route vs play route
+
+- Status: accepted
+- Date: 2026-07-27
+- Decision owners: Cube Labs project owner and contributing agents
+- Branch: `claude/manual-solver-input-jja9t0` (unmerged at time of writing)
+
+### Context
+
+Every supported puzzle follows one convention: `/solver/<puzzle>` is the real
+solver (scramble and/or enter your own cube, get a verified solution) and
+`/play/<puzzle>` is the playable game. `/solver/3x3` renders the manual solver;
+`/play/3x3` renders the game. Challenge attempts (`app/challenge/[id]`) route
+every puzzle to `/solver/<puzzle>`.
+
+The Kilominx was the exception. `/solver/kilominx` hosted the playable 3D game
+(`app/KilominxGame.tsx`) and there was no `/play/kilominx`, so there was no way
+to enter your own physical Kilominx, unlike the 3×3/4×4/5×5. Adding "Enter My
+Cube" manual input raised the question of where the new solver lives and what
+happens to the game.
+
+### Decision
+
+Match the established convention:
+
+- `/solver/kilominx` renders the new `components/KilominxSolver.tsx` (scramble +
+  flat-net manual entry + verified solution + net playback), mirroring the role
+  `/solver/3x3` plays.
+- The playable 3D game moves verbatim to `app/play/kilominx/page.tsx`;
+  `app/KilominxGame.tsx` is unchanged, only re-hosted, preserving the approved
+  playable experience (Constitution §2, §3).
+- `/solve` hub copy for Kilominx describes the solver; the solver links to
+  `/play/kilominx`.
+- Challenge routing is unchanged — it already pointed Kilominx at
+  `/solver/kilominx`, which is now a solver like every other puzzle, so the
+  change makes challenges more consistent, not less.
+
+### Consequences
+
+- The Kilominx now matches the site-wide `/solver` vs `/play` split; no puzzle
+  is a special case.
+- A link or bookmark to `/solver/kilominx` expecting the 3D game now lands on
+  the solver; the game is one tap away at `/play/kilominx`. Internal references
+  (`/solve`, `app/challenge/[id]`) were updated or verified.
+- No database, schema, auth, or configuration change. Rollback is a branch
+  revert; the game component was never modified.
+
+### Required follow-up
+
+- Mobile/browser QA of both routes before production verification.
+- Consider a dedicated 3D `KilominxSolverCube3D` so the solver can play the
+  solution back on a 3D puzzle rather than the flat net.

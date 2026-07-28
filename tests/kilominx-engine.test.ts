@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  VERTICES, FACE_NORMALS, FACE_CORNERS, CORNER_FACES, MOVES, MOVE_COUNT,
+  VERTICES, FACE_NORMALS, FACE_CORNERS, FACE_CORNERS_CCW, CORNER_FACES, MOVES, MOVE_COUNT,
   solved, isSolved, equal, applyMoveIndex, applyMoves, inverseMoveIndex,
   inverseSequence, randomScramble, simplify, solve, faceOfMove,
+  stateToFacelets, faceletsToState, isSolvableKiloState, permutationParity, FACELET_COUNT,
 } from "@/lib/kilominx-engine";
 
 describe("kilominx geometry", () => {
@@ -76,6 +77,75 @@ describe("kilominx simplify", () => {
   it("consecutive opposite turns on a face cancel", () => {
     expect(simplify([0, 1]).length).toBe(0);
     expect(simplify([2, 2, 2, 2, 2]).length).toBe(0); // five same turns = identity
+  });
+});
+
+describe("kilominx facelets", () => {
+  it("FACE_CORNERS_CCW lists each face's 5 corners exactly once", () => {
+    expect(FACE_CORNERS_CCW.length).toBe(12);
+    FACE_CORNERS_CCW.forEach((ring, f) => {
+      expect(new Set(ring).size).toBe(5);
+      expect([...ring].sort((a, b) => a - b)).toEqual([...FACE_CORNERS[f]].sort((a, b) => a - b));
+    });
+  });
+
+  it("solved state renders each face as its own solid colour", () => {
+    const facelets = stateToFacelets(solved());
+    expect(facelets.length).toBe(FACELET_COUNT);
+    for (let f = 0; f < 12; f++) {
+      for (let k = 0; k < 5; k++) expect(facelets[f * 5 + k]).toBe(f);
+    }
+  });
+
+  it("stateToFacelets uses all 12 colours exactly 5 times each", () => {
+    const counts = new Array(12).fill(0);
+    stateToFacelets(applyMoves(solved(), randomScramble(40))).forEach((c) => counts[c]++);
+    expect(counts.every((c) => c === 5)).toBe(true);
+  });
+
+  it("round-trips any scramble: state -> facelets -> state is identity", () => {
+    for (let trial = 0; trial < 100; trial++) {
+      const state = applyMoves(solved(), randomScramble(60));
+      const back = faceletsToState(stateToFacelets(state));
+      expect(back).not.toBeNull();
+      expect(equal(back!, state)).toBe(true);
+    }
+  });
+
+  it("reconstructed scrambles are solvable and actually solve", () => {
+    for (let trial = 0; trial < 25; trial++) {
+      const state = applyMoves(solved(), randomScramble(50));
+      const back = faceletsToState(stateToFacelets(state))!;
+      expect(isSolvableKiloState(back)).toBe(true);
+      expect(isSolved(applyMoves(back, solve(back)))).toBe(true);
+    }
+  });
+
+  it("rejects incomplete or out-of-range facelets", () => {
+    const good = stateToFacelets(applyMoves(solved(), randomScramble(20)));
+    const missing = [...good]; missing[7] = -1;
+    expect(faceletsToState(missing)).toBeNull();
+    const bad = [...good]; bad[7] = 12;
+    expect(faceletsToState(bad)).toBeNull();
+    expect(faceletsToState(good.slice(0, 59))).toBeNull();
+  });
+
+  it("rejects colours that don't form real pieces (a swapped sticker)", () => {
+    // Swap two stickers of different colours (one on face 0, one on face 1):
+    // the two corners they belong to now carry colour triples that match no
+    // real piece, exactly the kind of misread a person typing their cube makes.
+    const facelets = stateToFacelets(solved());
+    expect(facelets[0]).not.toBe(facelets[7]); // sanity: genuinely different colours
+    [facelets[0], facelets[7]] = [facelets[7], facelets[0]];
+    expect(faceletsToState(facelets)).toBeNull();
+  });
+
+  it("isSolvableKiloState rejects a single-corner twist and an odd permutation", () => {
+    const twisted = solved(); twisted.co[0] = 1; // twist sum no longer 0 mod 3
+    expect(isSolvableKiloState(twisted)).toBe(false);
+    const swapped = solved(); [swapped.cp[0], swapped.cp[1]] = [swapped.cp[1], swapped.cp[0]]; // odd
+    expect(permutationParity(swapped.cp)).toBe(1);
+    expect(isSolvableKiloState(swapped)).toBe(false);
   });
 });
 
