@@ -63,8 +63,13 @@ function quadGeometry(quad: Kite["quad"], shrink: number) {
     points[0]!.x, points[0]!.y, points[0]!.z, points[1]!.x, points[1]!.y, points[1]!.z, points[2]!.x, points[2]!.y, points[2]!.z,
     points[0]!.x, points[0]!.y, points[0]!.z, points[2]!.x, points[2]!.y, points[2]!.z, points[3]!.x, points[3]!.y, points[3]!.z,
   ]);
+  const uvs = new Float32Array([
+    0, 0, 1, 0, 1, 1,
+    0, 0, 1, 1, 0, 1,
+  ]);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -300,31 +305,32 @@ export default function KilominxNotationModel() {
       if (active) return;
       setPointer(event);
       const hit = raycaster.intersectObjects(pickables, true)[0];
-      if (!hit) {
-        controls.enabled = true;
-        return;
-      }
-      const face = hit.object.userData.face as number;
-      const label = hit.object.userData.label as string;
-      pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY, point: hit.point.clone(), face, label };
+      if (!hit) return;
+      pointerStart = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        point: hit.point.clone(),
+        face: hit.object.userData.face as number,
+        label: hit.object.userData.label as string,
+      };
       controls.enabled = false;
       renderer.domElement.setPointerCapture(event.pointerId);
-      setStatus(`${label} • Face ${face + 1}`);
     };
     const onUp = (event: PointerEvent) => {
+      if (!pointerStart || pointerStart.id !== event.pointerId) return;
       const start = pointerStart;
       pointerStart = null;
-      controls.enabled = true;
-      if (!start || event.pointerId !== start.id || active) return;
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
-      if (Math.hypot(dx, dy) >= 32) {
+      if (Math.hypot(dx, dy) >= 34) {
         const move = resolveMove(start.face, start.point, dx, dy);
-        setStatus(`Turning ${moveLabel(move)} from ${start.label}`);
+        setStatus(`Turn ${moveLabel(move)} from sticker ${start.label}`);
         queueSequence([move]);
       } else {
-        setStatus(`${start.label} identifies Face ${start.face + 1}`);
+        setStatus(`${start.label} • engine face ${start.face + 1}`);
       }
+      controls.enabled = true;
     };
     renderer.domElement.addEventListener("pointerdown", onDown, true);
     renderer.domElement.addEventListener("pointerup", onUp, true);
@@ -357,9 +363,9 @@ export default function KilominxNotationModel() {
       renderer.domElement.removeEventListener("pointerup", onUp, true);
       renderer.domElement.removeEventListener("pointercancel", onUp, true);
       controls.dispose();
-      textures.forEach(texture => texture.dispose());
       materials.forEach(material => material.dispose());
       geometries.forEach(geometry => geometry.dispose());
+      textures.forEach(texture => texture.dispose());
       renderer.dispose();
       renderer.domElement.remove();
       actionsRef.current = null;
@@ -370,20 +376,26 @@ export default function KilominxNotationModel() {
     <section className="glass overflow-hidden rounded-[22px]">
       <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
         <span>{status}</span>
-        <button type="button" onClick={() => actionsRef.current?.resetView()} className="rounded-lg border border-[var(--border)] bg-black/25 px-3 py-1.5 text-xs font-extrabold text-white">Reset view</button>
+        <span className="font-bold text-[var(--text)]">{solvedNow ? "Solved" : "In motion"}</span>
       </div>
       <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-      <div className="px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Swipe a labeled sticker to turn • tap to identify • drag empty space to rotate</div>
-      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border)] p-3">
-        <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-12 rounded-xl font-extrabold disabled:opacity-40">Scramble</button>
-        <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-12 rounded-xl font-extrabold disabled:opacity-40">Solve</button>
-        <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.reset()} className="glass min-h-12 rounded-xl font-extrabold disabled:opacity-40">Reset</button>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Swipe a labeled sticker to turn • tap to identify</div>
+      <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
+        <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
+        <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
+        <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.reset()} className="glass min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Reset</button>
+        <button onClick={() => actionsRef.current?.resetView()} className="glass min-h-11 rounded-xl text-sm font-extrabold">View</button>
       </div>
       <section className="border-t border-[var(--border)] px-4 py-3">
         <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p>
-        <p className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to generate an engine-valid sequence."}</p>
+        <p data-puzzle-scramble={scrambleText} className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to load the same sequence into the flat reference."}</p>
       </section>
-      {solutionText ? <section className="border-t border-[var(--border)] px-4 py-3"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--purple)]">SOLUTION</p><p className="mt-2 break-words font-mono text-xs leading-6 text-[var(--text)]">{solutionText}</p></section> : null}
+      {solutionText ? (
+        <section className="border-t border-[var(--border)] px-4 py-3">
+          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--purple)]">SOLUTION</p>
+          <p className="mt-2 break-words font-mono text-xs leading-6 text-[var(--text)]">{solutionText}</p>
+        </section>
+      ) : null}
     </section>
   );
 }
