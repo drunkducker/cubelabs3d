@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import KilominxSolver from "@/components/KilominxSolver";
+import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 
 export const metadata: Metadata = {
   title: "Kilominx Solver | Cube Lab 3D",
@@ -20,6 +22,9 @@ export default function KilominxSolverPage() {
         <p className="mt-3 text-[15px] text-[var(--muted)]">Run a random scramble, or tap in your own Kilominx&apos;s colours on the flat net — every solution is checked against the engine.</p>
       </section>
       <div className="mt-5"><KilominxSolver /></div>
+      <Suspense fallback={<section className="glass mt-5 min-h-[72px] rounded-[18px]" />}>
+        <UniversalPuzzleActions placement="inline" puzzleType="kilominx" />
+      </Suspense>
     </div>
   </main>;
 }
