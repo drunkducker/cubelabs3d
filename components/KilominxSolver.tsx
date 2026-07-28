@@ -77,6 +77,7 @@ export default function KilominxSolver() {
   const [speedIndex, setSpeedIndex] = useState(1);
   const [animating, setAnimating] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [movesExpanded, setMovesExpanded] = useState(false);
   const autoplayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAnimating = useCallback((value: boolean) => setAnimating(value), []);
 
@@ -119,7 +120,7 @@ export default function KilominxSolver() {
   const playbackFacelets = useMemo(() => (playbackBase ? stateToFacelets(playbackBase) : null), [playbackBase]);
   const canShow3D = playbackFacelets !== null;
 
-  const resetSolution = useCallback(() => { setPlaying(false); setSolution([]); setStep(0); setTime(0); }, []);
+  const resetSolution = useCallback(() => { setPlaying(false); setSolution([]); setStep(0); setTime(0); setMovesExpanded(false); }, []);
 
   const switchMode = (next: Mode) => {
     if (next === mode) return;
@@ -246,8 +247,16 @@ export default function KilominxSolver() {
     </>}
 
     <section className="glass rounded-[22px] p-4">
-      <div className="flex items-center justify-between"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">VERIFIED SOLUTION</p><span className="text-xs text-[var(--muted)]">{time} ms</span></div>
-      <p className="mt-2 min-h-12 text-xl font-bold leading-8 tracking-wide">{solution.map(moveLabel).join(" ") || "—"}</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">VERIFIED SOLUTION</p>
+        <div className="flex items-center gap-3">
+          {solution.length > 0 && <button onClick={() => setMovesExpanded((v) => !v)} aria-expanded={movesExpanded} className="text-xs font-extrabold text-[var(--green)]">{movesExpanded ? "Collapse ▴" : `Show all ${solution.length} ▾`}</button>}
+          <span className="text-xs text-[var(--muted)]">{time} ms</span>
+        </div>
+      </div>
+      {solution.length === 0
+        ? <p className="mt-2 min-h-12 text-xl font-bold leading-8 tracking-wide">—</p>
+        : <p className={`mt-2 text-xl font-bold leading-8 tracking-wide ${movesExpanded ? "" : "line-clamp-2"}`}>{solution.map(moveLabel).join(" ")}</p>}
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{solution.map((move, i) => <button key={i} disabled={animating} onClick={() => { setPlaying(false); setStep(i + 1); }} className={`min-w-11 rounded-xl border p-3 font-extrabold disabled:opacity-50 ${i === step - 1 ? "border-[var(--green)] bg-[rgba(52,208,88,.14)]" : "border-[var(--border)] bg-black/20"}`}>{moveLabel(move)}</button>)}</div>
 
       <div className="mt-4"><div className="mb-2 flex justify-between text-xs font-bold text-[var(--muted)]"><span>Progress</span><span>{step} / {solution.length}</span></div><input aria-label="Solution progress" type="range" min={0} max={Math.max(solution.length, 1)} value={step} disabled={!solution.length || animating} onChange={(e) => { setPlaying(false); setStep(Number(e.target.value)); }} className="w-full accent-[var(--green)] disabled:opacity-40" /></div>
