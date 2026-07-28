@@ -8,8 +8,12 @@ import {
   applyMoves,
   dirOfMove,
   faceOfMove,
+  inverseMoveIndex,
+  inverseSequence,
+  isSolved,
   moveLabel,
   parseMove,
+  simplify,
   solve,
   solved,
   type KiloState,
@@ -95,15 +99,19 @@ function dispatchGuide(guide: SolveGuide | null) {
 /**
  * Learn-only interaction shell.
  *
- * The solve dot is resolved from the same current-spatial-face authority as the
- * playable touch gesture. Durable sticker labels remain useful identity data,
- * but they are never used to decide which face a human should turn.
+ * A scramble creates one stable, guaranteed route by reversing the generated
+ * scramble. Correct human turns consume exactly one route step, so the remaining
+ * count cannot rise or loop. An exploratory turn prepends only the recovery move
+ * needed to return to the existing route. The reduction solver is a safety
+ * fallback only if state/route verification ever fails.
  */
 export default function KilominxNotationTouchGuard() {
   const modelRootRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<KiloState>(solved());
+  const routeRef = useRef<number[]>([]);
   const guideRef = useRef<SolveGuide | null>(null);
   const pendingScrambleRef = useRef<KiloState | null>(null);
+  const pendingScrambleRouteRef = useRef<number[]>([]);
   const pendingManualMoveRef = useRef<number | null>(null);
   const scrambleActiveRef = useRef(false);
   const lastScrambleRef = useRef("");
@@ -179,21 +187,29 @@ export default function KilominxNotationTouchGuard() {
     placeGuideDot(nextGuide);
   };
 
-  const guideState = (state: KiloState, completedMoves: number, message?: string) => {
-    const solution = solve(state);
-    if (!solution.length) {
+  const showRoute = (state: KiloState, completedMoves: number, requestedRoute: number[], message?: string) => {
+    let route = [...requestedRoute];
+
+    // Every displayed route is verified against the same engine state. The long
+    // reduction solver is used only as a recovery path, never for normal progress.
+    if (!isSolved(applyMoves(state, route))) route = solve(state);
+    routeRef.current = route;
+
+    if (!route.length) {
       setActiveGuide(null);
+      humanMovesRef.current = completedMoves;
+      setHumanMoves(completedMoves);
       setFeedback("Solved — scramble again or keep experimenting.");
       return;
     }
 
-    const move = solution[0]!;
+    const move = route[0]!;
     const face = faceOfMove(move);
     const nextGuide: SolveGuide = {
       move,
       face,
       color: FACE_COLORS[face]!,
-      remaining: solution.length,
+      remaining: route.length,
       clockwise: dirOfMove(move) === 1,
     };
     setActiveGuide(nextGuide);
@@ -282,7 +298,9 @@ export default function KilominxNotationTouchGuard() {
 
     const resetGuide = () => {
       stateRef.current = solved();
+      routeRef.current = [];
       pendingScrambleRef.current = null;
+      pendingScrambleRouteRef.current = [];
       pendingManualMoveRef.current = null;
       scrambleActiveRef.current = false;
       humanMovesRef.current = 0;
@@ -302,8 +320,10 @@ export default function KilominxNotationTouchGuard() {
         } else {
           const scrambleMoves = parseSequence(scrambleText);
           pendingScrambleRef.current = scrambleMoves.length ? applyMoves(solved(), scrambleMoves) : solved();
+          pendingScrambleRouteRef.current = simplify(inverseSequence(scrambleMoves));
           scrambleActiveRef.current = true;
           pendingManualMoveRef.current = null;
+          routeRef.current = [];
           humanMovesRef.current = 0;
           setHumanMoves(0);
           setActiveGuide(null);
@@ -318,10 +338,10 @@ export default function KilominxNotationTouchGuard() {
       if (turnMatch) {
         try {
           pendingManualMoveRef.current = parseMove(turnMatch[1]!);
-          const expected = guideRef.current?.move;
+          const expected = routeRef.current[0];
           setFeedback(expected === pendingManualMoveRef.current
-            ? "Nice move — checking the next step…"
-            : "That works too — recalculating a new path from here…");
+            ? "Nice move — advancing one step…"
+            : "Experiment accepted — adding the shortest recovery back to this route…");
         } catch {
           pendingManualMoveRef.current = null;
         }
@@ -335,21 +355,32 @@ export default function KilominxNotationTouchGuard() {
         stateRef.current = pendingScrambleRef.current;
         pendingScrambleRef.current = null;
         scrambleActiveRef.current = false;
-        guideState(stateRef.current, 0);
+        showRoute(stateRef.current, 0, pendingScrambleRouteRef.current);
+        pendingScrambleRouteRef.current = [];
         return;
       }
 
       if (pendingManualMoveRef.current !== null) {
         const move = pendingManualMoveRef.current;
         pendingManualMoveRef.current = null;
+        const previousRoute = routeRef.current;
+        const followedGuide = previousRoute[0] === move;
+
         stateRef.current = applyMoveIndex(stateRef.current, move);
         const completed = humanMovesRef.current + 1;
-        guideState(
+        const nextRoute = followedGuide
+          ? previousRoute.slice(1)
+          : simplify([inverseMoveIndex(move), ...previousRoute]);
+
+        showRoute(
           stateRef.current,
           completed,
-          completed >= 3
-            ? "Keep playing — remaining moves are now pinned at the top."
-            : "Good. Follow the new face dot and thumb direction.",
+          nextRoute,
+          followedGuide
+            ? completed >= 3
+              ? "Good — one step removed. Remaining moves are pinned at the top."
+              : "Good — one step removed. Follow the new face dot."
+            : "You explored another move. The guide added a recovery step and kept going.",
         );
       }
     };
@@ -364,7 +395,7 @@ export default function KilominxNotationTouchGuard() {
   }, []);
 
   const remainingLabel = guide
-    ? `${guide.remaining} move${guide.remaining === 1 ? "" : "s"} to completion`
+    ? `${guide.remaining} guided move${guide.remaining === 1 ? "" : "s"} remaining`
     : "";
 
   return (
