@@ -2,7 +2,7 @@
 
 **Last verified:** 2026-07-27
 **Canonical branch:** `main`
-**Current canonical head:** `4123239` (Skewb + documentation-reconciliation merge)
+**Current canonical head:** `bbbb7b5` (Kilominx manual-entry solver merge)
 **Repository:** `drunkducker/cubelabs3d`
 
 This document is the single current-state summary. Dated checkpoints and unmerged branches are historical or in-progress evidence and must not override this file.
@@ -12,11 +12,25 @@ This document is the single current-state summary. Dated checkpoints and unmerge
 - `main` is the repository default branch and the Vercel production source.
 - The repository baseline includes the mobile-first homepage, interactive puzzle experiences, Supabase authentication and Cube ID, password reset, Cube Labs Mail, 2×2/3×3/4×4/interim-5×5/NxN solvers, Pyraminx, Kilominx, Skewb, tracked 3×3 challenges, the shared all-puzzle Save & Friend Play panel, connected profile/social pages, News/My Arcade/Learn hubs, and the admin/ads/media/billing platform.
 - `main` also includes the reconciled admin roadmap and the switchable branded coming-soon homepage controlled by `NEXT_PUBLIC_COMING_SOON`.
-- Skewb is now merged to `main` via the 2026-07-27 reconciliation merge (see below); hosted/mobile verification remains open.
+- Skewb is now merged to `main` via the 2026-07-27 reconciliation merge; hosted/mobile verification remains open.
+- The Kilominx now follows the site-wide `/solver` vs `/play` split (ADR 0005): `/solver/kilominx` is the manual/scramble solver, `/play/kilominx` is the playable 3D game.
 - The homepage layout must not be changed unless the project owner explicitly requests it.
 - Login and profile work must continue from the existing Sign In flow.
 
-## Latest `main` change — 2026-07-27 Skewb + documentation reconciliation
+## Latest `main` change — 2026-07-27 Kilominx manual-entry solver
+
+Merge `bbbb7b5` brought `claude/manual-solver-input-jja9t0` onto `main`, adding an "Enter My Cube" manual solver for the Kilominx:
+
+- **Engine** (`lib/kilominx-engine.ts`): facelet↔state mapping (`stateToFacelets`, `faceletsToState`, `FACE_CORNERS_CCW`, `permutationParity`, `isSolvableKiloState`), all derived from the existing dodecahedron geometry. Reconstruction rejects impossible cubes before `solve()`.
+- **Net** (`lib/kilominx-net-layout.ts`): the two-flower flat net, unfolded from the real geometry; 60 kites tagged `(face, kite, corner-slot)`.
+- **UI** (`components/KilominxSolver.tsx`): scramble + manual modes, 60-sticker paint net, verified solution, net-based step playback.
+- **Route split (ADR 0005):** `/solver/kilominx` = solver; the playable 3D game moved verbatim to `/play/kilominx` (`app/KilominxGame.tsx` unchanged). `/solve` copy updated; challenge routing unchanged.
+- Verification: `npm run docs:check` OK (13 files, 37 sections); `npm test` **77/77** (adds 8 Kilominx facelet tests); `npm run build` passes with `/solver/kilominx` and `/play/kilominx`.
+- **Still open:** no mobile/browser QA; manual entry assumes the standard colour scheme (Kilominx has no fixed centres); playback is on the flat net rather than a dedicated 3D view.
+
+The pre-merge `main` head before this merge was `0bef6ff` (engine-backed Kilominx learn adapter).
+
+## Prior `main` change — 2026-07-27 Skewb + documentation reconciliation
 
 Merge `4123239` brought draft PR #9 (`feature/skewb-puzzle`) onto `main` and reconciled the documentation into a single canonical set:
 
@@ -88,7 +102,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 | `gpt/reconcile-admin-dashboard-20260726` | RootA | Reconciled admin roadmap | ✔ merged through PR #8; safe to delete after verification |
 | `gpt/coming-soon-page-20260726` | RootA | Switchable coming-soon homepage | ✔ merged through PR #7; safe to delete after verification |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged |
-| `claude/manual-solver-input-jja9t0` | RootA | Kilominx manual-entry solver + flat net; `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005) | ⛔ coded, build/test-verified, unmerged; mobile/browser QA pending |
+| `claude/manual-solver-input-jja9t0` | RootA | Kilominx manual-entry solver + flat net; `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005) | ✔ merged to `main` at `bbbb7b5`; mobile/browser QA pending — safe to delete after verification |
 | `claude/working-status-mumm9x` | RootA | Older staging/session handoff | superseded — review before delete |
 | `claude/home-page-html-rebuild-q7qomi` | RootA | Learn/home rebuild, leaderboard, tracked challenge | ✔ merged — safe to delete after verification |
 | `gpt/mobile-profile-page-20260722` | RootA | Profile/social/privacy/hubs | ✔ merged — safe to delete after verification |
