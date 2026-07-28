@@ -22,15 +22,16 @@ import {
 const TURN = (2 * Math.PI) / 5;
 const LETTERS = ["A", "B", "C", "D", "E"] as const;
 const GRAB_FACE_EVENT = "kilominx-notation-grab-face";
-const GRAB_GLOW = "#7CFF00";
 
 type QueuedMove = { moveIndex: number; fast?: boolean };
-type Kite = {
-  corner: number;
-  kite: number;
-  quad: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3];
-};
-type GrabFaceEvent = CustomEvent<{ face: number | null; move: number | null }>;
+type Kite = { corner: number; kite: number; quad: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3] };
+type GrabFaceEvent = CustomEvent<{
+  face: number | null;
+  move: number | null;
+  kite?: number | null;
+  stickerLabel?: string | null;
+  color?: string | null;
+}>;
 
 const toVec3 = (value: readonly [number, number, number]) => new THREE.Vector3(value[0], value[1], value[2]);
 
@@ -59,12 +60,6 @@ function faceKites(face: number): Kite[] {
   }));
 }
 
-function faceCenter(face: number) {
-  return FACE_CORNERS[face]!
-    .reduce((sum, corner) => sum.add(toVec3(VERTICES[corner]!)), new THREE.Vector3())
-    .multiplyScalar(1 / 5);
-}
-
 function quadGeometry(quad: Kite["quad"], shrink: number) {
   const center = quad.reduce((sum, point) => sum.add(point.clone()), new THREE.Vector3()).multiplyScalar(0.25);
   const points = quad.map(point => new THREE.Vector3().lerpVectors(center, point, shrink));
@@ -72,18 +67,15 @@ function quadGeometry(quad: Kite["quad"], shrink: number) {
     points[0]!.x, points[0]!.y, points[0]!.z, points[1]!.x, points[1]!.y, points[1]!.z, points[2]!.x, points[2]!.y, points[2]!.z,
     points[0]!.x, points[0]!.y, points[0]!.z, points[2]!.x, points[2]!.y, points[2]!.z, points[3]!.x, points[3]!.y, points[3]!.z,
   ]);
-  const uvs = new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]), 2));
   geometry.computeVertexNormals();
   return geometry;
 }
 
 function readableText(color: string) {
-  return color === "#f5f5f5" || color === "#ffd500" || color === "#59a7ff" || color === "#8fe36b" || color === "#9aa3ad"
-    ? "#0b0d12"
-    : "#ffffff";
+  return color === "#f5f5f5" || color === "#ffd500" || color === "#59a7ff" || color === "#8fe36b" || color === "#9aa3ad" ? "#0b0d12" : "#ffffff";
 }
 
 function labelTexture(label: string, color: string) {
@@ -108,16 +100,16 @@ function labelTexture(label: string, color: string) {
   return texture;
 }
 
-function glowTexture(color: string) {
+function glowTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
   canvas.height = 512;
   const context = canvas.getContext("2d");
   if (!context) return new THREE.CanvasTexture(canvas);
   const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
-  gradient.addColorStop(0, `${color}ee`);
-  gradient.addColorStop(0.18, `${color}aa`);
-  gradient.addColorStop(0.45, `${color}45`);
+  gradient.addColorStop(0, "rgba(255,255,255,.95)");
+  gradient.addColorStop(0.16, "rgba(255,255,255,.72)");
+  gradient.addColorStop(0.45, "rgba(255,255,255,.22)");
   gradient.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = gradient;
   context.fillRect(0, 0, 512, 512);
@@ -134,7 +126,7 @@ export default function KilominxNotationModel() {
   const [solutionText, setSolutionText] = useState("");
   const [busy, setBusy] = useState(false);
   const [solvedNow, setSolvedNow] = useState(true);
-  const [grabFace, setGrabFace] = useState<number | null>(null);
+  const [grabLabel, setGrabLabel] = useState<string | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -220,11 +212,11 @@ export default function KilominxNotationModel() {
       }
     }
 
-    const haloMap = glowTexture(GRAB_GLOW);
+    const haloMap = glowTexture();
     textures.push(haloMap);
     const haloMaterial = new THREE.SpriteMaterial({
       map: haloMap,
-      color: GRAB_GLOW,
+      color: "#ffffff",
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
@@ -234,20 +226,20 @@ export default function KilominxNotationModel() {
     materials.push(haloMaterial);
     const grabHalo = new THREE.Sprite(haloMaterial);
     grabHalo.visible = false;
-    grabHalo.scale.setScalar(2.7);
+    grabHalo.scale.setScalar(1.25);
     root.add(grabHalo);
-
-    const grabLight = new THREE.PointLight(GRAB_GLOW, 0, 4.8, 2);
+    const grabLight = new THREE.PointLight("#ffffff", 0, 2.8, 2);
     root.add(grabLight);
 
     let logicalState: KiloState = solved();
     let disposed = false;
     let moveFrame = 0;
     let active = false;
-    let activeGrabFace: number | null = null;
+    let activeStickerLabel: string | null = null;
+    let activeStickerColor: string | null = null;
     const queue: QueuedMove[] = [];
 
-    const clearGrabHighlight = () => {
+    const clearStickerHighlight = () => {
       for (const sticker of stickerMeshes) {
         const material = sticker.material as THREE.MeshStandardMaterial;
         material.emissive.set(sticker.userData.baseColor as string);
@@ -258,52 +250,52 @@ export default function KilominxNotationModel() {
       grabLight.intensity = 0;
     };
 
-    const positionGlow = (face: number) => {
-      const normal = toVec3(faceNormal(face)).normalize();
-      const center = faceCenter(face);
-      grabHalo.position.copy(center).addScaledVector(normal, 0.22);
-      grabLight.position.copy(center).addScaledVector(normal, 0.7);
-    };
-
-    const highlightGrabFace = (face: number | null) => {
-      activeGrabFace = face;
-      clearGrabHighlight();
-      if (face === null) return;
+    const highlightSticker = (label: string | null, requestedColor: string | null) => {
+      activeStickerLabel = label;
+      activeStickerColor = requestedColor;
+      clearStickerHighlight();
+      if (!label) return;
       root.updateMatrixWorld(true);
-      const targetNormal = toVec3(faceNormal(face)).normalize();
-      for (const sticker of stickerMeshes) {
-        const normals = sticker.geometry.getAttribute("normal");
-        if (!normals) continue;
-        const worldNormal = new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld);
-        if (worldNormal.dot(targetNormal) < 0.94) continue;
-        const material = sticker.material as THREE.MeshStandardMaterial;
-        material.emissive.set(GRAB_GLOW);
-        material.emissiveIntensity = 1.45;
-      }
-      positionGlow(face);
+      const sticker = stickerMeshes.find(candidate => candidate.userData.label === label);
+      if (!sticker) return;
+      const color = requestedColor || (sticker.userData.baseColor as string);
+      const material = sticker.material as THREE.MeshStandardMaterial;
+      material.emissive.set(color);
+      material.emissiveIntensity = 2.15;
+      haloMaterial.color.set(color);
+      grabLight.color.set(color);
+      const worldPosition = new THREE.Vector3();
+      const worldNormal = new THREE.Vector3(0, 0, 1);
+      sticker.getWorldPosition(worldPosition);
+      const normals = sticker.geometry.getAttribute("normal");
+      if (normals) worldNormal.set(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld);
+      root.worldToLocal(worldPosition);
+      const localNormal = worldNormal.transformDirection(root.matrixWorld.clone().invert());
+      grabHalo.position.copy(worldPosition).addScaledVector(localNormal, 0.12);
+      grabLight.position.copy(worldPosition).addScaledVector(localNormal, 0.42);
       grabHalo.visible = true;
-      haloMaterial.opacity = 0.72;
-      grabLight.intensity = 24;
+      haloMaterial.opacity = 0.76;
+      grabLight.intensity = 18;
     };
 
     const onGrabFace = (event: Event) => {
       const detail = (event as GrabFaceEvent).detail;
-      const face = typeof detail?.face === "number" ? detail.face : null;
+      const label = typeof detail?.stickerLabel === "string" ? detail.stickerLabel : null;
+      const color = typeof detail?.color === "string" ? detail.color : null;
       controls.autoRotate = false;
-      highlightGrabFace(face);
-      setGrabFace(face);
-      if (face !== null) setStatus(`Grab face ${face + 1} • neon green halo`);
+      highlightSticker(label, color);
+      setGrabLabel(label);
+      if (label) setStatus(`Target sticker ${label} • glowing in its own color`);
     };
     window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
 
     const groupsForFace = (face: number) => FACE_CORNERS[face]!.map(slot => cornerGroups[logicalState.cp[slot]!]!);
-
     const runNext = () => {
       if (active || !queue.length) return;
       active = true;
       setBusy(true);
       controls.autoRotate = false;
-      clearGrabHighlight();
+      clearStickerHighlight();
       const queued = queue.shift()!;
       const face = faceOfMove(queued.moveIndex);
       const pieces = groupsForFace(face);
@@ -318,10 +310,7 @@ export default function KilominxNotationModel() {
         if (disposed) return;
         const progress = Math.min(1, (now - started) / duration);
         pivot.quaternion.setFromAxisAngle(axis, angle * (1 - Math.pow(1 - progress, 3)));
-        if (progress < 1) {
-          moveFrame = requestAnimationFrame(animate);
-          return;
-        }
+        if (progress < 1) { moveFrame = requestAnimationFrame(animate); return; }
         pivot.updateMatrixWorld(true);
         pieces.forEach(piece => root.attach(piece));
         root.remove(pivot);
@@ -331,35 +320,25 @@ export default function KilominxNotationModel() {
         active = false;
         setBusy(queue.length > 0);
         setStatus(nowSolved ? "Solved" : queue.length ? "Playing moves…" : "Kilominx ready");
-        highlightGrabFace(activeGrabFace);
+        highlightSticker(activeStickerLabel, activeStickerColor);
         runNext();
       };
       moveFrame = requestAnimationFrame(animate);
     };
-
-    const queueSequence = (moves: number[], fast = false) => {
-      moves.forEach(moveIndex => queue.push({ moveIndex, fast }));
-      runNext();
-    };
-
+    const queueSequence = (moves: number[], fast = false) => { moves.forEach(moveIndex => queue.push({ moveIndex, fast })); runNext(); };
     const hardReset = () => {
       queue.length = 0;
-      cornerGroups.forEach(group => {
-        group.position.set(0, 0, 0);
-        group.quaternion.identity();
-        group.scale.set(1, 1, 1);
-      });
+      cornerGroups.forEach(group => { group.position.set(0, 0, 0); group.quaternion.identity(); group.scale.set(1, 1, 1); });
       logicalState = solved();
       setSolvedNow(true);
-      highlightGrabFace(activeGrabFace);
+      highlightSticker(activeStickerLabel, activeStickerColor);
     };
 
     actionsRef.current = {
       scramble: () => {
         if (active) return;
         const sequence = randomScramble(30);
-        const notation = sequence.map(moveLabel).join(" ");
-        setScrambleText(notation);
+        setScrambleText(sequence.map(move => moveLabel(move)).join(" "));
         setSolutionText("");
         setStatus("Scrambling…");
         queueSequence(sequence, true);
@@ -367,12 +346,8 @@ export default function KilominxNotationModel() {
       solve: () => {
         if (active) return;
         const sequence = solve(logicalState);
-        if (!sequence.length) {
-          setStatus("Already solved");
-          return;
-        }
-        const notation = sequence.map(moveLabel).join(" ");
-        setSolutionText(notation);
+        if (!sequence.length) { setStatus("Already solved"); return; }
+        setSolutionText(sequence.map(move => moveLabel(move)).join(" "));
         setStatus(`Playing ${sequence.length} solution moves…`);
         queueSequence(sequence);
       },
@@ -383,10 +358,7 @@ export default function KilominxNotationModel() {
         setSolutionText("");
         setStatus("Reset to solved");
       },
-      resetView: () => {
-        controls.reset();
-        setStatus("View reset");
-      },
+      resetView: () => { controls.reset(); setStatus("View reset"); },
     };
 
     const raycaster = new THREE.Raycaster();
@@ -404,22 +376,14 @@ export default function KilominxNotationModel() {
       const origin = point.clone().project(camera);
       const target = point.clone().add(tangent).project(camera);
       const screen = new THREE.Vector2(target.x - origin.x, -(target.y - origin.y)).normalize();
-      const drag = new THREE.Vector2(dx, dy).normalize();
-      return face * 2 + (drag.dot(screen) >= 0 ? 0 : 1);
+      return face * 2 + (new THREE.Vector2(dx, dy).normalize().dot(screen) >= 0 ? 0 : 1);
     };
     const onDown = (event: PointerEvent) => {
       if (active) return;
       setPointer(event);
       const hit = raycaster.intersectObjects(pickables, true)[0];
       if (!hit) return;
-      pointerStart = {
-        id: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        point: hit.point.clone(),
-        face: hit.object.userData.face as number,
-        label: hit.object.userData.label as string,
-      };
+      pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY, point: hit.point.clone(), face: hit.object.userData.face as number, label: hit.object.userData.label as string };
       controls.enabled = false;
       renderer.domElement.setPointerCapture(event.pointerId);
     };
@@ -433,9 +397,7 @@ export default function KilominxNotationModel() {
         const move = resolveMove(start.face, start.point, dx, dy);
         setStatus(`Turn ${moveLabel(move)} from sticker ${start.label}`);
         queueSequence([move]);
-      } else {
-        setStatus(`${start.label} • engine face ${start.face + 1}`);
-      }
+      } else setStatus(`${start.label} • engine face ${start.face + 1}`);
       controls.enabled = true;
     };
     renderer.domElement.addEventListener("pointerdown", onDown, true);
@@ -459,9 +421,9 @@ export default function KilominxNotationModel() {
       controls.update();
       if (grabHalo.visible) {
         const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * 0.11;
-        grabHalo.scale.setScalar(2.7 * pulse);
-        haloMaterial.opacity = 0.62 + (pulse - 1) * 1.45;
-        grabLight.intensity = 22 + (pulse - 1) * 55;
+        grabHalo.scale.setScalar(1.25 * pulse);
+        haloMaterial.opacity = 0.66 + (pulse - 1) * 1.2;
+        grabLight.intensity = 17 + (pulse - 1) * 38;
       }
       renderer.render(scene, camera);
     };
@@ -488,28 +450,17 @@ export default function KilominxNotationModel() {
 
   return (
     <section className="glass overflow-hidden rounded-[22px]">
-      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
-        <span>{status}</span>
-        <span className="font-bold text-[var(--text)]">{grabFace === null ? (solvedNow ? "Solved" : "In motion") : `Grab face ${grabFace + 1}`}</span>
-      </div>
+      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><span className="font-bold text-[var(--text)]">{grabLabel ?? (solvedNow ? "Solved" : "In motion")}</span></div>
       <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Pulsing neon halo = current grab face • swipe a labeled sticker to turn</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Only the current target sticker glows in its own color</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.reset()} className="glass min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Reset</button>
         <button onClick={() => actionsRef.current?.resetView()} className="glass min-h-11 rounded-xl text-sm font-extrabold">View</button>
       </div>
-      <section className="border-t border-[var(--border)] px-4 py-3">
-        <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p>
-        <p data-puzzle-scramble={scrambleText} className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to load the same sequence into the flat reference."}</p>
-      </section>
-      {solutionText ? (
-        <section className="border-t border-[var(--border)] px-4 py-3">
-          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--purple)]">SOLUTION</p>
-          <p className="mt-2 break-words font-mono text-xs leading-6 text-[var(--text)]">{solutionText}</p>
-        </section>
-      ) : null}
+      <section className="border-t border-[var(--border)] px-4 py-3"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p data-puzzle-scramble={scrambleText} className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to load the same sequence into the flat reference."}</p></section>
+      {solutionText ? <section className="border-t border-[var(--border)] px-4 py-3"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--purple)]">SOLUTION</p><p className="mt-2 break-words font-mono text-xs leading-6 text-[var(--text)]">{solutionText}</p></section> : null}
     </section>
   );
 }
