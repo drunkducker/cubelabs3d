@@ -36,8 +36,11 @@ jobs:
       - name: Check documentation
         run: npm run docs:check
 
-      - name: Check puzzle cookie-cutter conformance
+      - name: Check puzzle cookie-cutter conformance (solve/play/learn engines)
         run: npm run puzzles:check
+
+      - name: Check site module cookie-cutter conformance
+        run: npm run modules:check
 
       - name: Typecheck
         run: npx tsc --noEmit

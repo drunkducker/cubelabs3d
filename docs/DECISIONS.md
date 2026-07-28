@@ -508,14 +508,22 @@ experiment and A/B-test without being blocked.
 
 ### Decision
 
-- **One registry is the source of truth.** `lib/puzzles.mjs` declares every
-  puzzle, its `contract` (required capabilities), intentional `waivers` (with
-  reasons), and an optional `experiment`/`status` marker.
+- **Registries are the source of truth, organized as engines and modules.**
+  `lib/puzzles.mjs` declares every puzzle and the features it must have, grouped
+  into three engines — **solve** (solver, scramble, manual input, 3D solution
+  playback, save/share), **play** (playable, save result, leaderboard,
+  achievements), and **learn** (interactive demo, algorithms) — plus intentional
+  `waivers` (with reasons) and a `status`/`experiment` marker. `lib/modules.mjs`
+  declares the reusable site-level building blocks (affiliate carousel, ad
+  window, banner, YouTube carousel, footer) the same way.
 - **Conformance is checked in CI.** `scripts/check-puzzles.mjs`
-  (`npm run puzzles:check`) verifies each contract capability against the repo
-  and prints a ✅/⚠️/❌ matrix. It fails only on a required capability that is
-  neither present nor waived; declared deviations pass, and a waiver whose
-  capability is now present is flagged as stale.
+  (`npm run puzzles:check`) and `scripts/check-modules.mjs`
+  (`npm run modules:check`) verify each feature/module against the repo and print
+  a ✅/⚠️/❌ matrix (puzzles grouped by engine). They fail only on a required item
+  that is neither present nor waived; declared deviations pass, and a waiver whose
+  feature is now present is flagged as stale. Detectors are specific enough to
+  stay honest (e.g. manual input keys on real entry tokens, not the word
+  "manual").
 - **Waivers/experiments are the freedom hatch.** Building or A/B-testing a puzzle
   means recording a waiver or `experimental` status, not leaving a silent gap —
   so "not cookie-cutter yet" is always explicit and reviewable.
