@@ -285,7 +285,7 @@ export default function KilominxSolver() {
             aria-pressed={locked}
             className={`absolute right-3 top-3 z-[3] rounded-full border px-3 py-1.5 text-xs font-extrabold backdrop-blur ${locked ? "border-[var(--purple)] bg-[rgba(139,92,246,.18)] text-[var(--text)]" : "border-[var(--border)] bg-black/40 text-[var(--muted)]"}`}
           >{locked ? "🔒 Rotation locked" : "🔓 Lock rotation"}</button>
-          <div className="pointer-events-none absolute bottom-4 left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{locked ? "Rotation locked • verified playback" : "Drag to rotate • verified playback"}</div>
+          <div className="pointer-events-none absolute bottom-4 left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{locked ? "Swipe a face to turn • rotation locked" : "Swipe a face to turn • drag to rotate"}</div>
         </> : <div className="absolute inset-0 z-[2] grid place-items-center px-6 text-center text-sm text-[var(--faint)]">Your Kilominx will appear here once it&apos;s scrambled or fully entered.</div>}
       </div>
     </section>

@@ -145,6 +145,9 @@ export default function KilominxSolverCube3D({
     // Sticker material keyed by facelet index f*5+k, so recolouring on a new
     // cube is a direct lookup.
     const stickerMats = new Map<number, THREE.MeshStandardMaterial>();
+    // Every kite sticker is swipe-pickable; the face it belongs to is what a
+    // swipe across it turns.
+    const pickables: THREE.Mesh[] = [];
 
     for (let face = 0; face < 12; face++) {
       for (const kite of faceKites(face)) {
@@ -160,6 +163,8 @@ export default function KilominxSolverCube3D({
         materials.push(stickerMat);
         stickerMats.set(faceletIndex, stickerMat);
         const sticker = new THREE.Mesh(stickerGeo, stickerMat);
+        sticker.userData.face = face; // swiping this kite turns this face
+        pickables.push(sticker);
         const backing = new THREE.Mesh(backingGeo, bodyMaterial);
         cornerGroups[kite.corner].add(backing);
         cornerGroups[kite.corner].add(sticker);
@@ -176,6 +181,9 @@ export default function KilominxSolverCube3D({
     let disposed = false;
     let moveFrame = 0;
     let animating = false;
+    // Set when a manual swipe has turned a face, so the cube no longer matches
+    // the solution step; the next stepper/playback change rebuilds to that step.
+    let manualDirty = false;
 
     const groupsForFace = (face: number): THREE.Group[] =>
       FACE_CORNERS[face].map(slot => cornerGroups[logicalState.cp[slot]]);
@@ -208,9 +216,20 @@ export default function KilominxSolverCube3D({
       hardReset();
       for (let i = 0; i < clamped; i++) applyInstant(currentSolution[i]);
       shownStep = clamped;
+      manualDirty = false; // geometry now matches the solution step exactly
     };
 
-    const animateOne = (mi: number, targetStep: number) => {
+    let highlighted: THREE.Group[] = [];
+    const glowFace = (groups: THREE.Group[], on: boolean) => groups.forEach(g => g.traverse(child => {
+      if (child instanceof THREE.Mesh && child.userData.face !== undefined) {
+        (child.material as THREE.MeshStandardMaterial).emissiveIntensity = on ? 0.3 : 0.04;
+      }
+    }));
+    const clearHighlight = () => { glowFace(highlighted, false); highlighted = []; };
+    const highlightFace = (face: number) => { clearHighlight(); highlighted = groupsForFace(face); glowFace(highlighted, true); };
+
+    // The one face-spin animation, shared by solution playback and manual swipes.
+    const spinFace = (mi: number, onComplete: () => void, turnDuration: number) => {
       const face = faceOfMove(mi);
       const axis = toVec3(faceNormal(face));
       const angle = dirOfMove(mi) === 1 ? TURN : -TURN;
@@ -220,24 +239,31 @@ export default function KilominxSolverCube3D({
       const started = performance.now();
       animating = true;
       onAnimatingRef.current(true);
+      clearHighlight();
       const anim = (now: number) => {
         if (disposed) return;
-        const p = Math.min(1, (now - started) / Math.max(1, duration));
+        const p = Math.min(1, (now - started) / Math.max(1, turnDuration));
         const eased = 1 - Math.pow(1 - p, 3);
         pivot.quaternion.setFromAxisAngle(axis, angle * eased);
         if (p < 1) { moveFrame = requestAnimationFrame(anim); return; }
         bakePivot(pivot, pieces);
         logicalState = applyMoveIndex(logicalState, mi);
-        shownStep = targetStep;
         animating = false;
         onAnimatingRef.current(false);
+        onComplete();
       };
       moveFrame = requestAnimationFrame(anim);
     };
 
+    const animateOne = (mi: number, targetStep: number) => spinFace(mi, () => { shownStep = targetStep; }, duration);
+    // A manual swipe turns a face freely for inspection; it desyncs the cube
+    // from the solution step, so manualDirty forces a rebuild on the next change.
+    const manualTurn = (mi: number) => { manualDirty = true; spinFace(mi, () => {}, 220); };
+
     const goToStep = (targetStep: number) => {
       if (animating) return;
       const clamped = Math.max(0, Math.min(currentSolution.length, targetStep));
+      if (manualDirty) { rebuildTo(clamped); return; } // resync after manual swipes
       const diff = clamped - shownStep;
       if (diff === 0) return;
       if (diff === 1) animateOne(currentSolution[shownStep], shownStep + 1);
@@ -260,13 +286,80 @@ export default function KilominxSolverCube3D({
       goToStep,
       rebuildTo,
       setDuration: (ms) => { duration = ms; },
+      // "Lock rotation" freezes only the CAMERA (orbit + zoom). Swipe-to-turn
+      // stays on — touch-action must remain "none" for the swipe to register —
+      // so a locked view still lets you turn faces from a fixed angle.
       setLocked: (isLocked) => {
         controls.enableRotate = !isLocked;
         controls.enableZoom = !isLocked;
         renderer.domElement.style.cursor = isLocked ? "default" : "grab";
-        renderer.domElement.style.touchAction = isLocked ? "pan-y" : "none";
       },
     };
+
+    // ---- Swipe-to-turn: swipe across a sticker to turn its face; drag empty
+    // space to orbit (unless rotation is locked). Same model as the play page —
+    // a kite belongs to exactly one face, so the touched sticker names the face
+    // and the drag direction gives the turn sign. ----
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let pointerStart: { pointerId: number; clientX: number; clientY: number; hitPoint: THREE.Vector3; face: number } | null = null;
+    let previewMove: number | null = null;
+    let activePointers = 0;
+
+    const setPointerFromEvent = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+    };
+    const projectedScreenDirection = (worldDirection: THREE.Vector3, origin: THREE.Vector3) => {
+      const originProjected = origin.clone().project(camera);
+      const endpointProjected = origin.clone().add(worldDirection).project(camera);
+      return new THREE.Vector2(endpointProjected.x - originProjected.x, -(endpointProjected.y - originProjected.y)).normalize();
+    };
+    const resolveMove = (face: number, hitPoint: THREE.Vector3, dx: number, dy: number): number => {
+      const axis = toVec3(faceNormal(face));
+      const tangent = axis.clone().cross(hitPoint);
+      const drag = new THREE.Vector2(dx, dy).normalize();
+      const score = tangent.lengthSq() < 1e-8 ? 1 : drag.dot(projectedScreenDirection(tangent.normalize(), hitPoint));
+      return face * 2 + (score >= 0 ? 0 : 1); // 2f = "+", 2f+1 = "-"
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      activePointers += 1;
+      previewMove = null;
+      if (animating || activePointers > 1) { pointerStart = null; return; }
+      setPointerFromEvent(event);
+      const hit = raycaster.intersectObjects(pickables, true)[0];
+      const face = hit?.object.userData.face as number | undefined;
+      if (!hit || face === undefined) return; // empty space -> OrbitControls orbits
+      pointerStart = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, hitPoint: hit.point.clone(), face };
+      event.preventDefault();
+      controls.enabled = false; // suppress orbit while swiping a sticker
+      renderer.domElement.setPointerCapture(event.pointerId);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId || activePointers > 1) return;
+      event.preventDefault();
+      const dx = event.clientX - pointerStart.clientX, dy = event.clientY - pointerStart.clientY;
+      if (Math.hypot(dx, dy) < 16) return;
+      previewMove = resolveMove(pointerStart.face, pointerStart.hitPoint, dx, dy);
+      highlightFace(pointerStart.face);
+    };
+    const finishPointer = (event: PointerEvent) => {
+      activePointers = Math.max(0, activePointers - 1);
+      if (!pointerStart || event.pointerId !== pointerStart.pointerId) { if (activePointers === 0) controls.enabled = true; return; }
+      const start = pointerStart; pointerStart = null;
+      const dx = event.clientX - start.clientX, dy = event.clientY - start.clientY;
+      if (Math.hypot(dx, dy) >= 34 && !animating) manualTurn(previewMove ?? resolveMove(start.face, start.hitPoint, dx, dy));
+      else clearHighlight();
+      controls.enabled = activePointers === 0;
+    };
+
+    renderer.domElement.addEventListener("pointerdown", onPointerDown, true);
+    renderer.domElement.addEventListener("pointermove", onPointerMove, true);
+    renderer.domElement.addEventListener("pointerup", finishPointer, true);
+    renderer.domElement.addEventListener("pointercancel", finishPointer, true);
 
     const resize = () => {
       const w = Math.max(1, mount.clientWidth), h = Math.max(1, mount.clientHeight);
@@ -287,6 +380,10 @@ export default function KilominxSolverCube3D({
       cancelAnimationFrame(frame);
       cancelAnimationFrame(moveFrame);
       observer.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown, true);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
+      renderer.domElement.removeEventListener("pointerup", finishPointer, true);
+      renderer.domElement.removeEventListener("pointercancel", finishPointer, true);
       controls.dispose();
       apiRef.current = null;
       materials.forEach(m => m.dispose());
