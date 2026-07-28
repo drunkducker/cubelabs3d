@@ -34,7 +34,7 @@ export default function KilominxNotationPage() {
             Follow the <span className="accent-text">next twist</span>
           </h1>
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
-            Scramble the Kilominx, then follow the glowing sticker and move label. The engine computes the first move needed from the current state and recalculates after every twist you make.
+            Hit Scramble, find the bright target dot, and follow the side thumb indicator. The engine shows how many moves remain and recalculates after every twist, so experimenting never breaks the lesson.
           </p>
         </section>
 
@@ -47,7 +47,7 @@ export default function KilominxNotationPage() {
         </section>
 
         <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-          <p><strong className="text-[var(--text)]">How to use it:</strong> touch the glowing sticker, perform the displayed face move, and wait for the dot to advance. A different move is accepted, then the solver creates a new route from that state.</p>
+          <p><strong className="text-[var(--text)]">How to use it:</strong> touch the glowing sticker, slide your thumb in the displayed direction, and wait for the dot to advance. After three human moves, the remaining-moves count stays pinned at the top of the puzzle box. A different move is accepted and creates a new route from that state.</p>
         </section>
       </div>
 
