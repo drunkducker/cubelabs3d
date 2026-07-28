@@ -58,6 +58,15 @@ export default function KilominxNotationPage() {
         .kilominx-human-guide section > .grid.grid-cols-4 > button:nth-child(2) {
           display: none;
         }
+        .kilominx-human-guide [data-kilominx-learn-guide] > div[aria-hidden="true"] {
+          position: fixed !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+          left: max(12px, calc((100vw - 460px) / 2 + 12px)) !important;
+          transform: none !important;
+          z-index: 60 !important;
+        }
       `}</style>
     </main>
   );
