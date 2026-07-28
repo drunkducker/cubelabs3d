@@ -21,6 +21,7 @@ import {
 
 const TURN = (2 * Math.PI) / 5;
 const LETTERS = ["A", "B", "C", "D", "E"] as const;
+const GRAB_FACE_EVENT = "kilominx-notation-grab-face";
 
 type QueuedMove = { moveIndex: number; fast?: boolean };
 type Kite = {
@@ -28,6 +29,8 @@ type Kite = {
   kite: number;
   quad: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3];
 };
+
+type GrabFaceEvent = CustomEvent<{ face: number | null; move: number | null }>;
 
 const toVec3 = (value: readonly [number, number, number]) => new THREE.Vector3(value[0], value[1], value[2]);
 
@@ -110,6 +113,7 @@ export default function KilominxNotationModel() {
   const [solutionText, setSolutionText] = useState("");
   const [busy, setBusy] = useState(false);
   const [solvedNow, setSolvedNow] = useState(true);
+  const [grabFace, setGrabFace] = useState<number | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -156,6 +160,7 @@ export default function KilominxNotationModel() {
     const geometries: THREE.BufferGeometry[] = [];
     const textures: THREE.Texture[] = [];
     const pickables: THREE.Mesh[] = [];
+    const stickerMeshes: THREE.Mesh[] = [];
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#0b0d12", roughness: 0.45, metalness: 0.06 });
     materials.push(bodyMaterial);
 
@@ -165,7 +170,8 @@ export default function KilominxNotationModel() {
         const stickerGeometry = quadGeometry(kite.quad, 0.9);
         const backingGeometry = quadGeometry(kite.quad, 0.99);
         geometries.push(stickerGeometry, backingGeometry);
-        const texture = labelTexture(`${face + 1}${LETTERS[kite.kite]}`, color);
+        const label = `${face + 1}${LETTERS[kite.kite]}`;
+        const texture = labelTexture(label, color);
         textures.push(texture);
         const stickerMaterial = new THREE.MeshStandardMaterial({
           map: texture,
@@ -182,10 +188,12 @@ export default function KilominxNotationModel() {
         const sticker = new THREE.Mesh(stickerGeometry, stickerMaterial);
         sticker.userData.isSticker = true;
         sticker.userData.face = face;
-        sticker.userData.label = `${face + 1}${LETTERS[kite.kite]}`;
+        sticker.userData.label = label;
+        sticker.userData.baseColor = color;
         const backing = new THREE.Mesh(backingGeometry, bodyMaterial);
         cornerGroups[kite.corner]!.add(backing, sticker);
         pickables.push(sticker);
+        stickerMeshes.push(sticker);
       }
     }
 
@@ -193,7 +201,44 @@ export default function KilominxNotationModel() {
     let disposed = false;
     let moveFrame = 0;
     let active = false;
+    let activeGrabFace: number | null = null;
     const queue: QueuedMove[] = [];
+
+    const clearGrabHighlight = () => {
+      for (const sticker of stickerMeshes) {
+        const material = sticker.material as THREE.MeshStandardMaterial;
+        material.emissive.set(sticker.userData.baseColor as string);
+        material.emissiveIntensity = 0.035;
+      }
+    };
+
+    const highlightGrabFace = (face: number | null) => {
+      activeGrabFace = face;
+      clearGrabHighlight();
+      if (face === null) return;
+      root.updateMatrixWorld(true);
+      const targetNormal = toVec3(faceNormal(face)).normalize();
+      for (const sticker of stickerMeshes) {
+        const normals = sticker.geometry.getAttribute("normal");
+        if (!normals) continue;
+        const worldNormal = new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld);
+        if (worldNormal.dot(targetNormal) < 0.94) continue;
+        const material = sticker.material as THREE.MeshStandardMaterial;
+        material.emissive.set("#8b5cf6");
+        material.emissiveIntensity = 1.1;
+      }
+    };
+
+    const onGrabFace = (event: Event) => {
+      const detail = (event as GrabFaceEvent).detail;
+      const face = typeof detail?.face === "number" ? detail.face : null;
+      controls.autoRotate = false;
+      highlightGrabFace(face);
+      setGrabFace(face);
+      if (face !== null) setStatus(`Grab face ${face + 1} • highlighted from the flat lesson`);
+    };
+    window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
+
     const groupsForFace = (face: number) => FACE_CORNERS[face]!.map(slot => cornerGroups[logicalState.cp[slot]!]!);
 
     const runNext = () => {
@@ -201,6 +246,7 @@ export default function KilominxNotationModel() {
       active = true;
       setBusy(true);
       controls.autoRotate = false;
+      clearGrabHighlight();
       const queued = queue.shift()!;
       const face = faceOfMove(queued.moveIndex);
       const pieces = groupsForFace(face);
@@ -228,6 +274,7 @@ export default function KilominxNotationModel() {
         active = false;
         setBusy(queue.length > 0);
         setStatus(nowSolved ? "Solved" : queue.length ? "Playing moves…" : "Kilominx ready");
+        highlightGrabFace(activeGrabFace);
         runNext();
       };
       moveFrame = requestAnimationFrame(animate);
@@ -237,6 +284,7 @@ export default function KilominxNotationModel() {
       moves.forEach(moveIndex => queue.push({ moveIndex, fast }));
       runNext();
     };
+
     const hardReset = () => {
       queue.length = 0;
       cornerGroups.forEach(group => {
@@ -246,6 +294,7 @@ export default function KilominxNotationModel() {
       });
       logicalState = solved();
       setSolvedNow(true);
+      highlightGrabFace(activeGrabFace);
     };
 
     actionsRef.current = {
@@ -359,6 +408,7 @@ export default function KilominxNotationModel() {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(moveFrame);
       observer.disconnect();
+      window.removeEventListener(GRAB_FACE_EVENT, onGrabFace);
       renderer.domElement.removeEventListener("pointerdown", onDown, true);
       renderer.domElement.removeEventListener("pointerup", onUp, true);
       renderer.domElement.removeEventListener("pointercancel", onUp, true);
@@ -376,10 +426,10 @@ export default function KilominxNotationModel() {
     <section className="glass overflow-hidden rounded-[22px]">
       <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
         <span>{status}</span>
-        <span className="font-bold text-[var(--text)]">{solvedNow ? "Solved" : "In motion"}</span>
+        <span className="font-bold text-[var(--text)]">{grabFace === null ? (solvedNow ? "Solved" : "In motion") : `Grab face ${grabFace + 1}`}</span>
       </div>
       <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Swipe a labeled sticker to turn • tap to identify</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Purple glow = current grab face • swipe a labeled sticker to turn</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
