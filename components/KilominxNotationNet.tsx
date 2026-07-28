@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CORNER_FACES,
   FACE_COLORS,
+  applyMoveIndex,
   applyMoves,
   faceOfMove,
+  inverseMoveIndex,
+  inverseSequence,
   isSolved,
   moveLabel,
   parseMove,
-  solve,
+  simplify,
   solved,
   type KiloState,
 } from "@/lib/kilominx-engine";
@@ -17,7 +20,6 @@ import { FACE_CORNERS_CCW, kilominxNet } from "@/lib/kilominx-net-layout";
 
 const NET = kilominxNet();
 const LETTERS = ["A", "B", "C", "D", "E"] as const;
-export const KILOMINX_GRAB_FACE_EVENT = "kilominx-notation-grab-face";
 
 function kitePoints(quad: readonly [number, number][], shrink = 0.9) {
   const cx = quad.reduce((sum, point) => sum + point[0], 0) / quad.length;
@@ -86,11 +88,24 @@ function stickerLabelAt(state: KiloState, slot: number, destinationFace: number)
 
 export default function KilominxNotationNet() {
   const [puzzleState, setPuzzleState] = useState<KiloState>(() => solved());
+  const [guidedRoute, setGuidedRoute] = useState<number[]>([]);
   const importedScramble = useRef("");
   const observedStatus = useRef("");
+  const stateRef = useRef<KiloState>(solved());
+  const routeRef = useRef<number[]>([]);
+  const pendingScrambleState = useRef<KiloState | null>(null);
+  const pendingScrambleRoute = useRef<number[]>([]);
+  const pendingMove = useRef<number | null>(null);
+  const scrambleActive = useRef(false);
 
-  const solutionMoves = useMemo(() => solve(puzzleState), [puzzleState]);
-  const activeMove = solutionMoves[0];
+  const commitSnapshot = (state: KiloState, route: number[]) => {
+    stateRef.current = state;
+    routeRef.current = route;
+    setPuzzleState(state);
+    setGuidedRoute(route);
+  };
+
+  const activeMove = guidedRoute[0];
   const activeFace = activeMove === undefined ? null : faceOfMove(activeMove);
   const activeKite = 0;
   const activeNetKite = activeFace === null
@@ -106,16 +121,53 @@ export default function KilominxNotationNet() {
       const scramble = readSequenceSection("SCRAMBLE");
       if (scramble !== importedScramble.current) {
         importedScramble.current = scramble;
-        const scrambleMoves = parseSequence(scramble);
-        setPuzzleState(scrambleMoves.length ? applyMoves(solved(), scrambleMoves) : solved());
+        if (!scramble) {
+          pendingScrambleState.current = null;
+          pendingScrambleRoute.current = [];
+          pendingMove.current = null;
+          scrambleActive.current = false;
+          commitSnapshot(solved(), []);
+        } else {
+          const scrambleMoves = parseSequence(scramble);
+          pendingScrambleState.current = scrambleMoves.length ? applyMoves(solved(), scrambleMoves) : solved();
+          pendingScrambleRoute.current = simplify(inverseSequence(scrambleMoves));
+          pendingMove.current = null;
+          scrambleActive.current = true;
+          setGuidedRoute([]);
+        }
       }
 
       const status = readModelStatus();
-      if (status === observedStatus.current) return;
+      if (!status || status === observedStatus.current) return;
       observedStatus.current = status;
+
       const committedMove = committedMoveFromStatus(status);
       if (committedMove !== null) {
-        setPuzzleState(current => applyMoves(current, [committedMove]));
+        pendingMove.current = committedMove;
+        return;
+      }
+
+      const moveFinished = status === "Kilominx ready" || status === "Solved";
+      if (!moveFinished) return;
+
+      if (scrambleActive.current && pendingScrambleState.current) {
+        commitSnapshot(pendingScrambleState.current, pendingScrambleRoute.current);
+        pendingScrambleState.current = null;
+        pendingScrambleRoute.current = [];
+        scrambleActive.current = false;
+        return;
+      }
+
+      if (pendingMove.current !== null) {
+        const move = pendingMove.current;
+        pendingMove.current = null;
+        const previousRoute = routeRef.current;
+        const followedGuide = previousRoute[0] === move;
+        const nextState = applyMoveIndex(stateRef.current, move);
+        const nextRoute = followedGuide
+          ? previousRoute.slice(1)
+          : simplify([inverseMoveIndex(move), ...previousRoute]);
+        commitSnapshot(nextState, nextRoute);
       }
     };
 
@@ -125,25 +177,13 @@ export default function KilominxNotationNet() {
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent(KILOMINX_GRAB_FACE_EVENT, {
-      detail: {
-        face: activeFace,
-        move: activeMove ?? null,
-        kite: activeKite,
-        stickerLabel: activeStickerLabel,
-        color: activeStickerColor,
-      },
-    }));
-  }, [activeFace, activeMove, activeStickerLabel, activeStickerColor]);
-
   return (
     <section className="kilominx-print-surface rounded-[22px] border border-[var(--border)] bg-[rgba(255,255,255,.045)] p-4 shadow-[0_18px_40px_rgba(0,0,0,.42)] print:border-0 print:bg-white print:p-0 print:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Live human solve guide</p>
-          <h2 className="mt-1 text-2xl font-extrabold text-white">Follow the glowing sticker</h2>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The engine solves the current state, targets the first required face, and recomputes after every twist you make.</p>
+          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Shared guided route</p>
+          <h2 className="mt-1 text-2xl font-extrabold text-white">Same plan as the 3D guide</h2>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The flower no longer runs a second solver. It mirrors the same stable route, move, and remaining count shown above.</p>
         </div>
         <button type="button" onClick={() => window.print()} className="rounded-xl border border-[var(--border)] bg-black/25 px-4 py-2 text-sm font-extrabold text-white">Print current state</button>
       </div>
@@ -151,7 +191,7 @@ export default function KilominxNotationNet() {
       <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold print:hidden">
         <span className="text-[var(--muted)]">NEXT TWIST</span>
         <span style={{ color: activeStickerColor ?? undefined }}>
-          {solvedNow ? "Solved" : `${moveLabel(activeMove!)} · touch ${activeStickerLabel ?? "target"}`}
+          {solvedNow ? "Solved" : activeMove === undefined ? "Scrambling…" : `${moveLabel(activeMove)} · face ${(activeFace ?? 0) + 1}`}
         </span>
       </div>
 
@@ -161,7 +201,7 @@ export default function KilominxNotationNet() {
             const stickerFace = stickerFaceAt(puzzleState, kite.slot, kite.face);
             const color = FACE_COLORS[stickerFace]!;
             const label = stickerLabelAt(puzzleState, kite.slot, kite.face);
-            const active = label === activeStickerLabel;
+            const active = activeNetKite?.face === kite.face && activeNetKite?.kite === kite.kite;
             const [cx, cy] = kiteCenter(kite.quad);
             return <g key={`${kite.face}-${kite.kite}`} className="print:cursor-default">
               <polygon
@@ -189,20 +229,20 @@ export default function KilominxNotationNet() {
         <div className="space-y-3 print:hidden">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4" style={{ boxShadow: activeStickerColor ? `inset 0 0 28px ${activeStickerColor}22` : undefined }}>
             <p className="text-xs font-extrabold uppercase tracking-[.16em]" style={{ color: activeStickerColor ?? undefined }}>Do this next</p>
-            <p className="mt-2 text-3xl font-black text-white">{solvedNow ? "Solved" : moveLabel(activeMove!)}</p>
-            <p className="mt-1 text-sm font-bold" style={{ color: activeStickerColor ?? undefined }}>{solvedNow ? "No twist needed" : `Touch glowing sticker ${activeStickerLabel}`}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Twist the highlighted face by the shown move. A correct move advances the guide. A different move causes the solver to calculate a new route from the resulting state.</p>
+            <p className="mt-2 text-3xl font-black text-white">{solvedNow ? "Solved" : activeMove === undefined ? "Wait" : moveLabel(activeMove)}</p>
+            <p className="mt-1 text-sm font-bold" style={{ color: activeStickerColor ?? undefined }}>{solvedNow ? "No twist needed" : activeMove === undefined ? "Scramble in progress" : `Turn face ${(activeFace ?? 0) + 1}`}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">This is the same next move and the same remaining route as the 3D guide above.</p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[var(--muted)]">Current solver plan</p>
-            <p className="mt-2 break-words font-mono text-sm leading-6 text-white">{solutionMoves.length ? solutionMoves.map(moveLabel).join(" ") : "Puzzle solved"}</p>
-            <p className="mt-2 text-xs font-bold text-[var(--muted)]">{solutionMoves.length} move{solutionMoves.length === 1 ? "" : "s"} remaining</p>
+            <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[var(--muted)]">Current guided route</p>
+            <p className="mt-2 break-words font-mono text-sm leading-6 text-white">{guidedRoute.length ? guidedRoute.map(moveLabel).join(" ") : solvedNow ? "Puzzle solved" : "Waiting for scramble"}</p>
+            <p className="mt-2 text-xs font-bold text-[var(--muted)]">{guidedRoute.length} guided move{guidedRoute.length === 1 ? "" : "s"} remaining</p>
           </div>
         </div>
       </div>
 
-      <div className="hidden print:block print:pt-4 print:text-center print:text-sm print:text-black"><strong>Cube Lab 3D — Kilominx human solve guide</strong><br />The highlighted sticker marks the first move in the engine solution for this exact state.</div>
+      <div className="hidden print:block print:pt-4 print:text-center print:text-sm print:text-black"><strong>Cube Lab 3D — Kilominx shared human guide</strong><br />The flat map mirrors the same stable route used by the interactive 3D guide.</div>
     </section>
   );
 }
