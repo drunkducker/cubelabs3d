@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import { faceNormal } from "@/lib/kilominx-engine";
 
+export const KILOMINX_PREVIEW_DISTANCE = 16;
+export const KILOMINX_COMMIT_DISTANCE = 34;
+
 export type KilominxPointerSample = {
   clientX: number;
   clientY: number;
@@ -88,6 +91,9 @@ export function resolveKilominxDrag(
   };
 }
 
-export function shouldCommitKilominxDrag(distance: number, threshold = 34): boolean {
+export function shouldCommitKilominxDrag(
+  distance: number,
+  threshold = KILOMINX_COMMIT_DISTANCE,
+): boolean {
   return Number.isFinite(distance) && distance >= threshold;
 }
