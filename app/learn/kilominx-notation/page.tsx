@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import KilominxGame from "@/app/KilominxGame";
+import KilominxNotationModel from "@/components/KilominxNotationModel";
 import KilominxNotationClient from "@/components/KilominxNotationClient";
 
 export const metadata: Metadata = {
   title: "Kilominx Notation Explainer | Cube Lab 3D",
-  description: "A touchable Kilominx explainer with the engine-derived twelve-face flat reference.",
+  description: "A touchable labeled Kilominx explainer with the engine-derived twelve-face flat reference.",
 };
 
 export default function KilominxNotationPage() {
@@ -24,8 +24,8 @@ export default function KilominxNotationPage() {
           </div>
         </div>
 
-        <div className="kilominx-notation-model mt-3 overflow-hidden rounded-[22px]">
-          <KilominxGame />
+        <div className="mt-3">
+          <KilominxNotationModel />
         </div>
 
         <section className="mt-4">
@@ -34,20 +34,20 @@ export default function KilominxNotationPage() {
             Explainer <span className="accent-text">Kilominx</span>
           </h1>
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
-            Spin the labeled Kilominx, tap or swipe stickers to identify and test numbered face turns, scramble it, and watch the verified solver play moves back through the same engine.
+            Spin the labeled Kilominx, tap stickers to identify their engine face and kite position, swipe stickers to test numbered turns, scramble it, and watch the verified solver play moves through the same engine.
           </p>
         </section>
 
         <section className="glass mt-3 rounded-[22px] p-4">
           <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FLAT REFERENCE</p>
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-            The same twelve engine faces unfolded into two flowers. Tap a face to identify it, play an algorithm to highlight the grab point, or print the reference.
+            The same twelve engine faces unfolded into two flowers. The current scramble or solution transfers from the labeled 3D model for grab-point highlighting and playback.
           </p>
           <div className="mt-3"><KilominxNotationClient /></div>
         </section>
 
         <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-          <p><strong className="text-[var(--text)]">Numbered notation:</strong> faces use 1–12. A prime mark turns the same face in the reverse direction.</p>
+          <p><strong className="text-[var(--text)]">Sticker labels:</strong> the number is the engine face, and A–E is the counter-clockwise kite position on that face. A prime mark turns the same face in reverse.</p>
         </section>
       </div>
     </main>
