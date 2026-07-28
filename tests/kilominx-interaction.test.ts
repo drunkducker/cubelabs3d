@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import {
+  KILOMINX_COMMIT_DISTANCE,
+  KILOMINX_PREVIEW_DISTANCE,
   kilominxScreenTurnDirection,
   resolveKilominxDrag,
   resolveKilominxSpatialFace,
@@ -58,7 +60,9 @@ describe("kilominx interaction resolver", () => {
     expect(reverse?.moveIndex).toBe(face * 2 + 1);
   });
 
-  it("uses one shared commit threshold", () => {
+  it("uses the playable preview and commit distances", () => {
+    expect(KILOMINX_PREVIEW_DISTANCE).toBe(16);
+    expect(KILOMINX_COMMIT_DISTANCE).toBe(34);
     expect(shouldCommitKilominxDrag(33.9)).toBe(false);
     expect(shouldCommitKilominxDrag(34)).toBe(true);
     expect(shouldCommitKilominxDrag(Number.NaN)).toBe(false);
