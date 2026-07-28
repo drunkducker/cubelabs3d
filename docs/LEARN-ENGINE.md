@@ -122,10 +122,40 @@ This duplication caused visible divergence from the canonical Kilominx:
 
 The separate model is a prototype and must not become the permanent Learn engine.
 
+## Refactor implementation status
+
+### Phase 1 — shared interaction authority (started)
+
+Commit `6d3a114` adds `lib/kilominx-interaction.ts` as the shared, renderer-facing interaction authority for both Play and Learn.
+
+It now owns:
+
+- current spatial-face resolution from a sticker's transformed world normal;
+- screen-space positive-turn direction projection;
+- drag-to-move resolution;
+- the shared commit threshold helper.
+
+This is intentionally not a second state machine. It accepts canonical renderer data and returns an engine move index. The playable renderer and Learn overlay must both call this module so their move preview, floating arrow, touch matrix, and committed move cannot disagree.
+
+The next code change is to replace the private resolver inside `app/KilominxGame.tsx` with this module and expose pointer/move lifecycle events to a Learn adapter. The prototype notation resolver must not receive additional independent gesture logic.
+
+### Video regression reference
+
+The uploaded phone video captured the failures the refactor must remove:
+
+- glow washing the sticker nearly white and hiding its label/color;
+- touch matrix reading as a viewport overlay instead of a surface-local guide;
+- guide appearing after movement without a clear physical start point;
+- displayed direction and committed layer feeling disconnected;
+- state jumps instead of canonical continuous drag feedback;
+- highlighted labels losing contrast.
+
+Keep this list as a hosted mobile acceptance test, not merely a visual preference list.
+
 ## Kilominx refactor plan
 
-1. Audit `app/KilominxGame.tsx` and identify the smallest stable adapter surface for Learn mode.
-2. Extract or expose canonical move, pointer, spatial-face, and animation events without changing approved playable behavior.
+1. Audit `app/KilominxGame.tsx` and identify the smallest stable adapter surface for Learn mode. **Complete.**
+2. Extract or expose canonical move, pointer, spatial-face, and animation events without changing approved playable behavior. **Shared resolver extracted; renderer wiring next.**
 3. Add optional label and Learn-overlay hooks to the canonical renderer.
 4. Move target sticker glow, contrast label, touch matrix, drag guide, and direction arrow into a Learn overlay/controller.
 5. Drive the flat flower from direct logical state or move events.
