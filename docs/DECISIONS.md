@@ -370,3 +370,64 @@ Match the established convention:
 - Mobile/browser QA of both routes before production verification.
 - Consider a dedicated 3D `KilominxSolverCube3D` so the solver can play the
   solution back on a 3D puzzle rather than the flat net.
+  _Done on branch `claude/kilominx-solver-3d-page-wbyyay` — see ADR 0006 and the
+  2026-07-28 history entry._
+
+## ADR 0006 — Solver 3D playback is facelet-driven and may be inspected by swipe
+
+- Status: accepted
+- Date: 2026-07-28
+- Decision owners: Cube Labs project owner and contributing agents
+- Branch: `claude/kilominx-solver-3d-page-wbyyay` (unmerged at time of writing)
+
+### Context
+
+Every `/solver/<puzzle>` page follows one layout: pick a state (scramble or
+enter your own cube), get a verified solution, and watch it play back. The
+4×4/5×5 solvers play the solution back on a 3D cube
+(`components/NxNSolverCube3D.tsx`) that starts from a geometrically solved cube
+coloured by the actual facelet state, then physically animates the solution. The
+Kilominx solver was the exception — it played back on the flat pentagon net
+only. ADR 0005 flagged a dedicated `KilominxSolverCube3D` as follow-up.
+
+Two questions came with building it: (1) how the 3D view stays exactly in sync
+with the engine and the flat net at every step, and (2) whether a playback cube
+may also be turned by hand. The controls guidance cautions against playback-style
+controls on playable pages; this is the inverse — turn interaction on a playback
+view — so the rule needed stating rather than assuming.
+
+### Decision
+
+- **Facelet-driven, engine-tracked playback, mirroring `NxNSolverCube3D`.** A
+  solver's 3D playback colours pieces from the state's facelet snapshot and
+  animates the verified solution; move/layer selection tracks a logical state
+  seeded at `solved()` and advanced by the engine's own move application, so the
+  3D view, the flat net, and the engine never disagree. Single-step changes
+  animate; multi-step scrubs rebuild instantly. This is the cookie-cutter for
+  every puzzle's solver playback — copy `NxNSolverCube3D` /
+  `KilominxSolverCube3D`; do not invent a second state path inside the renderer.
+- **Inspect-only swipe-to-turn is allowed on a solver playback cube.** Swiping a
+  sticker turns that face for inspection; a "Lock rotation" toggle freezes only
+  the camera (orbit + zoom), leaving swipe-to-turn active, matching the Skewb's
+  Rotate-View lock. Manual turns are explicitly non-authoritative: they desync
+  the cube from the solution step and the next stepper/playback change rebuilds
+  to that step exactly. The engine, the verified solution, and the flat net stay
+  the source of truth; a manual turn never edits solver state.
+
+### Consequences
+
+- The Kilominx solver now matches the 4×4/5×5 solver layout; no puzzle's solver
+  is a flat-net special case.
+- Future puzzle solvers have one documented 3D-playback template and one rule for
+  optional manual inspection, so they stay consistent.
+- Because manual turns are non-authoritative and `touch-action` must stay `none`
+  for swipes to register, a locked playback cube can still be turned but the page
+  does not scroll over the canvas on touch (same as the play pages).
+- No database, schema, auth, or configuration change. Rollback is a branch
+  revert; no engine or shared file changed.
+
+### Required follow-up
+
+- Real-device QA of swipe direction/orientation on the solver playback cube.
+- If other solvers (Pyraminx, Skewb) adopt a 3D solution-playback panel, extract
+  the shared facelet-playback shape rather than copying it a third time.

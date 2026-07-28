@@ -109,6 +109,7 @@ documentation support completion.
 - [~] Kilominx interactive 3D puzzle and verified reduction solver merged; production mobile/browser QA remains
 - [x] Kilominx engine regression tests include geometry/move invariants, scramble round trips, and random-scramble solves
 - [~] Kilominx manual "Enter My Cube" solver on a flat pentagon net (facelet↔state mapping, legality check, net playback); merged to `main` at `bbbb7b5`, build/test-verified, mobile/browser QA remains. Route split: `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005)
+- [~] Kilominx solver dedicated 3D solution playback (`KilominxSolverCube3D`) mirroring the 4×4 solver, with a collapsible move list, swipe-to-turn, and a camera-only rotation lock (ADR 0006); branch-only on `claude/kilominx-solver-3d-page-wbyyay`, build/test/browser-verified, not merged, mobile QA remains
 - [~] Skewb draft PR #9: exact state engine and verified solver, fourteen real
   moving bodies, all eight stable corner pivots, continuous sticker drag,
   460 ms turns, native state loading, completed-result tracking, and visible

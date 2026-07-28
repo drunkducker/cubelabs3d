@@ -12,6 +12,23 @@ commit or working-tree state, purpose, affected systems, tests, deployment,
 known issues, migration impact, and rollback notes. Create no separate daily
 log, changelog, checkpoint, transfer, or deploy-trigger Markdown file.
 
+## 2026-07-28 — Kilominx solver gains a dedicated 3D playback, collapsible moves, and swipe-to-turn
+
+- **Author:** Claude, requested by the project owner.
+- **Branch:** `claude/kilominx-solver-3d-page-wbyyay`, commits `1e6b2c5` (3D playback), `bf12187` (collapsible move list), `d09f969` (swipe-to-turn). Branch-only; not merged to `main`, no PR, not browser/mobile-verified on a real device.
+- **Working-tree state:** pushed to `origin/claude/kilominx-solver-3d-page-wbyyay`.
+- **Purpose:** close the follow-up recorded in ADR 0005 and the prior Kilominx history entry — the solver played its solution back on the flat pentagon net, not a 3D puzzle. Bring `/solver/kilominx` to the same layout the 4×4 solver uses (net + dedicated 3D solution playback), make the long (non-optimal) move list collapsible, and make the 3D cube swipe-to-turn like the play page.
+- **Code change:**
+  - `components/KilominxSolverCube3D.tsx` (new): a facelet-driven 3D dodecahedron playback component — the corners-only analogue of `components/NxNSolverCube3D.tsx`. Geometry starts solved and every kite sticker is coloured from the cube's actual facelet snapshot (`stateToFacelets`); solution moves (move indices) then physically spin the five corners of each turned face, so the faces resolve to solid colour as playback reaches the end. Move selection tracks a `logicalState` seeded at `solved()` and advanced with `applyMoveIndex`, so the 3D view and the flat net show the same state at every step. Single-step changes animate; slider jumps rebuild instantly. Reuses the play page's exact geometry and CCW kite ordering (`FACE_CORNERS_CCW`) so colouring is aligned by construction.
+  - `components/KilominxSolver.tsx`: added the "KILOMINX SOLUTION PLAYBACK" section (mirrors `FourSolver`), animation-gated stepper controls, twist-paced autoplay (advances only after each on-cube turn settles), a collapsible verified-move list (clamped to two lines with a "Show all N"/"Collapse" toggle), and a "Lock rotation" toggle.
+  - **Rotation lock + swipe-to-turn:** "Lock rotation" freezes only the camera (orbit + zoom); swipe-to-turn stays on, so a locked view can still be turned from a fixed angle (the Skewb's Rotate-View lock applied to a playback cube). Swiping a sticker turns that face; dragging empty space orbits unless locked. A manual swipe desyncs the cube from the solution step and sets a dirty flag; the next stepper/playback change rebuilds to that step exactly, so the verified solution and the flat net stay authoritative. Recorded as ADR 0006.
+- **Affected systems:** `/solver/kilominx` UI and its new 3D playback component only. No engine change (`lib/kilominx-engine.ts` untouched), no route change, no schema/config change. `app/KilominxGame.tsx` (the `/play/kilominx` game) is untouched.
+- **Tests:** `npm run build` passes (`/solver/kilominx` static, the 3D component dynamically imported `ssr:false`); `npm test` **77/77** (engine unchanged); `npm run lint` exit 0 (pre-existing warnings only, none in the new/changed files); `tsc --noEmit` clean; `npm run docs:check` OK. Browser (Playwright, 460 px): scramble → solve → play advances the 3D cube in sync with the net; the lock toggle freezes the camera; a swipe turns a face both unlocked and locked (instrumented hit/turn counters confirmed); after a manual swipe desyncs the cube, scrubbing the progress slider to the end rebuilds to a fully solved cube (solid faces) — confirming both the resync and the end-to-end solve.
+- **Deployment:** none — branch-only, no PR.
+- **Known issues:** the solver is correct but not move-optimal (solutions can run 700+ moves; 785 and 569 observed in testing) — playback length is a pre-existing engine property, not addressed here. No real-device QA. `touch-action` stays `none` on the playback canvas so swipes register, so the page does not scroll over the cube on touch even when rotation is locked (same as the play pages).
+- **Migration impact:** none.
+- **Rollback:** delete the branch or revert its three commits; nothing shared depends on the new component and no engine file changed.
+
 ## 2026-07-27 — Kilominx manual-entry solver on a flat pentagon net
 
 - **Author:** Claude, requested by the project owner.

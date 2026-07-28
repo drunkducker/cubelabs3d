@@ -23,6 +23,28 @@ This document defines the permanent cube-engine architecture and records recover
 - Mobile touch behavior is a first-class requirement.
 - Homepage behavior must not be changed indirectly through shared engine work without explicit approval and verification.
 
+## Solver 3D playback pattern (cookie-cutter)
+
+Every `/solver/<puzzle>` page shares one shape: choose a state (scramble or
+manual entry), get a verified solution, and watch it play back. The playback
+renderer is facelet-driven and engine-tracked — it is not a second state model:
+
+- The 3D cube starts geometrically **solved** and every sticker is coloured from
+  the state's facelet snapshot, so a scramble renders as its scramble.
+- Solution moves physically animate; move/layer selection tracks a logical state
+  seeded at `solved()` and advanced by the engine's own move application, so the
+  3D view and the flat net show the same state at every step.
+- Single-step changes animate; multi-step scrubs rebuild instantly.
+
+`components/NxNSolverCube3D.tsx` is the reference implementation (4×4/5×5).
+`components/KilominxSolverCube3D.tsx` is the corners-only dodecahedron analogue
+(branch `claude/kilominx-solver-3d-page-wbyyay`, not yet on `main`); it reuses
+the play page's geometry and CCW kite ordering (`FACE_CORNERS_CCW`) so colouring
+aligns by construction. Per ADR 0006 a solver playback cube may add inspect-only
+swipe-to-turn plus a camera-only "Lock rotation" toggle; manual turns are
+non-authoritative and resync to the solution step on the next playback change.
+Do not give a solver playback a second, renderer-owned state path.
+
 ## Skewb review implementation on `feature/skewb-puzzle`
 
 Draft PR #9 now follows the same renderer, interaction, and result-tracking

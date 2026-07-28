@@ -26,7 +26,7 @@ Merge `bbbb7b5` brought `claude/manual-solver-input-jja9t0` onto `main`, adding 
 - **UI** (`components/KilominxSolver.tsx`): scramble + manual modes, 60-sticker paint net, verified solution, net-based step playback.
 - **Route split (ADR 0005):** `/solver/kilominx` = solver; the playable 3D game moved verbatim to `/play/kilominx` (`app/KilominxGame.tsx` unchanged). `/solve` copy updated; challenge routing unchanged.
 - Verification: `npm run docs:check` OK (13 files, 37 sections); `npm test` **77/77** (adds 8 Kilominx facelet tests); `npm run build` passes with `/solver/kilominx` and `/play/kilominx`.
-- **Still open:** no mobile/browser QA; manual entry assumes the standard colour scheme (Kilominx has no fixed centres); playback is on the flat net rather than a dedicated 3D view.
+- **Still open:** no mobile/browser QA; manual entry assumes the standard colour scheme (Kilominx has no fixed centres). Playback on `main` is on the flat net; a dedicated 3D `KilominxSolverCube3D` playback (with collapsible moves, swipe-to-turn, and a camera-only rotation lock) now exists branch-only on `claude/kilominx-solver-3d-page-wbyyay` (ADR 0006; HISTORY 2026-07-28), not yet merged.
 
 The pre-merge `main` head before this merge was `0bef6ff` (engine-backed Kilominx learn adapter).
 
@@ -103,6 +103,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 | `gpt/coming-soon-page-20260726` | RootA | Switchable coming-soon homepage | ✔ merged through PR #7; safe to delete after verification |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged |
 | `claude/manual-solver-input-jja9t0` | RootA | Kilominx manual-entry solver + flat net; `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005) | ✔ merged to `main` at `bbbb7b5`; mobile/browser QA pending — safe to delete after verification |
+| `claude/kilominx-solver-3d-page-wbyyay` | RootA | Kilominx solver 3D solution playback (`KilominxSolverCube3D`), collapsible move list, swipe-to-turn + camera-only rotation lock (ADR 0006) | ⛔ branch-only, unmerged, no PR; build/test/browser-verified; mobile QA pending |
 | `claude/working-status-mumm9x` | RootA | Older staging/session handoff | superseded — review before delete |
 | `claude/home-page-html-rebuild-q7qomi` | RootA | Learn/home rebuild, leaderboard, tracked challenge | ✔ merged — safe to delete after verification |
 | `gpt/mobile-profile-page-20260722` | RootA | Profile/social/privacy/hubs | ✔ merged — safe to delete after verification |
