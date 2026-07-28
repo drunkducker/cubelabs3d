@@ -23,6 +23,24 @@ This document defines the permanent cube-engine architecture and records recover
 - Mobile touch behavior is a first-class requirement.
 - Homepage behavior must not be changed indirectly through shared engine work without explicit approval and verification.
 
+## Kilominx solver: engine vs optimized planner (branch)
+
+`lib/kilominx-engine.ts` stays the source of truth — geometry, moves, validation,
+verification, and a correct but not move-optimal reduction `solve()`. A
+move-count-optimized planner (`lib/kilominx-solver-optimized-impl.js` +
+`lib/kilominx-solver-optimized.ts`) emits ~19% shorter solutions by picking
+3-cycles that fix the most corners and orientation primitives by boundary cost.
+`lib/kilominx-engine-public.ts` is the application entrypoint: it re-exports the
+engine and overrides `solve` with the optimized one.
+
+Per ADR 0007, application code reaches the optimized `solve()` through a tsconfig
+`paths` redirect of `@/lib/kilominx-engine` to the public entrypoint. That
+redirect must use an **extensionless** value — with a `.ts` extension Next.js
+silently ignores it and ships the legacy solver — so any change here is verified
+by confirming the built bundle contains the optimized planner, not just by tests
+(Vitest ignores tsconfig `paths` and resolves `@` to the repo root). Branch
+`claude/kilominx-solver-3d-page-wbyyay`; not yet on `main`.
+
 ## Solver 3D playback pattern (cookie-cutter)
 
 Every `/solver/<puzzle>` page shares one shape: choose a state (scramble or

@@ -431,3 +431,59 @@ view — so the rule needed stating rather than assuming.
 - Real-device QA of swipe direction/orientation on the solver playback cube.
 - If other solvers (Pyraminx, Skewb) adopt a 3D solution-playback panel, extract
   the shared facelet-playback shape rather than copying it a third time.
+
+## ADR 0007 — The app calls the optimized Kilominx planner through a public entrypoint
+
+- Status: accepted
+- Date: 2026-07-28
+- Decision owners: Cube Labs project owner and contributing agents
+- Branch: `claude/kilominx-solver-3d-page-wbyyay` (unmerged at time of writing)
+
+### Context
+
+`lib/kilominx-engine.ts` owns Kilominx geometry, moves, validation, and
+verification, plus a correct-but-not-move-optimal reduction `solve()`. A
+move-count-optimized planner (`lib/kilominx-solver-optimized-impl.js`, wrapped by
+`lib/kilominx-solver-optimized.ts`) reduces solutions ~19% by choosing 3-cycles
+that fix the most corners and picking orientation primitives by boundary cost.
+`lib/kilominx-engine-public.ts` re-exports the engine and overrides `solve` with
+the optimized one, so application code gets shorter solutions while the engine
+stays the untouched source of truth.
+
+The original reconcile wired this with a tsconfig path alias
+(`@/lib/kilominx-engine` → the public entrypoint). Next.js silently ignored the
+alias because its mapping value carried a `.ts` extension, so the shipped bundle
+still ran the legacy solver. Vitest resolves `@` to the repo root via its own
+config and never consults tsconfig `paths`, so tests could not have caught the
+miswire.
+
+### Decision
+
+- **Application `solve()` calls resolve to the optimized planner via the public
+  entrypoint.** The engine remains the geometry/validation/verification source of
+  truth; only which reduction is emitted changes.
+- **The wiring must be verified in the built artifact, not assumed.** A tsconfig
+  `paths` redirect must use an extensionless value, and any change to how the app
+  reaches `solve()` is checked by confirming the production bundle contains the
+  optimized planner (its unique error strings) and not the legacy one.
+- **Unit tests import explicitly, not through the app alias.** Because Vitest
+  ignores tsconfig `paths`, tests import the legacy `solve` by relative path and
+  the optimized `solve` from its module, so both stay covered regardless of the
+  app alias.
+
+### Consequences
+
+- The Kilominx solver and play game emit ~19% shorter solutions (and shorter 3D
+  playbacks) with no engine change.
+- Future solver swaps have a rule: redirect through a public entrypoint and
+  prove the swap in the bundle; do not trust a path alias silently.
+- ~19% is below the ~25% target; a reduction-primitive rewrite is the remaining
+  lever and is deliberately not bundled with this reconcile.
+- No database, schema, auth, or config change beyond one tsconfig path value.
+  Rollback reverts the merge and that value.
+
+### Required follow-up
+
+- If ~25% is required, rewrite the reduction primitives (shorter twist
+  operations / combined permutation-orientation) behind the same public
+  entrypoint, with a move-count fixture, rather than tuning selection.

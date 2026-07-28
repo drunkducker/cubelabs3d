@@ -103,7 +103,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 | `gpt/coming-soon-page-20260726` | RootA | Switchable coming-soon homepage | ✔ merged through PR #7; safe to delete after verification |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged |
 | `claude/manual-solver-input-jja9t0` | RootA | Kilominx manual-entry solver + flat net; `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005) | ✔ merged to `main` at `bbbb7b5`; mobile/browser QA pending — safe to delete after verification |
-| `claude/kilominx-solver-3d-page-wbyyay` | RootA | Kilominx solver 3D solution playback (`KilominxSolverCube3D`), collapsible move list, swipe-to-turn + camera-only rotation lock (ADR 0006) | ⛔ branch-only, unmerged, no PR; build/test/browser-verified; mobile QA pending |
+| `claude/kilominx-solver-3d-page-wbyyay` | RootA | Kilominx solver 3D solution playback (`KilominxSolverCube3D`, ADR 0006) + reconciled move-count-optimized planner wired through `kilominx-engine-public` (~19% shorter, ADR 0007) | ⛔ branch-only, unmerged, no PR; docs/tsc/test (80/80)/build/bundle-verified; direct-to-`main` push and mobile QA pending owner confirmation |
 | `claude/working-status-mumm9x` | RootA | Older staging/session handoff | superseded — review before delete |
 | `claude/home-page-html-rebuild-q7qomi` | RootA | Learn/home rebuild, leaderboard, tracked challenge | ✔ merged — safe to delete after verification |
 | `gpt/mobile-profile-page-20260722` | RootA | Profile/social/privacy/hubs | ✔ merged — safe to delete after verification |

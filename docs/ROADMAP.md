@@ -110,6 +110,8 @@ documentation support completion.
 - [x] Kilominx engine regression tests include geometry/move invariants, scramble round trips, and random-scramble solves
 - [~] Kilominx manual "Enter My Cube" solver on a flat pentagon net (facelet↔state mapping, legality check, net playback); merged to `main` at `bbbb7b5`, build/test-verified, mobile/browser QA remains. Route split: `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005)
 - [~] Kilominx solver dedicated 3D solution playback (`KilominxSolverCube3D`) mirroring the 4×4 solver, with a collapsible move list, swipe-to-turn, and a camera-only rotation lock (ADR 0006); branch-only on `claude/kilominx-solver-3d-page-wbyyay`, build/test/browser-verified, not merged, mobile QA remains
+- [~] Reconciled move-count-optimized Kilominx planner wired into the app via `kilominx-engine-public` (~19% fewer moves, verified in the built bundle; ADR 0007); adds a Node-24 CI workflow (docs:check → tsc → test → build). Below the ~25% target — a reduction-primitive rewrite remains. Branch-only on `claude/kilominx-solver-3d-page-wbyyay`
+- [ ] Optimize the Kilominx solver to ~25% fewer moves via a reduction-primitive rewrite (shorter twist ops / combined permutation-orientation), behind `kilominx-engine-public`, with a move-count fixture
 - [~] Skewb draft PR #9: exact state engine and verified solver, fourteen real
   moving bodies, all eight stable corner pivots, continuous sticker drag,
   460 ms turns, native state loading, completed-result tracking, and visible
