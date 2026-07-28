@@ -12,11 +12,18 @@ export const metadata: Metadata = {
 
 const paths = [
   {
-    title: "Cube Notation",
+    title: "3×3 Notation Lab",
     level: "Start here",
-    body: "Learn U, R, F, turns, layers, and sticker labels before jumping into algorithms.",
-    href: "/cube-notation",
+    body: "A touchable labeled 3×3: name the faces, swipe to turn, then follow a live guided route back to solved.",
+    href: "/3x3-notation",
     accent: "#34d058",
+  },
+  {
+    title: "Cube Notation",
+    level: "Reference",
+    body: "The original explainer cube with sticker labels and a flat face reference for the manual solver.",
+    href: "/cube-notation",
+    accent: "#2ea6ff",
   },
   {
     title: "Beginner 3x3",
