@@ -22,6 +22,7 @@
  * number so the player can orient their cube to match; every one of the 60
  * kites is editable.
  */
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -31,13 +32,21 @@ import {
 } from "@/lib/kilominx-engine";
 import { kilominxNet } from "@/lib/kilominx-net-layout";
 
+const KilominxSolverCube3D = dynamic(() => import("./KilominxSolverCube3D"), {
+  ssr: false,
+  loading: () => <div className="grid h-full place-items-center text-sm text-[var(--faint)]">Loading Kilominx…</div>,
+});
+
 const COLORS = FACE_COLORS as readonly string[];
 const NET = kilominxNet();
+// Each speed sets the on-cube twist duration; autoplay advances a step only once
+// the previous twist has settled (see the autoplay effect), so the twist pace,
+// not a fixed timer, drives playback — the same model the 4×4 solver uses.
 const SPEEDS = [
-  { label: "0.5×", interval: 720 },
-  { label: "1×", interval: 420 },
-  { label: "1.5×", interval: 260 },
-  { label: "2×", interval: 150 },
+  { label: "0.5×", duration: 560 },
+  { label: "1×", duration: 340 },
+  { label: "1.5×", duration: 220 },
+  { label: "2×", duration: 150 },
 ];
 
 type Mode = "scramble" | "manual";
@@ -66,7 +75,10 @@ export default function KilominxSolver() {
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speedIndex, setSpeedIndex] = useState(1);
+  const [animating, setAnimating] = useState(false);
+  const [locked, setLocked] = useState(false);
   const autoplayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onAnimating = useCallback((value: boolean) => setAnimating(value), []);
 
   // Warm up the solver's lazily-built tables once, off the first paint, so the
   // first real solve doesn't hitch. solve(solved()) is a no-op that builds them.
@@ -80,10 +92,10 @@ export default function KilominxSolver() {
 
   useEffect(() => {
     if (autoplayTimer.current) clearTimeout(autoplayTimer.current);
-    if (!playing || step >= solution.length) { if (step >= solution.length) setPlaying(false); return; }
-    autoplayTimer.current = setTimeout(() => setStep((v) => Math.min(solution.length, v + 1)), SPEEDS[speedIndex].interval);
+    if (!playing || animating || step >= solution.length) { if (step >= solution.length) setPlaying(false); return; }
+    autoplayTimer.current = setTimeout(() => setStep((v) => Math.min(solution.length, v + 1)), 120);
     return () => { if (autoplayTimer.current) clearTimeout(autoplayTimer.current); };
-  }, [playing, step, solution.length, speedIndex]);
+  }, [playing, animating, step, solution.length]);
 
   const manualComplete = !manualFacelets.includes(-1);
   const colorCounts = useMemo(() => COLORS.map((_, i) => manualFacelets.filter((v) => v === i).length), [manualFacelets]);
@@ -95,6 +107,17 @@ export default function KilominxSolver() {
     if (base) return stateToFacelets(applyMoves(base, solution.slice(0, step)));
     return manualFacelets; // manual entry not yet solved: show what was typed
   }, [mode, scrambleState, manualBase, solution, step, manualFacelets]);
+
+  // The state the 3D playback starts from: the scramble, or the entered cube
+  // (its solved base once solved, else the valid cube the stickers describe).
+  // Colours come from this base; the solution then twists it back to solid.
+  const playbackBase = useMemo<KiloState | null>(() => {
+    if (mode === "scramble") return scrambleState;
+    if (manualBase) return manualBase;
+    return manualComplete ? faceletsToState(manualFacelets) : null;
+  }, [mode, scrambleState, manualBase, manualComplete, manualFacelets]);
+  const playbackFacelets = useMemo(() => (playbackBase ? stateToFacelets(playbackBase) : null), [playbackBase]);
+  const canShow3D = playbackFacelets !== null;
 
   const resetSolution = useCallback(() => { setPlaying(false); setSolution([]); setStep(0); setTime(0); }, []);
 
@@ -225,13 +248,37 @@ export default function KilominxSolver() {
     <section className="glass rounded-[22px] p-4">
       <div className="flex items-center justify-between"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">VERIFIED SOLUTION</p><span className="text-xs text-[var(--muted)]">{time} ms</span></div>
       <p className="mt-2 min-h-12 text-xl font-bold leading-8 tracking-wide">{solution.map(moveLabel).join(" ") || "—"}</p>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{solution.map((move, i) => <button key={i} onClick={() => { setPlaying(false); setStep(i + 1); }} className={`min-w-11 rounded-xl border p-3 font-extrabold ${i === step - 1 ? "border-[var(--green)] bg-[rgba(52,208,88,.14)]" : "border-[var(--border)] bg-black/20"}`}>{moveLabel(move)}</button>)}</div>
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{solution.map((move, i) => <button key={i} disabled={animating} onClick={() => { setPlaying(false); setStep(i + 1); }} className={`min-w-11 rounded-xl border p-3 font-extrabold disabled:opacity-50 ${i === step - 1 ? "border-[var(--green)] bg-[rgba(52,208,88,.14)]" : "border-[var(--border)] bg-black/20"}`}>{moveLabel(move)}</button>)}</div>
 
-      <div className="mt-4"><div className="mb-2 flex justify-between text-xs font-bold text-[var(--muted)]"><span>Progress</span><span>{step} / {solution.length}</span></div><input aria-label="Solution progress" type="range" min={0} max={Math.max(solution.length, 1)} value={step} disabled={!solution.length} onChange={(e) => { setPlaying(false); setStep(Number(e.target.value)); }} className="w-full accent-[var(--green)] disabled:opacity-40" /></div>
+      <div className="mt-4"><div className="mb-2 flex justify-between text-xs font-bold text-[var(--muted)]"><span>Progress</span><span>{step} / {solution.length}</span></div><input aria-label="Solution progress" type="range" min={0} max={Math.max(solution.length, 1)} value={step} disabled={!solution.length || animating} onChange={(e) => { setPlaying(false); setStep(Number(e.target.value)); }} className="w-full accent-[var(--green)] disabled:opacity-40" /></div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2"><button disabled={step === 0} onClick={previous} className="glass rounded-xl p-3 font-bold disabled:opacity-40">Previous</button><button disabled={!solution.length} onClick={togglePlay} className="cta-green rounded-xl p-3 font-extrabold disabled:opacity-40">{playing ? "Pause" : "Play"}</button><button disabled={step >= solution.length} onClick={next} className="glass rounded-xl p-3 font-bold disabled:opacity-40">Next</button></div>
+      <div className="mt-4 grid grid-cols-3 gap-2"><button disabled={step === 0 || animating} onClick={previous} className="glass rounded-xl p-3 font-bold disabled:opacity-40">Previous</button><button disabled={!solution.length || animating} onClick={togglePlay} className="cta-green rounded-xl p-3 font-extrabold disabled:opacity-40">{playing ? "Pause" : "Play"}</button><button disabled={step >= solution.length || animating} onClick={next} className="glass rounded-xl p-3 font-bold disabled:opacity-40">Next</button></div>
 
       <div className="mt-3 grid grid-cols-4 gap-2">{SPEEDS.map((speed, i) => <button key={speed.label} onClick={() => setSpeedIndex(i)} className={`rounded-xl border px-2 py-2 text-sm font-extrabold ${speedIndex === i ? "border-[var(--green)] bg-[rgba(52,208,88,.14)] text-[var(--green)]" : "border-[var(--border)] bg-black/20 text-[var(--muted)]"}`}>{speed.label}</button>)}</div>
+    </section>
+
+    <section className="glass overflow-hidden rounded-[22px] p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">KILOMINX SOLUTION PLAYBACK</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">{canShow3D ? "Tap moves, scrub progress, or press Play." : "Scramble or fully enter a cube to preview it in 3D."}</p>
+        </div>
+        <span className="rounded-full border border-[var(--border)] bg-black/25 px-3 py-1 text-xs font-extrabold text-[var(--green)]">{step} / {solution.length}</span>
+      </div>
+      <div className="cube-card relative mt-4 h-[360px] overflow-hidden rounded-[22px]">
+        <div className="platform-ring absolute bottom-[58px] left-1/2 z-[1] h-[66px] w-[230px] -translate-x-1/2 rounded-[50%]" />
+        {canShow3D ? <>
+          <div className="absolute inset-0 z-[2]">
+            <KilominxSolverCube3D initialFacelets={playbackFacelets!} solution={solution} step={step} onAnimating={onAnimating} durationMs={SPEEDS[speedIndex].duration} locked={locked} />
+          </div>
+          <button
+            onClick={() => setLocked((v) => !v)}
+            aria-pressed={locked}
+            className={`absolute right-3 top-3 z-[3] rounded-full border px-3 py-1.5 text-xs font-extrabold backdrop-blur ${locked ? "border-[var(--purple)] bg-[rgba(139,92,246,.18)] text-[var(--text)]" : "border-[var(--border)] bg-black/40 text-[var(--muted)]"}`}
+          >{locked ? "🔒 Rotation locked" : "🔓 Lock rotation"}</button>
+          <div className="pointer-events-none absolute bottom-4 left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">{locked ? "Rotation locked • verified playback" : "Drag to rotate • verified playback"}</div>
+        </> : <div className="absolute inset-0 z-[2] grid place-items-center px-6 text-center text-sm text-[var(--faint)]">Your Kilominx will appear here once it&apos;s scrambled or fully entered.</div>}
+      </div>
     </section>
 
     <Link href="/play/kilominx" className="glass flex items-center justify-between rounded-[22px] p-4 font-extrabold"><span>Play the Kilominx in 3D</span><span className="text-[var(--green)]">→</span></Link>
