@@ -59,6 +59,12 @@ function faceKites(face: number): Kite[] {
   }));
 }
 
+function faceCenter(face: number) {
+  return FACE_CORNERS[face]!
+    .reduce((sum, corner) => sum.add(toVec3(VERTICES[corner]!)), new THREE.Vector3())
+    .multiplyScalar(1 / 5);
+}
+
 function quadGeometry(quad: Kite["quad"], shrink: number) {
   const center = quad.reduce((sum, point) => sum.add(point.clone()), new THREE.Vector3()).multiplyScalar(0.25);
   const points = quad.map(point => new THREE.Vector3().lerpVectors(center, point, shrink));
@@ -102,6 +108,24 @@ function labelTexture(label: string, color: string) {
   return texture;
 }
 
+function glowTexture(color: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) return new THREE.CanvasTexture(canvas);
+  const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
+  gradient.addColorStop(0, `${color}ee`);
+  gradient.addColorStop(0.18, `${color}aa`);
+  gradient.addColorStop(0.45, `${color}45`);
+  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 512, 512);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export default function KilominxNotationModel() {
   const mountRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<{ scramble: () => void; solve: () => void; reset: () => void; resetView: () => void } | null>(null);
@@ -123,6 +147,8 @@ export default function KilominxNotationModel() {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.55));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
     renderer.setClearAlpha(0);
     renderer.domElement.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
     mount.appendChild(renderer.domElement);
@@ -194,6 +220,26 @@ export default function KilominxNotationModel() {
       }
     }
 
+    const haloMap = glowTexture(GRAB_GLOW);
+    textures.push(haloMap);
+    const haloMaterial = new THREE.SpriteMaterial({
+      map: haloMap,
+      color: GRAB_GLOW,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: true,
+    });
+    materials.push(haloMaterial);
+    const grabHalo = new THREE.Sprite(haloMaterial);
+    grabHalo.visible = false;
+    grabHalo.scale.setScalar(2.7);
+    root.add(grabHalo);
+
+    const grabLight = new THREE.PointLight(GRAB_GLOW, 0, 4.8, 2);
+    root.add(grabLight);
+
     let logicalState: KiloState = solved();
     let disposed = false;
     let moveFrame = 0;
@@ -207,6 +253,16 @@ export default function KilominxNotationModel() {
         material.emissive.set(sticker.userData.baseColor as string);
         material.emissiveIntensity = 0.035;
       }
+      grabHalo.visible = false;
+      haloMaterial.opacity = 0;
+      grabLight.intensity = 0;
+    };
+
+    const positionGlow = (face: number) => {
+      const normal = toVec3(faceNormal(face)).normalize();
+      const center = faceCenter(face);
+      grabHalo.position.copy(center).addScaledVector(normal, 0.22);
+      grabLight.position.copy(center).addScaledVector(normal, 0.7);
     };
 
     const highlightGrabFace = (face: number | null) => {
@@ -222,8 +278,12 @@ export default function KilominxNotationModel() {
         if (worldNormal.dot(targetNormal) < 0.94) continue;
         const material = sticker.material as THREE.MeshStandardMaterial;
         material.emissive.set(GRAB_GLOW);
-        material.emissiveIntensity = 2.4;
+        material.emissiveIntensity = 1.45;
       }
+      positionGlow(face);
+      grabHalo.visible = true;
+      haloMaterial.opacity = 0.72;
+      grabLight.intensity = 24;
     };
 
     const onGrabFace = (event: Event) => {
@@ -232,7 +292,7 @@ export default function KilominxNotationModel() {
       controls.autoRotate = false;
       highlightGrabFace(face);
       setGrabFace(face);
-      if (face !== null) setStatus(`Grab face ${face + 1} • neon green highlight`);
+      if (face !== null) setStatus(`Grab face ${face + 1} • neon green halo`);
     };
     window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
 
@@ -392,10 +452,17 @@ export default function KilominxNotationModel() {
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
     resize();
+    const clock = new THREE.Clock();
     let frame = 0;
     const render = () => {
       frame = requestAnimationFrame(render);
       controls.update();
+      if (grabHalo.visible) {
+        const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * 0.11;
+        grabHalo.scale.setScalar(2.7 * pulse);
+        haloMaterial.opacity = 0.62 + (pulse - 1) * 1.45;
+        grabLight.intensity = 22 + (pulse - 1) * 55;
+      }
       renderer.render(scene, camera);
     };
     render();
@@ -426,7 +493,7 @@ export default function KilominxNotationModel() {
         <span className="font-bold text-[var(--text)]">{grabFace === null ? (solvedNow ? "Solved" : "In motion") : `Grab face ${grabFace + 1}`}</span>
       </div>
       <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Neon green glow = current grab face • swipe a labeled sticker to turn</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Pulsing neon halo = current grab face • swipe a labeled sticker to turn</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
