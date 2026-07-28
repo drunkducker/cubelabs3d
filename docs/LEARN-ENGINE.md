@@ -79,7 +79,7 @@ A full-face glow is not the default teaching state.
 
 The touch guide is an overlay generated from the canonical gesture resolver, not an independent move-decider.
 
-Planned behavior:
+Required behavior:
 
 - show a small matrix centered on the actual pointer-down location;
 - mark the exact sticker used as the gesture origin;
@@ -111,44 +111,55 @@ Branch: `feature/kilominx-notation`
 
 Current preview route: `/learn/kilominx-notation`
 
-The branch currently contains a separate `components/KilominxNotationModel.tsx`. It uses `lib/kilominx-engine.ts`, but duplicates major behavior from `app/KilominxGame.tsx`, including Three.js construction, swipe resolution, move animation, move queueing, glow handling, scramble, reset, and solve playback.
+The branch currently contains a separate `components/KilominxNotationModel.tsx`. It uses `lib/kilominx-engine.ts`, but still duplicates Three.js construction, move animation, move queueing, glow handling, scramble, reset, and solve playback from `app/KilominxGame.tsx`.
 
-This duplication caused visible divergence from the canonical Kilominx:
-
-- swipe behavior drifted after pieces moved;
-- glow logic required repeated fixes and at one point behaved like a viewport overlay;
-- interaction pace and gesture semantics no longer matched the playable Kilominx;
-- Learn-specific additions became coupled to a second renderer.
-
-The separate model is a prototype and must not become the permanent Learn engine.
+The private Learn swipe resolver has now been removed. Learn imports the shared Kilominx interaction authority instead. The separate renderer remains a transitional prototype and must still be replaced with the canonical renderer plus Learn overlays.
 
 ## Refactor implementation status
 
-### Phase 1 — shared interaction authority (started)
+### Phase 1 — playable touch contract active in Learn
 
-Commit `6d3a114` adds `lib/kilominx-interaction.ts` as the shared, renderer-facing interaction authority for both Play and Learn.
-
-It now owns:
+`lib/kilominx-interaction.ts` is the shared renderer-facing interaction authority. It owns:
 
 - current spatial-face resolution from a sticker's transformed world normal;
 - screen-space positive-turn direction projection;
 - drag-to-move resolution;
-- the shared commit threshold helper.
+- the playable 16 px preview distance;
+- the playable 34 px commit distance;
+- the shared commit-threshold helper.
 
-This is intentionally not a second state machine. It accepts canonical renderer data and returns an engine move index. The playable renderer and Learn overlay must both call this module so their move preview, floating arrow, touch matrix, and committed move cannot disagree.
+Current implementation commits:
 
-The next code change is to replace the private resolver inside `app/KilominxGame.tsx` with this module and expose pointer/move lifecycle events to a Learn adapter. The prototype notation resolver must not receive additional independent gesture logic.
+- `02b3b58` — centralizes the playable preview and commit distances;
+- `e25dada` — replaces the Learn model's private resolver and 12/24 thresholds with the shared 16/34 contract;
+- `c43fb5c` — tests the playable distances and shared interaction behavior.
+
+The active Learn interaction now follows the playable contract:
+
+1. touch a sticker;
+2. disable camera rotation for that pointer;
+3. select a move only after 16 px;
+4. let the matrix observe and display that selected move;
+5. commit one fixed 72° turn only after release at 34 px or more;
+6. cancel below threshold or on `pointercancel`;
+7. restore OrbitControls when the last pointer exits;
+8. use the playable 250 ms manual turn duration.
+
+There is no velocity, flick, custom resistance, partial-layer tracking, spring-back, or snap-forward logic in the active path.
+
+The next consolidation step is to make `app/KilominxGame.tsx` import the same shared module and then expose its pointer and move lifecycle to a Learn adapter. That removes the remaining possibility of implementation drift while preserving the playable behavior.
 
 ### Video regression reference
 
-The uploaded phone video captured the failures the refactor must remove:
+The uploaded phone videos captured the failures the refactor must remove:
 
 - glow washing the sticker nearly white and hiding its label/color;
 - touch matrix reading as a viewport overlay instead of a surface-local guide;
 - guide appearing after movement without a clear physical start point;
 - displayed direction and committed layer feeling disconnected;
 - state jumps instead of canonical movement feedback;
-- highlighted labels losing contrast.
+- highlighted labels losing contrast;
+- touch behavior feeling different from the playable 3×3, 4×4, and Kilominx.
 
 Keep this list as a hosted mobile acceptance test, not merely a visual preference list.
 
@@ -162,19 +173,18 @@ The velocity/flick/direct-manipulation prototype is preserved outside the active
 
 The experiment includes pointer velocity, flick-to-commit, partial layer tracking, snap-forward completion, spring-back cancellation, and custom resistance. These are useful future ideas, but they are not the current product gesture and must remain disabled.
 
-The active Learn gesture must match the approved 3×3/4×4 contract first: select after a small drag, commit one turn after the shared release threshold, cancel below threshold, and restore camera controls on every exit path.
-
 Any future revival must use a shared, disabled-by-default interaction profile with bounded server-authorized settings and an administrator kill switch. It must not be copied back into a single puzzle renderer.
 
 ## Kilominx refactor plan
 
 1. Audit `app/KilominxGame.tsx` and identify the smallest stable adapter surface for Learn mode. **Complete.**
-2. Extract or expose canonical move, pointer, spatial-face, and animation events without changing approved playable behavior. **Shared resolver extracted; renderer wiring next.**
-3. Add optional label and Learn-overlay hooks to the canonical renderer.
-4. Move target sticker glow, contrast label, touch matrix, drag guide, and direction arrow into a Learn overlay/controller.
-5. Drive the flat flower from direct logical state or move events.
-6. Replace `/learn/kilominx-notation` use of `KilominxNotationModel` with the canonical Kilominx renderer in Learn mode.
-7. Remove the duplicate renderer after parity tests pass.
+2. Extract the shared spatial-face, drag-resolution, preview, and commit contract. **Complete and active in Learn; canonical renderer import remains.**
+3. Make `app/KilominxGame.tsx` consume the shared interaction authority without changing playable behavior.
+4. Add optional label and Learn-overlay hooks to the canonical renderer.
+5. Move target sticker glow, contrast label, touch matrix, drag guide, and direction arrow into a Learn overlay/controller.
+6. Drive the flat flower from direct logical state or move events.
+7. Replace `/learn/kilominx-notation` use of `KilominxNotationModel` with the canonical Kilominx renderer in Learn mode.
+8. Remove the duplicate renderer after parity tests pass.
 
 ## Required regression coverage
 
