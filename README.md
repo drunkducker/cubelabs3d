@@ -68,6 +68,34 @@ two-account verification where those are required.
   and searchable history
 - `design/` — preserved design prototypes and source assets
 
+## Engine-first feature dependency rule
+
+Features that explain, teach, replay, analyze, save, or share a puzzle must be
+consumers of the canonical puzzle system, not parallel implementations of it.
+The required dependency direction is:
+
+```text
+canonical puzzle engine + canonical renderer geometry
+                    ↓
+shared feature adapter
+                    ↓
+lesson, solver, replay, challenge, or analysis UI
+```
+
+The puzzle engine owns state, legal moves, notation, parsing, inverses, solved
+status, and geometry-derived relationships. The renderer owns visible pieces,
+picking, layer selection, animation, and mapping exact engine state onto the
+model. Feature adapters may add presentation metadata and orchestration, but
+must reference those existing contracts rather than copying geometry, labels,
+move tables, or puzzle rules.
+
+For Learn specifically, the adapter adds teaching names, explanations, lesson
+order, highlights, and accessibility text over the existing notation,
+solver-engine, and renderer contracts. See
+[`design/learn/README.md`](./design/learn/README.md) for the concrete Learn flow
+and migration target, and [`docs/CUBE-ENGINE.md`](./docs/CUBE-ENGINE.md) for the
+canonical puzzle-engine boundaries.
+
 ## Required documentation workflow
 
 Before meaningful work, use the routing index in
