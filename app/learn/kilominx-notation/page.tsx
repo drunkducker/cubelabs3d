@@ -1,44 +1,55 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import SiteHeader from "@/components/SiteHeader";
-import AppBottomNav from "@/components/AppBottomNav";
+import KilominxGame from "@/app/KilominxGame";
 import KilominxNotationClient from "@/components/KilominxNotationClient";
 
 export const metadata: Metadata = {
-  title: "Kilominx Notation | Cube Lab 3D",
-  description: "A printable, engine-derived twelve-face Kilominx notation map with algorithm grab-point highlighting and playback.",
+  title: "Kilominx Notation Explainer | Cube Lab 3D",
+  description: "A touchable Kilominx explainer with the engine-derived twelve-face flat reference.",
 };
 
 export default function KilominxNotationPage() {
   return (
-    <main className="app-shell relative min-h-dvh w-full max-w-[900px] overflow-x-hidden px-4 pb-[calc(96px+env(safe-area-inset-bottom))] pt-3">
+    <main className="app-shell relative min-h-dvh w-full max-w-[460px] overflow-x-hidden px-4 pb-[calc(24px+env(safe-area-inset-bottom))] pt-[12px]">
       <div className="orb orb-a" />
       <div className="orb orb-b" />
+
       <div className="relative z-[1]">
-        <SiteHeader />
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
-          <Link href="/learn" className="text-sm font-bold text-[var(--muted)]">← Back to Learn</Link>
-          <div className="flex gap-2">
-            <Link href="/solver/kilominx" className="rounded-xl border border-[var(--border)] bg-black/25 px-3 py-2 text-xs font-extrabold text-white">Open solver</Link>
-            <Link href="/play/kilominx" className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-extrabold text-white">Play Kilominx</Link>
+        <div className="flex h-10 items-center justify-between gap-3">
+          <Link href="/learn" className="rounded-full border border-[var(--border)] bg-black/30 px-3 py-2 text-xs font-extrabold text-[var(--muted)]">
+            ← Learn
+          </Link>
+          <div className="rounded-full border border-[rgba(52,208,88,.28)] bg-black/30 px-3 py-2 text-xs font-extrabold tracking-[.14em] text-[var(--green)]">
+            KILOMINX NOTATION
           </div>
         </div>
 
-        <section className="mt-5 print:hidden">
-          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Kilominx notation</p>
-          <h1 className="mt-2 text-[38px] font-extrabold leading-[1.02] tracking-[-1px]">Twelve faces.<br /><span className="accent-text">One engine.</span></h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[var(--muted)]">This reference uses the same dodecahedron geometry, face colors, numbered moves, and affected corner slots as the playable Kilominx and verified solver. The highlighted face is the place to grab for the current algorithm move.</p>
-        </section>
-
-        <div className="mt-5">
-          <KilominxNotationClient />
+        <div className="kilominx-notation-model mt-3 overflow-hidden rounded-[22px]">
+          <KilominxGame />
         </div>
 
-        <section className="mt-4 rounded-[20px] border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-[var(--muted)] print:hidden">
-          <strong className="text-white">3D teaching model is the next extraction.</strong> The current playable renderer already owns legal turns, scramble, solve, reset, and highlighting. It is being separated into a reusable teaching shell so this page can add the touchable model without bringing save, share, timer, or challenge controls with it.
+        <section className="mt-4">
+          <p className="text-xs font-extrabold tracking-[.18em] text-[var(--green)]">KILOMINX NOTATION</p>
+          <h1 className="mt-2 text-[34px] font-extrabold leading-[1.02] tracking-[-1px]">
+            Explainer <span className="accent-text">Kilominx</span>
+          </h1>
+          <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
+            Spin the labeled Kilominx, tap or swipe stickers to identify and test numbered face turns, scramble it, and watch the verified solver play moves back through the same engine.
+          </p>
+        </section>
+
+        <section className="glass mt-3 rounded-[22px] p-4">
+          <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FLAT REFERENCE</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+            The same twelve engine faces unfolded into two flowers. Tap a face to identify it, play an algorithm to highlight the grab point, or print the reference.
+          </p>
+          <div className="mt-3"><KilominxNotationClient /></div>
+        </section>
+
+        <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
+          <p><strong className="text-[var(--text)]">Numbered notation:</strong> faces use 1–12. A prime mark turns the same face in the reverse direction.</p>
         </section>
       </div>
-      <div className="print:hidden"><AppBottomNav /></div>
     </main>
   );
 }
