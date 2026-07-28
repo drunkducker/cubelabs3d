@@ -107,9 +107,10 @@ function glowTexture() {
   const context = canvas.getContext("2d");
   if (!context) return new THREE.CanvasTexture(canvas);
   const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
-  gradient.addColorStop(0, "rgba(255,255,255,.95)");
-  gradient.addColorStop(0.16, "rgba(255,255,255,.72)");
-  gradient.addColorStop(0.45, "rgba(255,255,255,.22)");
+  gradient.addColorStop(0, "rgba(255,255,255,1)");
+  gradient.addColorStop(0.1, "rgba(255,255,255,.98)");
+  gradient.addColorStop(0.28, "rgba(255,255,255,.72)");
+  gradient.addColorStop(0.58, "rgba(255,255,255,.28)");
   gradient.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = gradient;
   context.fillRect(0, 0, 512, 512);
@@ -133,14 +134,14 @@ export default function KilominxNotationModel() {
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color("#080b14");
+    scene.background = new THREE.Color("#05070d");
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
     camera.position.set(4.6, 3.6, 6.6);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.55));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.22;
     renderer.setClearAlpha(0);
     renderer.domElement.style.cssText = "display:block;width:100%;height:100%;touch-action:none";
     mount.appendChild(renderer.domElement);
@@ -156,11 +157,11 @@ export default function KilominxNotationModel() {
     controls.update();
     controls.saveState();
 
-    scene.add(new THREE.HemisphereLight("#ffffff", "#223052", 2.1));
-    const key = new THREE.DirectionalLight("#ffffff", 2.3);
+    scene.add(new THREE.HemisphereLight("#ffffff", "#16203d", 1.7));
+    const key = new THREE.DirectionalLight("#ffffff", 2.15);
     key.position.set(8, 12, 10);
     scene.add(key);
-    const rim = new THREE.DirectionalLight("#5c7cff", 1.3);
+    const rim = new THREE.DirectionalLight("#5c7cff", 1.45);
     rim.position.set(-10, 3, -8);
     scene.add(rim);
 
@@ -176,7 +177,7 @@ export default function KilominxNotationModel() {
     const textures: THREE.Texture[] = [];
     const pickables: THREE.Mesh[] = [];
     const stickerMeshes: THREE.Mesh[] = [];
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#0b0d12", roughness: 0.45, metalness: 0.06 });
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: "#090b10", roughness: 0.48, metalness: 0.08 });
     materials.push(bodyMaterial);
 
     for (let face = 0; face < 12; face++) {
@@ -191,7 +192,7 @@ export default function KilominxNotationModel() {
         const stickerMaterial = new THREE.MeshStandardMaterial({
           map: texture,
           color: "#ffffff",
-          roughness: 0.3,
+          roughness: 0.26,
           metalness: 0.02,
           emissive: color,
           emissiveIntensity: 0.035,
@@ -201,7 +202,6 @@ export default function KilominxNotationModel() {
         });
         materials.push(stickerMaterial);
         const sticker = new THREE.Mesh(stickerGeometry, stickerMaterial);
-        sticker.userData.isSticker = true;
         sticker.userData.face = face;
         sticker.userData.label = label;
         sticker.userData.baseColor = color;
@@ -221,14 +221,32 @@ export default function KilominxNotationModel() {
       opacity: 0,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      depthTest: true,
+      depthTest: false,
     });
     materials.push(haloMaterial);
     const grabHalo = new THREE.Sprite(haloMaterial);
     grabHalo.visible = false;
-    grabHalo.scale.setScalar(1.25);
+    grabHalo.renderOrder = 30;
+    grabHalo.scale.setScalar(1.65);
     root.add(grabHalo);
-    const grabLight = new THREE.PointLight("#ffffff", 0, 2.8, 2);
+
+    const coreMaterial = new THREE.SpriteMaterial({
+      map: haloMap,
+      color: "#ffffff",
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: false,
+    });
+    materials.push(coreMaterial);
+    const grabCore = new THREE.Sprite(coreMaterial);
+    grabCore.visible = false;
+    grabCore.renderOrder = 31;
+    grabCore.scale.setScalar(0.72);
+    root.add(grabCore);
+
+    const grabLight = new THREE.PointLight("#ffffff", 0, 3.8, 1.65);
     root.add(grabLight);
 
     let logicalState: KiloState = solved();
@@ -246,7 +264,9 @@ export default function KilominxNotationModel() {
         material.emissiveIntensity = 0.035;
       }
       grabHalo.visible = false;
+      grabCore.visible = false;
       haloMaterial.opacity = 0;
+      coreMaterial.opacity = 0;
       grabLight.intensity = 0;
     };
 
@@ -261,9 +281,11 @@ export default function KilominxNotationModel() {
       const color = requestedColor || (sticker.userData.baseColor as string);
       const material = sticker.material as THREE.MeshStandardMaterial;
       material.emissive.set(color);
-      material.emissiveIntensity = 2.15;
+      material.emissiveIntensity = 4.8;
       haloMaterial.color.set(color);
+      coreMaterial.color.set(color);
       grabLight.color.set(color);
+
       const worldPosition = new THREE.Vector3();
       const worldNormal = new THREE.Vector3(0, 0, 1);
       sticker.getWorldPosition(worldPosition);
@@ -271,11 +293,15 @@ export default function KilominxNotationModel() {
       if (normals) worldNormal.set(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld);
       root.worldToLocal(worldPosition);
       const localNormal = worldNormal.transformDirection(root.matrixWorld.clone().invert());
-      grabHalo.position.copy(worldPosition).addScaledVector(localNormal, 0.12);
-      grabLight.position.copy(worldPosition).addScaledVector(localNormal, 0.42);
+      const glowPosition = worldPosition.clone().addScaledVector(localNormal, 0.16);
+      grabHalo.position.copy(glowPosition);
+      grabCore.position.copy(glowPosition).addScaledVector(localNormal, 0.025);
+      grabLight.position.copy(worldPosition).addScaledVector(localNormal, 0.5);
       grabHalo.visible = true;
-      haloMaterial.opacity = 0.76;
-      grabLight.intensity = 18;
+      grabCore.visible = true;
+      haloMaterial.opacity = 0.98;
+      coreMaterial.opacity = 0.92;
+      grabLight.intensity = 42;
     };
 
     const onGrabFace = (event: Event) => {
@@ -285,7 +311,7 @@ export default function KilominxNotationModel() {
       controls.autoRotate = false;
       highlightSticker(label, color);
       setGrabLabel(label);
-      if (label) setStatus(`Target sticker ${label} • glowing in its own color`);
+      if (label) setStatus(`Target sticker ${label} • high-neon color glow`);
     };
     window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
 
@@ -420,10 +446,12 @@ export default function KilominxNotationModel() {
       frame = requestAnimationFrame(render);
       controls.update();
       if (grabHalo.visible) {
-        const pulse = 1 + Math.sin(clock.getElapsedTime() * 3.2) * 0.11;
-        grabHalo.scale.setScalar(1.25 * pulse);
-        haloMaterial.opacity = 0.66 + (pulse - 1) * 1.2;
-        grabLight.intensity = 17 + (pulse - 1) * 38;
+        const pulse = 1 + Math.sin(clock.getElapsedTime() * 4.1) * 0.14;
+        grabHalo.scale.setScalar(1.65 * pulse);
+        grabCore.scale.setScalar(0.72 * (1 + (pulse - 1) * 0.55));
+        haloMaterial.opacity = 0.84 + (pulse - 1) * 0.9;
+        coreMaterial.opacity = 0.88 + (pulse - 1) * 0.5;
+        grabLight.intensity = 38 + (pulse - 1) * 90;
       }
       renderer.render(scene, camera);
     };
@@ -449,17 +477,26 @@ export default function KilominxNotationModel() {
   }, []);
 
   return (
-    <section className="glass overflow-hidden rounded-[22px]">
-      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]"><span>{status}</span><span className="font-bold text-[var(--text)]">{grabLabel ?? (solvedNow ? "Solved" : "In motion")}</span></div>
-      <div ref={mountRef} className="h-[430px] w-full touch-none sm:h-[480px]" />
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Only the current target sticker glows in its own color</div>
+    <section className="glass overflow-hidden rounded-[22px] border border-white/10 shadow-[0_24px_70px_rgba(0,0,0,.48)]">
+      <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-sm text-[var(--muted)]">
+        <span>{status}</span>
+        <span className="font-bold text-[var(--text)]">{grabLabel ?? (solvedNow ? "Solved" : "In motion")}</span>
+      </div>
+      <div className="relative">
+        <div ref={mountRef} data-kilominx-direction-anchor className="h-[430px] w-full touch-none sm:h-[480px]" />
+        <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 text-[10px] font-black tracking-[.18em] text-white/70 backdrop-blur">3D PUZZLE • FIRST</div>
+      </div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">One target sticker • brighter high-neon glow in its own color</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.reset()} className="glass min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Reset</button>
         <button onClick={() => actionsRef.current?.resetView()} className="glass min-h-11 rounded-xl text-sm font-extrabold">View</button>
       </div>
-      <section className="border-t border-[var(--border)] px-4 py-3"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p data-puzzle-scramble={scrambleText} className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to load the same sequence into the flat reference."}</p></section>
+      <section className="border-t border-[var(--border)] px-4 py-3">
+        <p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p>
+        <p data-puzzle-scramble={scrambleText} className="mt-2 min-h-6 break-words text-sm leading-6 text-[var(--text)]">{scrambleText || "Tap Scramble to load the same sequence into the flat reference."}</p>
+      </section>
       {solutionText ? <section className="border-t border-[var(--border)] px-4 py-3"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--purple)]">SOLUTION</p><p className="mt-2 break-words font-mono text-xs leading-6 text-[var(--text)]">{solutionText}</p></section> : null}
     </section>
   );
