@@ -135,7 +135,7 @@ export default function NxNCubeGame({
   };
 
   // Same single-long-lived-interval-plus-refs timer as app/PyraminxGame.tsx
-  // (see CUBE-ENGINE-NOTES.md) — start/stop/reset are plain functions over
+  // (see docs/CUBE-ENGINE.md) — start/stop/reset are plain functions over
   // refs, not effect state, so they can be called from deep inside the turn
   // queue's completion callback (runNext, below) without re-running this
   // effect or fighting React's render cycle.
@@ -322,7 +322,7 @@ export default function NxNCubeGame({
         // Scramble setup is queued with record:false — excluded from the
         // move count and undo stack, since it isn't the player's own
         // solving effort (mirrors app/PyraminxGame.tsx's scramble/undo
-        // model; see CUBE-ENGINE-NOTES.md).
+        // model; see docs/CUBE-ENGINE.md).
         if(move.record!==false) {
           const source=move.source??"touch";
           const elapsedNow=segmentStartRef.current===null

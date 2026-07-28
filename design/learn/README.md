@@ -1,50 +1,45 @@
-# Learn Page — HTML rebuild
+# Learn Page — labeled model system
 
-A faithful, self-contained HTML/CSS/JS rebuild of the **Learn** page mockup
-(`LEARN. PRACTICE. MASTER.`). Built the same way as the earlier homepage HTML
-pass — plain markup that matches the sample pixel-for-pixel before any React
-port — so it can later be moved into the Next.js app (`app/learn/`) 1:1.
+The canonical **`/learn`** route is the Next.js page under `app/learn/`. The original standalone HTML/CSS/JS mockup is preserved at **`/learn/standalone`** as a visual reference.
 
-## Files
-- `index.html` — page structure (header, hero, search, topic grid, featured
-  tutorials, popular algorithms, progress/affiliate/premium sidebar, bottom nav).
-- `styles.css` — all styling. Brand tokens mirror `app/globals.css` so the port
-  reads from the same palette.
-- `script.js` — generates every cube visual as inline SVG (isometric topic
-  cubes, tutorial thumbnails, product cube) plus the flat OLL/PLL face grids, so
-  the page ships with **zero image assets**.
+## Canonical Learn implementation
 
-The hero cube is a pure-CSS 3D Rubik's cube (six `.cube-face` panels on a
-`preserve-3d` stage) that tumbles continuously behind the headline via the
-`spin3d` keyframes; a left-to-right scrim keeps the copy readable over it.
+- `app/learn/page.tsx` — the production Learn hub.
+- `components/LearnModelExplorer.tsx` — interactive labeled-model and algorithm-step explorer.
+- `lib/learn-model-engine.ts` — canonical puzzle label registry shared by future lessons.
+- `tests/learn-model-engine.test.ts` — verifies registration, unique labels, and algorithm-to-face mappings.
 
-The header **brand mark is the same 3D cube** shrunk to logo size
-(`.logo-cube` / `.lc-face`): a slow idle `logospin` that speeds up on hover,
-replacing the old flat polygon icon. Both cubes honor `prefers-reduced-motion`
-by holding a static angled pose.
+The model engine currently defines labeled flat covers for:
+
+- 3×3
+- 4×4
+- Skewb
+- Pyraminx
+- Kilominx
+
+Each definition owns its visible geometry, notation label, human-readable face name, explanation, and starter-algorithm step mappings. Lesson components should reference this registry instead of recreating labels locally. This keeps labels attached to the same puzzle regions when algorithm explanations, highlighting, animation, and practice drills are added.
+
+## Preserved standalone prototype
+
+The self-contained prototype remains in this directory:
+
+- `index.html` — page structure.
+- `styles.css` — standalone styling.
+- `script.js` — legacy inline SVG cube and algorithm-face generators.
 - `preview.png` — rendered reference screenshot.
 
-## Preview locally
-Open `index.html` in any browser — it needs no build step or server.
+To rebuild the standalone artifact:
 
-## How it's served in the app
-The app serves this page at **`/learn`**:
-- `node design/learn/build-embed.mjs` inlines `styles.css` + `script.js` into a
-  single self-contained `public/learn.html` (byte-faithful to the prototype).
-- `next.config.mjs` rewrites `/learn` → `/learn.html`.
-- Re-run the build step after editing any of the three source files here.
+- Run `node design/learn/build-embed.mjs`.
+- The build inlines `styles.css` and `script.js` into `public/learn.html`.
+- `next.config.mjs` rewrites `/learn/standalone` to `/learn.html`.
 
-**Navigation wired:** Home's "Learn" tile → `/learn`; this page's "Getting
-Started" tile → `/cube-notation`; bottom-nav Home → `/`, Solvers → `/solve`,
-Profile → `/profile`.
+The standalone generator is not the source of truth for new Learn behavior. New puzzle labels and algorithm mappings belong in `lib/learn-model-engine.ts` so the React Learn route and future lesson pages use one hierarchy.
 
-## Notes
-- Fully responsive: 2-column desktop → stacked sidebar → single column on phones.
-- Respects `prefers-reduced-motion`.
-- The **affiliate strip is a real product carousel** (`.aff-carousel`): native
-  scroll-snap for swipe, JS auto-advance every 2.8s that pauses on hover / focus
-  / touch, dot indicators that track position, and each card is its own link.
-  Auto-advance is disabled under `prefers-reduced-motion` (still swipeable).
-- Other cards, tags, buttons and the bottom nav are wired for look only (no
-  routing); product links point at `#` — real routing/links come with the
-  React port.
+## Interaction and accessibility
+
+- Puzzle selection uses native buttons and exposes pressed state.
+- The labeled SVG has an accessible puzzle-specific name.
+- The active algorithm step highlights the mapped face and repeats the move in text.
+- Labels do not depend on color alone; notation and face names remain visible.
+- The implementation remains responsive and honors the site-wide visual tokens.
