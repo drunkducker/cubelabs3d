@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import KilominxNotationModel from "@/components/KilominxNotationModel";
+import KilominxNotationTouchGuard from "@/components/KilominxNotationTouchGuard";
 import KilominxNotationClient from "@/components/KilominxNotationClient";
 
 export const metadata: Metadata = {
@@ -25,7 +25,7 @@ export default function KilominxNotationPage() {
         </div>
 
         <div className="mt-3">
-          <KilominxNotationModel />
+          <KilominxNotationTouchGuard />
         </div>
 
         <section className="mt-4">
