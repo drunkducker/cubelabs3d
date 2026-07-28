@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import AppBottomNav from "@/components/AppBottomNav";
-import KilominxNotationNet from "@/components/KilominxNotationNet";
+import KilominxNotationClient from "@/components/KilominxNotationClient";
 
 export const metadata: Metadata = {
   title: "Kilominx Notation | Cube Lab 3D",
@@ -31,7 +31,7 @@ export default function KilominxNotationPage() {
         </section>
 
         <div className="mt-5">
-          <KilominxNotationNet />
+          <KilominxNotationClient />
         </div>
 
         <section className="mt-4 rounded-[20px] border border-[var(--border)] bg-black/20 p-4 text-sm leading-6 text-[var(--muted)] print:hidden">
