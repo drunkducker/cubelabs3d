@@ -112,6 +112,10 @@ documentation support completion.
 - [~] Kilominx solver dedicated 3D solution playback (`KilominxSolverCube3D`) mirroring the 4×4 solver, with a collapsible move list, swipe-to-turn, and a camera-only rotation lock (ADR 0006); branch-only on `claude/kilominx-solver-3d-page-wbyyay`, build/test/browser-verified, not merged, mobile QA remains
 - [~] Reconciled move-count-optimized Kilominx planner wired into the app via `kilominx-engine-public` (~19% fewer moves, verified in the built bundle; ADR 0007); adds a Node-24 CI workflow (docs:check → tsc → test → build). Below the ~25% target — a reduction-primitive rewrite remains. Branch-only on `claude/kilominx-solver-3d-page-wbyyay`
 - [ ] Optimize the Kilominx solver to ~25% fewer moves via a reduction-primitive rewrite (shorter twist ops / combined permutation-orientation), behind `kilominx-engine-public`, with a move-count fixture
+- [~] Puzzle cookie-cutter kit: `lib/puzzles.mjs` registry (contract + waivers + experiment hatch) and `scripts/check-puzzles.mjs` conformance checker wired into CI, printing a per-puzzle ✅/⚠️/❌ matrix (ADR 0008). Branch-only on `claude/kilominx-solver-3d-page-wbyyay`
+- [ ] Migrate the hand-written puzzle lists onto `lib/puzzles.mjs`: the `/solve` hub, `learnPuzzleOrder`, challenge routing, leaderboard preview, and profile puzzle colors — one list instead of ~15
+- [ ] Close the declared cookie-cutter waivers when ready: standalone `/play/2x2` and `/play/5x5`, 2×2/5×5 Learn tracks, and (optionally) a 3D solution-playback panel for Pyraminx/Skewb
+- [ ] Optional `scripts/new-puzzle.mjs` scaffolder that stamps the template files (engine stub, solver route, play route, Save & Friend Play, 3D playback) from a registry entry
 - [~] Skewb draft PR #9: exact state engine and verified solver, fourteen real
   moving bodies, all eight stable corner pivots, continuous sticker drag,
   460 ms turns, native state loading, completed-result tracking, and visible

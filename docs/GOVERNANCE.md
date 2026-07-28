@@ -705,9 +705,19 @@ browser proof. A browser demo with mock data is not production proof.
 ### Commands
 
 ```bash
+npm run docs:check
+npm run puzzles:check
 npm test
 npm run build
 ```
+
+`npm run puzzles:check` enforces the puzzle cookie-cutter: for every puzzle in
+`lib/puzzles.mjs` it verifies each contract capability (engine, solver route,
+playable experience, Save & Friend Play, 3D solution playback, Learn presence)
+and fails only on a required capability that is neither present nor waived. When
+you are still building or A/B-testing a puzzle, record a waiver with a reason (or
+mark it `experimental`) instead of leaving an accidental gap — see ADR 0008 and
+the puzzle cookie-cutter contract in `CUBE-ENGINE.md`.
 
 `npm run lint` is required only after the repository lint command is configured
 to run non-interactively and reliably in CI. Until then, do not claim lint proof.

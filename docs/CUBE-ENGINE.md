@@ -41,6 +41,43 @@ by confirming the built bundle contains the optimized planner, not just by tests
 (Vitest ignores tsconfig `paths` and resolves `@` to the repo root). Branch
 `claude/kilominx-solver-3d-page-wbyyay`; not yet on `main`.
 
+## Puzzle cookie-cutter contract
+
+Cube Labs puzzles are built from one template so we stop re-inventing the wheel
+per puzzle. The template is six capabilities:
+
+| Capability | What it means |
+| --- | --- |
+| Engine | `lib/<puzzle>-engine.ts` (or shared engine) owns state + a verified solver; the source of truth |
+| Solver route | `/solver/<puzzle>` — scramble or enter a cube, get a verified solution |
+| Playable experience | a 3D game (its own `/play/<puzzle>`, or the solver route when the solver *is* the game) |
+| Save & Friend Play | the shared `UniversalPuzzleActions` panel mounted with `puzzleType="<id>"` |
+| 3D solution playback | a facelet-driven `*SolverCube3D` (see the pattern below) |
+| Learn presence | the puzzle appears in the Learn order/adapter |
+
+`lib/puzzles.mjs` is the **single source of truth**: it declares every puzzle,
+the capabilities it must meet (`contract`), and — where a puzzle intentionally
+skips one while it is still being built or A/B-tested — a `waiver` with a reason
+or an `experiment` marker. `scripts/check-puzzles.mjs` (`npm run puzzles:check`,
+run in CI) reads it and prints a per-puzzle matrix — ✅ met, ⚠️ waived
+(intentional), ❌ missing, — n/a — and fails only on an unwaived ❌. This is the
+automated form of reading the cookie-cutter and labeling what is not: an
+accidental drift fails the build, a declared deviation does not.
+
+**The freedom hatch.** While experimenting, add a `waivers: { capability: "why" }`
+entry (or `status: "experimental"` / an `experiment` field) rather than leaving a
+silent gap. The checker then reports it as an intentional deviation — and if the
+capability later becomes present, it flags the waiver as stale so it gets cleaned
+up. New puzzles are added by appending one registry entry; the checker's output
+tells you exactly which pieces remain. See ADR 0008.
+
+Current declared deviations: 2×2 and 5×5 have no standalone `/play` route or
+Learn track yet; Pyraminx and Skewb have no separate solution-playback panel
+(their solver *is* the interactive game and auto-solve animates on the live
+cube). Migrating the hand-written puzzle lists (the `/solve` hub, learn order,
+challenge routing, leaderboard, profile colors) onto `lib/puzzles.mjs` is tracked
+in ROADMAP so nothing is kept in sync by hand.
+
 ## Solver 3D playback pattern (cookie-cutter)
 
 Every `/solver/<puzzle>` page shares one shape: choose a state (scramble or

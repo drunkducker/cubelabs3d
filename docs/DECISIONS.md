@@ -487,3 +487,56 @@ miswire.
 - If ~25% is required, rewrite the reduction primitives (shorter twist
   operations / combined permutation-orientation) behind the same public
   entrypoint, with a move-count fixture, rather than tuning selection.
+
+## ADR 0008 — Puzzles are declared in one registry and conformance is enforced
+
+- Status: accepted
+- Date: 2026-07-28
+- Decision owners: Cube Labs project owner and contributing agents
+- Branch: `claude/kilominx-solver-3d-page-wbyyay` (unmerged at time of writing)
+
+### Context
+
+Every puzzle is meant to follow one template — an engine (verified solver), a
+solver route, a playable experience, the shared Save & Friend Play panel, a 3D
+solution playback, and a Learn presence. In practice the puzzle set was
+copy-pasted across ~15 files (the `/solve` hub, `learnPuzzleOrder`, challenge
+routing, leaderboard, profile colors, per-page `puzzleType`), so puzzles drifted
+apart silently and each new puzzle meant re-deriving the whole checklist by hand.
+The owner wants new puzzles to be cookie-cutter by default while keeping room to
+experiment and A/B-test without being blocked.
+
+### Decision
+
+- **One registry is the source of truth.** `lib/puzzles.mjs` declares every
+  puzzle, its `contract` (required capabilities), intentional `waivers` (with
+  reasons), and an optional `experiment`/`status` marker.
+- **Conformance is checked in CI.** `scripts/check-puzzles.mjs`
+  (`npm run puzzles:check`) verifies each contract capability against the repo
+  and prints a ✅/⚠️/❌ matrix. It fails only on a required capability that is
+  neither present nor waived; declared deviations pass, and a waiver whose
+  capability is now present is flagged as stale.
+- **Waivers/experiments are the freedom hatch.** Building or A/B-testing a puzzle
+  means recording a waiver or `experimental` status, not leaving a silent gap —
+  so "not cookie-cutter yet" is always explicit and reviewable.
+- **The registry is plain `.mjs`** so the Node checker imports the real data
+  (not a regex) and app code can adopt it; a `.ts`/`.d.ts` typed view can wrap it
+  when call sites migrate.
+
+### Consequences
+
+- Adding a puzzle is appending one registry entry; the checker names exactly what
+  is still missing, so there is no per-puzzle checklist to re-derive.
+- Accidental drift (a new puzzle missing Save & Friend Play, say) fails CI;
+  intentional gaps are labeled with a reason and do not.
+- The hand-written puzzle lists still exist; migrating them onto the registry is
+  follow-up (ROADMAP) so there is eventually one list, not fifteen.
+- No runtime behavior change yet — the registry and checker are build-time. No
+  schema, auth, or config change.
+
+### Required follow-up
+
+- Migrate the `/solve` hub, learn order, challenge routing, leaderboard, and
+  profile puzzle metadata to read `lib/puzzles.mjs`.
+- Optionally add a `scripts/new-puzzle.mjs` scaffolder that stamps the template
+  files from a registry entry.

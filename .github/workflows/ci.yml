@@ -36,6 +36,9 @@ jobs:
       - name: Check documentation
         run: npm run docs:check
 
+      - name: Check puzzle cookie-cutter conformance
+        run: npm run puzzles:check
+
       - name: Typecheck
         run: npx tsc --noEmit
 
