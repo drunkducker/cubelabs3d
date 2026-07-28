@@ -1,8 +1,8 @@
 # Cube Labs 3D — Current Status
 
-**Last verified:** 2026-07-27
+**Last verified:** 2026-07-28
 **Canonical branch:** `main`
-**Current canonical head:** `bbbb7b5` (Kilominx manual-entry solver merge)
+**Current canonical head:** `b484e34` (Kilominx solver 3D playback + reconciled move-count-optimized planner)
 **Repository:** `drunkducker/cubelabs3d`
 
 This document is the single current-state summary. Dated checkpoints and unmerged branches are historical or in-progress evidence and must not override this file.
@@ -103,7 +103,8 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 | `gpt/coming-soon-page-20260726` | RootA | Switchable coming-soon homepage | ✔ merged through PR #7; safe to delete after verification |
 | `claude/more-cubelabs-yuom1x` | RootA | Deterministic 5×5 rewrite | ⛔ WIP, unmerged |
 | `claude/manual-solver-input-jja9t0` | RootA | Kilominx manual-entry solver + flat net; `/solver/kilominx` = solver, `/play/kilominx` = game (ADR 0005) | ✔ merged to `main` at `bbbb7b5`; mobile/browser QA pending — safe to delete after verification |
-| `claude/kilominx-solver-3d-page-wbyyay` | RootA | Kilominx solver 3D solution playback (`KilominxSolverCube3D`, ADR 0006) + reconciled move-count-optimized planner wired through `kilominx-engine-public` (~19% shorter, ADR 0007) | ⛔ branch-only, unmerged, no PR; docs/tsc/test (80/80)/build/bundle-verified; direct-to-`main` push and mobile QA pending owner confirmation |
+| `claude/kilominx-solver-3d-page-wbyyay` | RootA | Kilominx solver 3D solution playback (`KilominxSolverCube3D`, ADR 0006) + reconciled move-count-optimized planner wired through `kilominx-engine-public` (~19% shorter, ADR 0007) | ✔ fast-forwarded to `main` at `b484e34` on 2026-07-28 (owner-approved direct push); docs/tsc/test 80-80/build/bundle-verified; mobile QA pending — safe to delete after verification |
+| `agent/optimize-kilominx-solver` | RootA | Move-count-optimized Kilominx planner + public entrypoint + Node-24 CI | ✔ merged into `main` via `b484e34`; safe to delete after verification |
 | `claude/working-status-mumm9x` | RootA | Older staging/session handoff | superseded — review before delete |
 | `claude/home-page-html-rebuild-q7qomi` | RootA | Learn/home rebuild, leaderboard, tracked challenge | ✔ merged — safe to delete after verification |
 | `gpt/mobile-profile-page-20260722` | RootA | Profile/social/privacy/hubs | ✔ merged — safe to delete after verification |
