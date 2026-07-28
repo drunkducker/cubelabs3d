@@ -33,6 +33,15 @@ type GrabFaceEvent = CustomEvent<{
   color?: string | null;
 }>;
 
+type PointerStart = {
+  id: number;
+  x: number;
+  y: number;
+  point: THREE.Vector3;
+  face: number;
+  label: string;
+};
+
 const toVec3 = (value: readonly [number, number, number]) => new THREE.Vector3(value[0], value[1], value[2]);
 
 function orderedFaceCorners(face: number): number[] {
@@ -79,7 +88,7 @@ function readableText(color: string) {
   return color === "#f5f5f5" || color === "#ffd500" || color === "#59a7ff" || color === "#8fe36b" || color === "#9aa3ad" ? "#0b0d12" : "#ffffff";
 }
 
-function labelTexture(label: string, color: string) {
+function labelTexture(label: string, color: string, glowing = false) {
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 256;
@@ -87,13 +96,21 @@ function labelTexture(label: string, color: string) {
   if (!context) return new THREE.CanvasTexture(canvas);
   context.fillStyle = color;
   context.fillRect(0, 0, 256, 256);
-  context.strokeStyle = "rgba(255,255,255,.48)";
-  context.lineWidth = 10;
+  context.strokeStyle = glowing ? "rgba(0,0,0,.95)" : "rgba(255,255,255,.48)";
+  context.lineWidth = glowing ? 16 : 10;
   context.strokeRect(8, 8, 240, 240);
-  context.fillStyle = readableText(color);
   context.font = "900 78px system-ui, sans-serif";
   context.textAlign = "center";
   context.textBaseline = "middle";
+  if (glowing) {
+    context.lineJoin = "round";
+    context.strokeStyle = "rgba(255,255,255,.95)";
+    context.lineWidth = 18;
+    context.strokeText(label, 128, 132);
+    context.fillStyle = "#050505";
+  } else {
+    context.fillStyle = readableText(color);
+  }
   context.fillText(label, 128, 132);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -122,6 +139,9 @@ function glowTexture() {
 
 export default function KilominxNotationModel() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const touchGuideRef = useRef<HTMLDivElement>(null);
+  const touchBeamRef = useRef<HTMLDivElement>(null);
+  const touchDirectionRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<{ scramble: () => void; solve: () => void; reset: () => void; resetView: () => void } | null>(null);
   const [status, setStatus] = useState("Swipe a labeled sticker to turn • tap to identify");
   const [scrambleText, setScrambleText] = useState("");
@@ -189,7 +209,8 @@ export default function KilominxNotationModel() {
         geometries.push(stickerGeometry, backingGeometry);
         const label = `${face + 1}${LETTERS[kite.kite]}`;
         const texture = labelTexture(label, color);
-        textures.push(texture);
+        const contrastTexture = labelTexture(label, color, true);
+        textures.push(texture, contrastTexture);
         const stickerMaterial = new THREE.MeshStandardMaterial({
           map: texture,
           color: "#ffffff",
@@ -206,6 +227,8 @@ export default function KilominxNotationModel() {
         sticker.userData.face = face;
         sticker.userData.label = label;
         sticker.userData.baseColor = color;
+        sticker.userData.baseTexture = texture;
+        sticker.userData.contrastTexture = contrastTexture;
         const backing = new THREE.Mesh(backingGeometry, bodyMaterial);
         cornerGroups[kite.corner]!.add(backing, sticker);
         pickables.push(sticker);
@@ -245,8 +268,10 @@ export default function KilominxNotationModel() {
     const clearStickerHighlight = () => {
       for (const sticker of stickerMeshes) {
         const material = sticker.material as THREE.MeshStandardMaterial;
+        material.map = sticker.userData.baseTexture as THREE.Texture;
         material.emissive.set(sticker.userData.baseColor as string);
         material.emissiveIntensity = 0.035;
+        material.needsUpdate = true;
       }
       grabHalo.visible = false;
       grabCore.visible = false;
@@ -265,14 +290,15 @@ export default function KilominxNotationModel() {
       if (!sticker) return;
       const color = requestedColor || (sticker.userData.baseColor as string);
       const material = sticker.material as THREE.MeshStandardMaterial;
+      material.map = sticker.userData.contrastTexture as THREE.Texture;
       material.emissive.set(color);
-      material.emissiveIntensity = 5.5;
+      material.emissiveIntensity = 4.2;
+      material.needsUpdate = true;
       haloMaterial.color.set(color);
       coreMaterial.color.set(color);
       grabLight.color.set(color);
 
       const geometry = sticker.geometry as THREE.BufferGeometry;
-      geometry.computeBoundingSphere();
       const center = geometry.boundingSphere?.center.clone() ?? new THREE.Vector3();
       const normals = geometry.getAttribute("normal");
       const normal = normals
@@ -300,7 +326,7 @@ export default function KilominxNotationModel() {
       controls.autoRotate = false;
       highlightSticker(label, color);
       setGrabLabel(label);
-      if (label) setStatus(`Target sticker ${label} • glow anchored to sticker`);
+      if (label) setStatus(`Target sticker ${label} • high-contrast anchored glow`);
     };
     window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
 
@@ -378,46 +404,125 @@ export default function KilominxNotationModel() {
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    let pointerStart: { id: number; x: number; y: number; point: THREE.Vector3; face: number; label: string } | null = null;
+    let pointerStart: PointerStart | null = null;
+
     const setPointer = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
     };
+
+    const spatialFaceForSticker = (sticker: THREE.Object3D) => {
+      sticker.updateMatrixWorld(true);
+      const geometry = (sticker as THREE.Mesh).geometry as THREE.BufferGeometry;
+      const normals = geometry.getAttribute("normal");
+      const worldNormal = normals
+        ? new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld).normalize()
+        : new THREE.Vector3(0, 0, 1);
+      let bestFace = 0;
+      let bestDot = -Infinity;
+      for (let face = 0; face < 12; face++) {
+        const dot = worldNormal.dot(toVec3(faceNormal(face)).normalize());
+        if (dot > bestDot) { bestDot = dot; bestFace = face; }
+      }
+      return bestFace;
+    };
+
     const resolveMove = (face: number, point: THREE.Vector3, dx: number, dy: number) => {
-      const axis = toVec3(faceNormal(face));
-      const tangent = axis.clone().cross(point).normalize();
+      const axis = toVec3(faceNormal(face)).normalize();
+      const tangent = axis.clone().cross(point.clone().normalize()).normalize();
       const origin = point.clone().project(camera);
       const target = point.clone().add(tangent).project(camera);
       const screen = new THREE.Vector2(target.x - origin.x, -(target.y - origin.y)).normalize();
       return face * 2 + (new THREE.Vector2(dx, dy).normalize().dot(screen) >= 0 ? 0 : 1);
     };
+
+    const showTouchGuide = (event: PointerEvent) => {
+      const guide = touchGuideRef.current;
+      const beam = touchBeamRef.current;
+      const direction = touchDirectionRef.current;
+      if (!guide || !beam || !direction) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      guide.style.left = `${event.clientX - rect.left}px`;
+      guide.style.top = `${event.clientY - rect.top}px`;
+      guide.style.opacity = "1";
+      guide.style.transform = "translate(-50%, -50%) scale(1)";
+      beam.style.width = "0px";
+      beam.style.transform = "rotate(0deg)";
+      direction.textContent = "TOUCH";
+    };
+
+    const updateTouchGuide = (dx: number, dy: number) => {
+      const beam = touchBeamRef.current;
+      const direction = touchDirectionRef.current;
+      if (!beam || !direction) return;
+      const distance = Math.min(110, Math.hypot(dx, dy));
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+      beam.style.width = `${distance}px`;
+      beam.style.transform = `rotate(${angle}deg)`;
+      if (distance < 12) direction.textContent = "TOUCH";
+      else if (Math.abs(dx) > Math.abs(dy)) direction.textContent = dx > 0 ? "SWIPE →" : "← SWIPE";
+      else direction.textContent = dy > 0 ? "SWIPE ↓" : "SWIPE ↑";
+    };
+
+    const hideTouchGuide = () => {
+      const guide = touchGuideRef.current;
+      if (!guide) return;
+      guide.style.opacity = "0";
+      guide.style.transform = "translate(-50%, -50%) scale(.82)";
+    };
+
     const onDown = (event: PointerEvent) => {
-      if (active) return;
+      if (active || event.button > 0) return;
       setPointer(event);
       const hit = raycaster.intersectObjects(pickables, true)[0];
       if (!hit) return;
-      pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY, point: hit.point.clone(), face: hit.object.userData.face as number, label: hit.object.userData.label as string };
+      const sticker = hit.object as THREE.Mesh;
+      const face = spatialFaceForSticker(sticker);
+      pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY, point: hit.point.clone(), face, label: sticker.userData.label as string };
       controls.enabled = false;
+      controls.autoRotate = false;
+      showTouchGuide(event);
       renderer.domElement.setPointerCapture(event.pointerId);
+      setStatus(`${pointerStart.label} • face ${face + 1} • drag to preview movement`);
     };
-    const onUp = (event: PointerEvent) => {
+
+    const onMove = (event: PointerEvent) => {
+      if (!pointerStart || pointerStart.id !== event.pointerId) return;
+      const dx = event.clientX - pointerStart.x;
+      const dy = event.clientY - pointerStart.y;
+      updateTouchGuide(dx, dy);
+      if (Math.hypot(dx, dy) >= 12) {
+        const previewMove = resolveMove(pointerStart.face, pointerStart.point, dx, dy);
+        setStatus(`Preview ${moveLabel(previewMove)} from ${pointerStart.label}`);
+      }
+    };
+
+    const finishPointer = (event: PointerEvent, cancelled = false) => {
       if (!pointerStart || pointerStart.id !== event.pointerId) return;
       const start = pointerStart;
       pointerStart = null;
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
-      if (Math.hypot(dx, dy) >= 34) {
+      hideTouchGuide();
+      if (!cancelled && Math.hypot(dx, dy) >= 24) {
         const move = resolveMove(start.face, start.point, dx, dy);
         setStatus(`Turn ${moveLabel(move)} from sticker ${start.label}`);
         queueSequence([move]);
-      } else setStatus(`${start.label} • engine face ${start.face + 1}`);
+      } else if (!cancelled) {
+        setStatus(`${start.label} • current face ${start.face + 1}`);
+      }
       controls.enabled = true;
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
     };
+
+    const onUp = (event: PointerEvent) => finishPointer(event, false);
+    const onCancel = (event: PointerEvent) => finishPointer(event, true);
     renderer.domElement.addEventListener("pointerdown", onDown, true);
+    renderer.domElement.addEventListener("pointermove", onMove, true);
     renderer.domElement.addEventListener("pointerup", onUp, true);
-    renderer.domElement.addEventListener("pointercancel", onUp, true);
+    renderer.domElement.addEventListener("pointercancel", onCancel, true);
 
     const resize = () => {
       const width = Math.max(1, mount.clientWidth);
@@ -453,8 +558,9 @@ export default function KilominxNotationModel() {
       observer.disconnect();
       window.removeEventListener(GRAB_FACE_EVENT, onGrabFace);
       renderer.domElement.removeEventListener("pointerdown", onDown, true);
+      renderer.domElement.removeEventListener("pointermove", onMove, true);
       renderer.domElement.removeEventListener("pointerup", onUp, true);
-      renderer.domElement.removeEventListener("pointercancel", onUp, true);
+      renderer.domElement.removeEventListener("pointercancel", onCancel, true);
       detachGlow();
       controls.dispose();
       materials.forEach(material => material.dispose());
@@ -472,11 +578,18 @@ export default function KilominxNotationModel() {
         <span>{status}</span>
         <span className="font-bold text-[var(--text)]">{grabLabel ?? (solvedNow ? "Solved" : "In motion")}</span>
       </div>
-      <div className="relative">
+      <div className="relative overflow-hidden">
         <div ref={mountRef} data-kilominx-direction-anchor className="h-[430px] w-full touch-none sm:h-[480px]" />
         <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 text-[10px] font-black tracking-[.18em] text-white/70 backdrop-blur">3D PUZZLE • FIRST</div>
+        <div ref={touchGuideRef} className="pointer-events-none absolute z-20 h-24 w-24 opacity-0 transition-[opacity,transform] duration-150" style={{ transform: "translate(-50%, -50%) scale(.82)" }}>
+          <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-2 rounded-2xl border border-white/25 bg-black/25 p-2 backdrop-blur-[2px]">
+            {Array.from({ length: 9 }, (_, index) => <span key={index} className={`rounded-full border ${index === 4 ? "border-white bg-white/80" : "border-white/35 bg-white/10"}`} />)}
+          </div>
+          <div ref={touchBeamRef} className="absolute left-1/2 top-1/2 h-1 origin-left rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,.9)]" />
+          <div ref={touchDirectionRef} className="absolute left-1/2 top-[calc(100%+8px)] -translate-x-1/2 whitespace-nowrap rounded-full border border-white/20 bg-black/75 px-2 py-1 text-[10px] font-black tracking-[.12em] text-white">TOUCH</div>
+        </div>
       </div>
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Glow is physically anchored to the current sticker</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Live touch matrix previews swipe direction before the turn commits</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
