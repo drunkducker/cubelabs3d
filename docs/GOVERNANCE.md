@@ -722,6 +722,12 @@ or A/B-testing, record a waiver with a reason (or mark it `experimental`) instea
 of leaving an accidental gap — see ADR 0008 and the cookie-cutter contract in
 `CUBE-ENGINE.md`.
 
+The **site dictionary** in `lib/glossary.mjs` (`npm run glossary`, or
+`npm run glossary -- "<word>"`) defines the project vocabulary — engine, module,
+cookie-cutter, waiver, freedom hatch, and the rest — and maps each idea to the
+real functions/variables/files it points at. Keep it current when we coin a word
+or add a load-bearing symbol.
+
 `npm run lint` is required only after the repository lint command is configured
 to run non-interactively and reliably in CI. Until then, do not claim lint proof.
 
