@@ -18,6 +18,13 @@ import {
   moveLabel,
   type KiloState,
 } from "@/lib/kilominx-engine";
+import {
+  KILOMINX_COMMIT_DISTANCE,
+  KILOMINX_PREVIEW_DISTANCE,
+  resolveKilominxDrag,
+  resolveKilominxSpatialFace,
+  shouldCommitKilominxDrag,
+} from "@/lib/kilominx-interaction";
 
 const TURN = (2 * Math.PI) / 5;
 const LETTERS = ["A", "B", "C", "D", "E"] as const;
@@ -31,6 +38,7 @@ type GrabFaceEvent = CustomEvent<{
   kite?: number | null;
   stickerLabel?: string | null;
   color?: string | null;
+  stickerColor?: string | null;
 }>;
 
 type PointerStart = {
@@ -322,7 +330,11 @@ export default function KilominxNotationModel() {
     const onGrabFace = (event: Event) => {
       const detail = (event as GrabFaceEvent).detail;
       const label = typeof detail?.stickerLabel === "string" ? detail.stickerLabel : null;
-      const color = typeof detail?.color === "string" ? detail.color : null;
+      const color = typeof detail?.color === "string"
+        ? detail.color
+        : typeof detail?.stickerColor === "string"
+          ? detail.stickerColor
+          : null;
       controls.autoRotate = false;
       highlightSticker(label, color);
       setGrabLabel(label);
@@ -346,7 +358,7 @@ export default function KilominxNotationModel() {
       const angle = dirOfMove(queued.moveIndex) === 1 ? TURN : -TURN;
       const axis = toVec3(faceNormal(face));
       const started = performance.now();
-      const duration = queued.fast ? 115 : 260;
+      const duration = queued.fast ? 115 : 250;
       const animate = (now: number) => {
         if (disposed) return;
         const progress = Math.min(1, (now - started) / duration);
@@ -405,6 +417,8 @@ export default function KilominxNotationModel() {
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     let pointerStart: PointerStart | null = null;
+    let previewMove: number | null = null;
+    let activePointers = 0;
 
     const setPointer = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -413,29 +427,11 @@ export default function KilominxNotationModel() {
       raycaster.setFromCamera(pointer, camera);
     };
 
-    const spatialFaceForSticker = (sticker: THREE.Object3D) => {
-      sticker.updateMatrixWorld(true);
-      const geometry = (sticker as THREE.Mesh).geometry as THREE.BufferGeometry;
-      const normals = geometry.getAttribute("normal");
-      const worldNormal = normals
-        ? new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld).normalize()
+    const localStickerNormal = (sticker: THREE.Mesh) => {
+      const normals = sticker.geometry.getAttribute("normal");
+      return normals
+        ? new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).normalize()
         : new THREE.Vector3(0, 0, 1);
-      let bestFace = 0;
-      let bestDot = -Infinity;
-      for (let face = 0; face < 12; face++) {
-        const dot = worldNormal.dot(toVec3(faceNormal(face)).normalize());
-        if (dot > bestDot) { bestDot = dot; bestFace = face; }
-      }
-      return bestFace;
-    };
-
-    const resolveMove = (face: number, point: THREE.Vector3, dx: number, dy: number) => {
-      const axis = toVec3(faceNormal(face)).normalize();
-      const tangent = axis.clone().cross(point.clone().normalize()).normalize();
-      const origin = point.clone().project(camera);
-      const target = point.clone().add(tangent).project(camera);
-      const screen = new THREE.Vector2(target.x - origin.x, -(target.y - origin.y)).normalize();
-      return face * 2 + (new THREE.Vector2(dx, dy).normalize().dot(screen) >= 0 ? 0 : 1);
     };
 
     const showTouchGuide = (event: PointerEvent) => {
@@ -453,7 +449,7 @@ export default function KilominxNotationModel() {
       direction.textContent = "TOUCH";
     };
 
-    const updateTouchGuide = (dx: number, dy: number) => {
+    const updateTouchGuide = (dx: number, dy: number, selectedMove: number | null) => {
       const beam = touchBeamRef.current;
       const direction = touchDirectionRef.current;
       if (!beam || !direction) return;
@@ -461,9 +457,9 @@ export default function KilominxNotationModel() {
       const angle = Math.atan2(dy, dx) * 180 / Math.PI;
       beam.style.width = `${distance}px`;
       beam.style.transform = `rotate(${angle}deg)`;
-      if (distance < 12) direction.textContent = "TOUCH";
-      else if (Math.abs(dx) > Math.abs(dy)) direction.textContent = dx > 0 ? "SWIPE →" : "← SWIPE";
-      else direction.textContent = dy > 0 ? "SWIPE ↓" : "SWIPE ↑";
+      direction.textContent = distance < KILOMINX_PREVIEW_DISTANCE || selectedMove === null
+        ? "TOUCH"
+        : moveLabel(selectedMove);
     };
 
     const hideTouchGuide = () => {
@@ -474,46 +470,78 @@ export default function KilominxNotationModel() {
     };
 
     const onDown = (event: PointerEvent) => {
-      if (active || event.button > 0) return;
+      activePointers += 1;
+      previewMove = null;
+      if (active || event.button > 0 || activePointers > 1) {
+        pointerStart = null;
+        controls.enabled = true;
+        hideTouchGuide();
+        return;
+      }
       setPointer(event);
       const hit = raycaster.intersectObjects(pickables, true)[0];
-      if (!hit) return;
+      if (!hit) {
+        controls.enabled = true;
+        return;
+      }
       const sticker = hit.object as THREE.Mesh;
-      const face = spatialFaceForSticker(sticker);
+      const face = resolveKilominxSpatialFace(sticker, localStickerNormal(sticker));
       pointerStart = { id: event.pointerId, x: event.clientX, y: event.clientY, point: hit.point.clone(), face, label: sticker.userData.label as string };
+      event.preventDefault();
       controls.enabled = false;
       controls.autoRotate = false;
       showTouchGuide(event);
       renderer.domElement.setPointerCapture(event.pointerId);
-      setStatus(`${pointerStart.label} • face ${face + 1} • drag to preview movement`);
+      setStatus("Swipe to turn");
     };
 
     const onMove = (event: PointerEvent) => {
-      if (!pointerStart || pointerStart.id !== event.pointerId) return;
+      if (!pointerStart || pointerStart.id !== event.pointerId || activePointers > 1) return;
+      event.preventDefault();
+      const resolution = resolveKilominxDrag(
+        pointerStart.face,
+        pointerStart.point,
+        { clientX: pointerStart.x, clientY: pointerStart.y },
+        { clientX: event.clientX, clientY: event.clientY },
+        camera,
+      );
       const dx = event.clientX - pointerStart.x;
       const dy = event.clientY - pointerStart.y;
-      updateTouchGuide(dx, dy);
-      if (Math.hypot(dx, dy) >= 12) {
-        const previewMove = resolveMove(pointerStart.face, pointerStart.point, dx, dy);
-        setStatus(`Preview ${moveLabel(previewMove)} from ${pointerStart.label}`);
+      if (!resolution || resolution.distance < KILOMINX_PREVIEW_DISTANCE) {
+        previewMove = null;
+        updateTouchGuide(dx, dy, null);
+        return;
       }
+      previewMove = resolution.moveIndex;
+      updateTouchGuide(dx, dy, previewMove);
+      setStatus(`Selected ${moveLabel(previewMove)}`);
     };
 
     const finishPointer = (event: PointerEvent, cancelled = false) => {
-      if (!pointerStart || pointerStart.id !== event.pointerId) return;
+      activePointers = Math.max(0, activePointers - 1);
+      if (!pointerStart || pointerStart.id !== event.pointerId) {
+        if (activePointers === 0) controls.enabled = true;
+        return;
+      }
       const start = pointerStart;
       pointerStart = null;
-      const dx = event.clientX - start.x;
-      const dy = event.clientY - start.y;
       hideTouchGuide();
-      if (!cancelled && Math.hypot(dx, dy) >= 24) {
-        const move = resolveMove(start.face, start.point, dx, dy);
+      const resolution = resolveKilominxDrag(
+        start.face,
+        start.point,
+        { clientX: start.x, clientY: start.y },
+        { clientX: event.clientX, clientY: event.clientY },
+        camera,
+      );
+      if (!cancelled && resolution && shouldCommitKilominxDrag(resolution.distance, KILOMINX_COMMIT_DISTANCE) && !active) {
+        const move = previewMove ?? resolution.moveIndex;
         setStatus(`Turn ${moveLabel(move)} from sticker ${start.label}`);
         queueSequence([move]);
       } else if (!cancelled) {
-        setStatus(`${start.label} • current face ${start.face + 1}`);
+        setStatus(isSolved(logicalState) ? "Solved" : "Kilominx ready");
       }
-      controls.enabled = true;
+      previewMove = null;
+      controls.enabled = activePointers === 0;
       if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
     };
 
@@ -589,7 +617,7 @@ export default function KilominxNotationModel() {
           <div ref={touchDirectionRef} className="absolute left-1/2 top-[calc(100%+8px)] -translate-x-1/2 whitespace-nowrap rounded-full border border-white/20 bg-black/75 px-2 py-1 text-[10px] font-black tracking-[.12em] text-white">TOUCH</div>
         </div>
       </div>
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Live touch matrix previews swipe direction before the turn commits</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Same touch contract as playable Kilominx • guide observes the gesture</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
