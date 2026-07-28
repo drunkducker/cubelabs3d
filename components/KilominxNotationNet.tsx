@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FACE_COLORS, faceOfMove, moveLabel, parseMove } from "@/lib/kilominx-engine";
+import {
+  CORNER_FACES,
+  FACE_COLORS,
+  applyMoves,
+  faceOfMove,
+  moveLabel,
+  parseMove,
+  solved,
+  type KiloState,
+} from "@/lib/kilominx-engine";
 import { kilominxNet } from "@/lib/kilominx-net-layout";
 
 const NET = kilominxNet();
@@ -39,24 +48,55 @@ function readSequenceSection(labelText: "SOLUTION" | "SCRAMBLE") {
   }
 }
 
+function parseSequence(sequence: string) {
+  return sequence.trim().split(/\s+/).filter(Boolean).flatMap(token => {
+    try { return [parseMove(token)]; } catch { return []; }
+  });
+}
+
+/**
+ * Resolve the sticker colour currently facing a fixed net face at one corner slot.
+ * cp says which physical corner is in the slot; co says how its three stickers are
+ * rotated relative to the destination slot's counter-clockwise face frame.
+ */
+function stickerFaceAt(state: KiloState, slot: number, destinationFace: number) {
+  const piece = state.cp[slot]!;
+  const twist = state.co[slot]!;
+  const destinationSticker = CORNER_FACES[slot]!.indexOf(destinationFace);
+  if (destinationSticker < 0) return destinationFace;
+  const sourceSticker = (destinationSticker - twist + 3) % 3;
+  return CORNER_FACES[piece]![sourceSticker]!;
+}
+
 export default function KilominxNotationNet() {
   const [algorithmText, setAlgorithmText] = useState(DEFAULT_ALGORITHM);
+  const [puzzleState, setPuzzleState] = useState<KiloState>(() => solved());
+  const [hasScramble, setHasScramble] = useState(false);
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [selectedFace, setSelectedFace] = useState<number | null>(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const importedSequence = useRef("");
+  const importedScramble = useRef("");
 
-  const moves = useMemo(() => algorithmText.trim().split(/\s+/).filter(Boolean).flatMap(token => {
-    try { return [parseMove(token)]; } catch { return []; }
-  }), [algorithmText]);
+  const moves = useMemo(() => parseSequence(algorithmText), [algorithmText]);
   const activeMove = moves[Math.min(step, Math.max(0, moves.length - 1))];
   const activeFace = activeMove === undefined ? selectedFace : faceOfMove(activeMove);
 
   useEffect(() => {
     const syncFromModel = () => {
-      const sequence = readSequenceSection("SOLUTION") || readSequenceSection("SCRAMBLE");
+      const scramble = readSequenceSection("SCRAMBLE");
+      const solution = readSequenceSection("SOLUTION");
+      const sequence = solution || scramble;
+
+      if (scramble !== importedScramble.current) {
+        importedScramble.current = scramble;
+        const scrambleMoves = parseSequence(scramble);
+        setPuzzleState(scrambleMoves.length ? applyMoves(solved(), scrambleMoves) : solved());
+        setHasScramble(scrambleMoves.length > 0);
+      }
+
       if (!sequence || sequence === importedSequence.current) return;
       importedSequence.current = sequence;
       setAlgorithmText(sequence);
@@ -107,23 +147,30 @@ export default function KilominxNotationNet() {
     <section className="kilominx-print-surface rounded-[22px] border border-[var(--border)] bg-[rgba(255,255,255,.045)] p-4 shadow-[0_18px_40px_rgba(0,0,0,.42)] print:border-0 print:bg-white print:p-0 print:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Flat labeled reference</p>
-          <h2 className="mt-1 text-2xl font-extrabold text-white">Kilominx face map</h2>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The same twelve engine faces unfolded into two flowers. Scramble and Solve above automatically transfer here for synchronized 2D and 3D highlighting.</p>
+          <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Live flat puzzle state</p>
+          <h2 className="mt-1 text-2xl font-extrabold text-white">Kilominx flower map</h2>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">Each kite now uses the sticker colour occupying that exact engine slot. Scramble above and the two flowers scramble with the 3D Kilominx.</p>
         </div>
-        <button type="button" onClick={() => window.print()} className="rounded-xl border border-[var(--border)] bg-black/25 px-4 py-2 text-sm font-extrabold text-white">Print reference</button>
+        <button type="button" onClick={() => window.print()} className="rounded-xl border border-[var(--border)] bg-black/25 px-4 py-2 text-sm font-extrabold text-white">Print current state</button>
+      </div>
+
+      <div className="mt-3 flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs font-bold print:hidden">
+        <span className="text-[var(--muted)]">FLOWER STATE</span>
+        <span className={hasScramble ? "text-amber-300" : "text-emerald-300"}>{hasScramble ? "Scrambled sticker colours" : "Solved sticker colours"}</span>
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] print:block">
-        <svg viewBox={`0 0 ${NET.width} ${NET.height}`} className="mx-auto block w-full max-w-[560px] print:max-w-none" role="img" aria-label="Printable labeled Kilominx two-flower net">
+        <svg viewBox={`0 0 ${NET.width} ${NET.height}`} className="mx-auto block w-full max-w-[560px] print:max-w-none" role="img" aria-label="Live labeled Kilominx two-flower state">
           {NET.kites.map(kite => {
             const active = kite.face === activeFace;
+            const stickerFace = stickerFaceAt(puzzleState, kite.slot, kite.face);
+            const color = FACE_COLORS[stickerFace]!;
             return <polygon
               key={`${kite.face}-${kite.kite}`}
               points={kitePoints(kite.quad, 0.9)}
-              fill={FACE_COLORS[kite.face]}
-              fillOpacity={active ? 1 : 0.82}
-              stroke={active ? "#8b5cf6" : "#0b0d12"}
+              fill={color}
+              fillOpacity={active ? 1 : 0.9}
+              stroke={active ? "#7CFF00" : "#0b0d12"}
               strokeWidth={active ? 0.08 : 0.035}
               strokeLinejoin="round"
               onClick={() => selectFace(kite.face)}
@@ -134,7 +181,7 @@ export default function KilominxNotationNet() {
             const active = center.face === activeFace;
             const color = FACE_COLORS[center.face];
             return <g key={center.face} onClick={() => selectFace(center.face)} className="cursor-pointer print:cursor-default">
-              <circle cx={center.at[0]} cy={center.at[1]} r={active ? 0.23 : 0.19} fill={color} stroke={active ? "#8b5cf6" : "#0b0d12"} strokeWidth={active ? 0.07 : 0.025} />
+              <circle cx={center.at[0]} cy={center.at[1]} r={active ? 0.23 : 0.19} fill={color} stroke={active ? "#7CFF00" : "#0b0d12"} strokeWidth={active ? 0.07 : 0.025} />
               <text x={center.at[0]} y={center.at[1] + 0.058} fontSize={0.16} fontWeight={900} fill={readableText(color)} textAnchor="middle">{center.face + 1}</text>
             </g>;
           })}
@@ -144,16 +191,16 @@ export default function KilominxNotationNet() {
           <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
             <label htmlFor="kilominx-algorithm" className="text-xs font-extrabold uppercase tracking-[.16em] text-[var(--muted)]">Algorithm</label>
             <textarea id="kilominx-algorithm" value={algorithmText} onChange={event => { importedSequence.current = event.target.value.trim(); setAlgorithmText(event.target.value); setStep(0); setPlaying(false); }} rows={3} className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-sm text-white outline-none focus:border-violet-400" />
-            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">Uses the engine&apos;s numbered face notation: 1–12, with an apostrophe for reverse turns.</p>
+            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">The algorithm controls the grab-face lesson. The flower colours come from the current imported scramble state.</p>
           </div>
 
-          <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
-            <p className="text-xs font-extrabold uppercase tracking-[.16em] text-violet-300">Current grab point</p>
+          <div className="rounded-2xl border border-[#7CFF00]/25 bg-[#7CFF00]/10 p-4">
+            <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#a7ff52]">Current grab point</p>
             <p className="mt-2 text-3xl font-black text-white">{activeMove === undefined ? `Face ${(activeFace ?? 0) + 1}` : moveLabel(activeMove)}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Face {(activeFace ?? 0) + 1} is highlighted on both the flat map and the movable 3D model.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Face {(activeFace ?? 0) + 1} is highlighted in neon green on both the live flower and movable 3D model.</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <button type="button" onClick={previous} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white">Previous</button>
-              <button type="button" onClick={togglePlay} className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white">{playing ? "Pause" : "Play"}</button>
+              <button type="button" onClick={togglePlay} className="rounded-xl bg-[#63d900] px-3 py-2 text-sm font-bold text-black">{playing ? "Pause" : "Play"}</button>
               <button type="button" onClick={next} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white">Next</button>
             </div>
             <div className="mt-3 flex items-center justify-between gap-3">
@@ -165,13 +212,13 @@ export default function KilominxNotationNet() {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {FACE_COLORS.map((color, face) => <button key={face} type="button" onClick={() => selectFace(face)} className="rounded-xl border p-2 text-xs font-black" style={{ background: color, color: readableText(color), borderColor: activeFace === face ? "#8b5cf6" : "rgba(255,255,255,.15)" }}>Face {face + 1}</button>)}
+            {FACE_COLORS.map((color, face) => <button key={face} type="button" onClick={() => selectFace(face)} className="rounded-xl border p-2 text-xs font-black" style={{ background: color, color: readableText(color), borderColor: activeFace === face ? "#7CFF00" : "rgba(255,255,255,.15)" }}>Face {face + 1}</button>)}
           </div>
         </div>
       </div>
 
       <div className="hidden print:block print:pt-4 print:text-center print:text-sm print:text-black">
-        <strong>Cube Lab 3D — Kilominx notation reference</strong><br />Faces 1–12 use the same numbering and colors as the Kilominx engine and solver.
+        <strong>Cube Lab 3D — Kilominx live state</strong><br />Every kite colour is derived from the engine corner permutation and orientation.
       </div>
     </section>
   );
