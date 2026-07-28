@@ -7,6 +7,7 @@ import { kilominxNet } from "@/lib/kilominx-net-layout";
 const NET = kilominxNet();
 const DEFAULT_ALGORITHM = "1 2 1' 2'";
 const SPEEDS = [900, 560, 320, 180];
+export const KILOMINX_GRAB_FACE_EVENT = "kilominx-notation-grab-face";
 
 function kitePoints(quad: readonly [number, number][], shrink = 0.9) {
   const cx = quad.reduce((sum, point) => sum + point[0], 0) / quad.length;
@@ -62,12 +63,17 @@ export default function KilominxNotationNet() {
       setStep(0);
       setPlaying(false);
     };
-
     syncFromModel();
     const observer = new MutationObserver(syncFromModel);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(KILOMINX_GRAB_FACE_EVENT, {
+      detail: { face: activeFace, move: activeMove ?? null },
+    }));
+  }, [activeFace, activeMove]);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -92,13 +98,18 @@ export default function KilominxNotationNet() {
     setPlaying(value => !value);
   };
 
+  const selectFace = (face: number) => {
+    setSelectedFace(face);
+    setPlaying(false);
+  };
+
   return (
     <section className="kilominx-print-surface rounded-[22px] border border-[var(--border)] bg-[rgba(255,255,255,.045)] p-4 shadow-[0_18px_40px_rgba(0,0,0,.42)] print:border-0 print:bg-white print:p-0 print:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[.18em] text-[var(--green)]">Flat labeled reference</p>
           <h2 className="mt-1 text-2xl font-extrabold text-white">Kilominx face map</h2>
-          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The same twelve engine faces unfolded into two flowers. Scramble and Solve above automatically transfer here for highlighting and playback.</p>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--muted)]">The same twelve engine faces unfolded into two flowers. Scramble and Solve above automatically transfer here for synchronized 2D and 3D highlighting.</p>
         </div>
         <button type="button" onClick={() => window.print()} className="rounded-xl border border-[var(--border)] bg-black/25 px-4 py-2 text-sm font-extrabold text-white">Print reference</button>
       </div>
@@ -115,14 +126,14 @@ export default function KilominxNotationNet() {
               stroke={active ? "#8b5cf6" : "#0b0d12"}
               strokeWidth={active ? 0.08 : 0.035}
               strokeLinejoin="round"
-              onClick={() => { setSelectedFace(kite.face); setPlaying(false); }}
+              onClick={() => selectFace(kite.face)}
               className="cursor-pointer print:cursor-default"
             />;
           })}
           {NET.faceCenters.map(center => {
             const active = center.face === activeFace;
             const color = FACE_COLORS[center.face];
-            return <g key={center.face} onClick={() => { setSelectedFace(center.face); setPlaying(false); }} className="cursor-pointer print:cursor-default">
+            return <g key={center.face} onClick={() => selectFace(center.face)} className="cursor-pointer print:cursor-default">
               <circle cx={center.at[0]} cy={center.at[1]} r={active ? 0.23 : 0.19} fill={color} stroke={active ? "#8b5cf6" : "#0b0d12"} strokeWidth={active ? 0.07 : 0.025} />
               <text x={center.at[0]} y={center.at[1] + 0.058} fontSize={0.16} fontWeight={900} fill={readableText(color)} textAnchor="middle">{center.face + 1}</text>
             </g>;
@@ -139,7 +150,7 @@ export default function KilominxNotationNet() {
           <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
             <p className="text-xs font-extrabold uppercase tracking-[.16em] text-violet-300">Current grab point</p>
             <p className="mt-2 text-3xl font-black text-white">{activeMove === undefined ? `Face ${(activeFace ?? 0) + 1}` : moveLabel(activeMove)}</p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Highlighting engine face {(activeFace ?? 0) + 1}. Grab any sticker on this pentagonal face and turn it 72° in the direction shown by the move.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Face {(activeFace ?? 0) + 1} is highlighted on both the flat map and the movable 3D model.</p>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <button type="button" onClick={previous} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-white">Previous</button>
               <button type="button" onClick={togglePlay} className="rounded-xl bg-violet-600 px-3 py-2 text-sm font-bold text-white">{playing ? "Pause" : "Play"}</button>
@@ -154,7 +165,7 @@ export default function KilominxNotationNet() {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {FACE_COLORS.map((color, face) => <button key={face} type="button" onClick={() => { setSelectedFace(face); setPlaying(false); }} className="rounded-xl border p-2 text-xs font-black" style={{ background: color, color: readableText(color), borderColor: activeFace === face ? "#8b5cf6" : "rgba(255,255,255,.15)" }}>Face {face + 1}</button>)}
+            {FACE_COLORS.map((color, face) => <button key={face} type="button" onClick={() => selectFace(face)} className="rounded-xl border p-2 text-xs font-black" style={{ background: color, color: readableText(color), borderColor: activeFace === face ? "#8b5cf6" : "rgba(255,255,255,.15)" }}>Face {face + 1}</button>)}
           </div>
         </div>
       </div>
