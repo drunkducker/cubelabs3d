@@ -71,6 +71,7 @@ function quadGeometry(quad: Kite["quad"], shrink: number) {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(new Float32Array([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1]), 2));
   geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
   return geometry;
 }
 
@@ -214,40 +215,17 @@ export default function KilominxNotationModel() {
 
     const haloMap = glowTexture();
     textures.push(haloMap);
-    const haloMaterial = new THREE.SpriteMaterial({
-      map: haloMap,
-      color: "#ffffff",
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false,
-    });
-    materials.push(haloMaterial);
+    const haloMaterial = new THREE.SpriteMaterial({ map: haloMap, color: "#ffffff", transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true });
+    const coreMaterial = new THREE.SpriteMaterial({ map: haloMap, color: "#ffffff", transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true });
+    materials.push(haloMaterial, coreMaterial);
     const grabHalo = new THREE.Sprite(haloMaterial);
-    grabHalo.visible = false;
-    grabHalo.renderOrder = 30;
-    grabHalo.scale.setScalar(1.65);
-    root.add(grabHalo);
-
-    const coreMaterial = new THREE.SpriteMaterial({
-      map: haloMap,
-      color: "#ffffff",
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false,
-    });
-    materials.push(coreMaterial);
     const grabCore = new THREE.Sprite(coreMaterial);
+    const grabLight = new THREE.PointLight("#ffffff", 0, 2.5, 1.8);
+    grabHalo.visible = false;
     grabCore.visible = false;
+    grabHalo.renderOrder = 30;
     grabCore.renderOrder = 31;
-    grabCore.scale.setScalar(0.72);
-    root.add(grabCore);
-
-    const grabLight = new THREE.PointLight("#ffffff", 0, 3.8, 1.65);
-    root.add(grabLight);
+    let glowParent: THREE.Mesh | null = null;
 
     let logicalState: KiloState = solved();
     let disposed = false;
@@ -256,6 +234,13 @@ export default function KilominxNotationModel() {
     let activeStickerLabel: string | null = null;
     let activeStickerColor: string | null = null;
     const queue: QueuedMove[] = [];
+
+    const detachGlow = () => {
+      grabHalo.removeFromParent();
+      grabCore.removeFromParent();
+      grabLight.removeFromParent();
+      glowParent = null;
+    };
 
     const clearStickerHighlight = () => {
       for (const sticker of stickerMeshes) {
@@ -268,6 +253,7 @@ export default function KilominxNotationModel() {
       haloMaterial.opacity = 0;
       coreMaterial.opacity = 0;
       grabLight.intensity = 0;
+      detachGlow();
     };
 
     const highlightSticker = (label: string | null, requestedColor: string | null) => {
@@ -275,33 +261,36 @@ export default function KilominxNotationModel() {
       activeStickerColor = requestedColor;
       clearStickerHighlight();
       if (!label) return;
-      root.updateMatrixWorld(true);
       const sticker = stickerMeshes.find(candidate => candidate.userData.label === label);
       if (!sticker) return;
       const color = requestedColor || (sticker.userData.baseColor as string);
       const material = sticker.material as THREE.MeshStandardMaterial;
       material.emissive.set(color);
-      material.emissiveIntensity = 4.8;
+      material.emissiveIntensity = 5.5;
       haloMaterial.color.set(color);
       coreMaterial.color.set(color);
       grabLight.color.set(color);
 
-      const worldPosition = new THREE.Vector3();
-      const worldNormal = new THREE.Vector3(0, 0, 1);
-      sticker.getWorldPosition(worldPosition);
-      const normals = sticker.geometry.getAttribute("normal");
-      if (normals) worldNormal.set(normals.getX(0), normals.getY(0), normals.getZ(0)).transformDirection(sticker.matrixWorld);
-      root.worldToLocal(worldPosition);
-      const localNormal = worldNormal.transformDirection(root.matrixWorld.clone().invert());
-      const glowPosition = worldPosition.clone().addScaledVector(localNormal, 0.16);
-      grabHalo.position.copy(glowPosition);
-      grabCore.position.copy(glowPosition).addScaledVector(localNormal, 0.025);
-      grabLight.position.copy(worldPosition).addScaledVector(localNormal, 0.5);
+      const geometry = sticker.geometry as THREE.BufferGeometry;
+      geometry.computeBoundingSphere();
+      const center = geometry.boundingSphere?.center.clone() ?? new THREE.Vector3();
+      const normals = geometry.getAttribute("normal");
+      const normal = normals
+        ? new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).normalize()
+        : new THREE.Vector3(0, 0, 1);
+
+      sticker.add(grabHalo, grabCore, grabLight);
+      glowParent = sticker;
+      grabHalo.position.copy(center).addScaledVector(normal, 0.08);
+      grabCore.position.copy(center).addScaledVector(normal, 0.095);
+      grabLight.position.copy(center).addScaledVector(normal, 0.24);
+      grabHalo.scale.setScalar(0.92);
+      grabCore.scale.setScalar(0.43);
       grabHalo.visible = true;
       grabCore.visible = true;
-      haloMaterial.opacity = 0.98;
-      coreMaterial.opacity = 0.92;
-      grabLight.intensity = 42;
+      haloMaterial.opacity = 0.95;
+      coreMaterial.opacity = 1;
+      grabLight.intensity = 34;
     };
 
     const onGrabFace = (event: Event) => {
@@ -311,7 +300,7 @@ export default function KilominxNotationModel() {
       controls.autoRotate = false;
       highlightSticker(label, color);
       setGrabLabel(label);
-      if (label) setStatus(`Target sticker ${label} • high-neon color glow`);
+      if (label) setStatus(`Target sticker ${label} • glow anchored to sticker`);
     };
     window.addEventListener(GRAB_FACE_EVENT, onGrabFace);
 
@@ -445,13 +434,13 @@ export default function KilominxNotationModel() {
     const render = () => {
       frame = requestAnimationFrame(render);
       controls.update();
-      if (grabHalo.visible) {
-        const pulse = 1 + Math.sin(clock.getElapsedTime() * 4.1) * 0.14;
-        grabHalo.scale.setScalar(1.65 * pulse);
-        grabCore.scale.setScalar(0.72 * (1 + (pulse - 1) * 0.55));
-        haloMaterial.opacity = 0.84 + (pulse - 1) * 0.9;
-        coreMaterial.opacity = 0.88 + (pulse - 1) * 0.5;
-        grabLight.intensity = 38 + (pulse - 1) * 90;
+      if (glowParent && grabHalo.visible) {
+        const pulse = 1 + Math.sin(clock.getElapsedTime() * 4.1) * 0.12;
+        grabHalo.scale.setScalar(0.92 * pulse);
+        grabCore.scale.setScalar(0.43 * (1 + (pulse - 1) * 0.45));
+        haloMaterial.opacity = 0.86 + (pulse - 1) * 0.8;
+        coreMaterial.opacity = 0.96;
+        grabLight.intensity = 31 + (pulse - 1) * 65;
       }
       renderer.render(scene, camera);
     };
@@ -466,6 +455,7 @@ export default function KilominxNotationModel() {
       renderer.domElement.removeEventListener("pointerdown", onDown, true);
       renderer.domElement.removeEventListener("pointerup", onUp, true);
       renderer.domElement.removeEventListener("pointercancel", onUp, true);
+      detachGlow();
       controls.dispose();
       materials.forEach(material => material.dispose());
       geometries.forEach(geometry => geometry.dispose());
@@ -486,7 +476,7 @@ export default function KilominxNotationModel() {
         <div ref={mountRef} data-kilominx-direction-anchor className="h-[430px] w-full touch-none sm:h-[480px]" />
         <div className="pointer-events-none absolute left-3 top-3 rounded-full border border-white/10 bg-black/45 px-3 py-1.5 text-[10px] font-black tracking-[.18em] text-white/70 backdrop-blur">3D PUZZLE • FIRST</div>
       </div>
-      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">One target sticker • brighter high-neon glow in its own color</div>
+      <div className="pointer-events-none px-4 pb-3 text-center text-[13px] font-semibold text-[var(--muted)]">Glow is physically anchored to the current sticker</div>
       <div className="grid grid-cols-4 gap-2 border-t border-[var(--border)] p-3">
         <button disabled={busy} onClick={() => actionsRef.current?.scramble()} className="cta-purple min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Scramble</button>
         <button disabled={busy || solvedNow} onClick={() => actionsRef.current?.solve()} className="cta-green min-h-11 rounded-xl text-sm font-extrabold disabled:opacity-40">Solve</button>
