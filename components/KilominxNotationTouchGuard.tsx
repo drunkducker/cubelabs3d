@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import {
-  CORNER_FACES,
   FACE_COLORS,
   applyMoveIndex,
   applyMoves,
@@ -15,17 +14,23 @@ import {
   solved,
   type KiloState,
 } from "@/lib/kilominx-engine";
-import { FACE_CORNERS_CCW } from "@/lib/kilominx-net-layout";
+import { resolveKilominxSpatialFace } from "@/lib/kilominx-interaction";
 import KilominxNotationModel from "@/components/KilominxNotationModel";
 
 const GUIDE_EVENT = "kilominx-notation-grab-face";
 
 type SolveGuide = {
   move: number;
-  label: string;
+  face: number;
   color: string;
   remaining: number;
   clockwise: boolean;
+};
+
+type GuideDot = {
+  sprite: THREE.Sprite;
+  material: THREE.SpriteMaterial;
+  texture: THREE.CanvasTexture;
 };
 
 function parseSequence(sequence: string) {
@@ -38,37 +43,44 @@ function parseSequence(sequence: string) {
   });
 }
 
-function stickerFaceAt(state: KiloState, slot: number, destinationFace: number) {
-  const piece = state.cp[slot]!;
-  const twist = state.co[slot]!;
-  const destinationSticker = CORNER_FACES[slot]!.indexOf(destinationFace);
-  if (destinationSticker < 0) return destinationFace;
-  return CORNER_FACES[piece]![(destinationSticker - twist + 3) % 3]!;
-}
-
-function stickerLabelAt(state: KiloState, slot: number, destinationFace: number) {
-  const piece = state.cp[slot]!;
-  const sourceFace = stickerFaceAt(state, slot, destinationFace);
-  const sourceKite = FACE_CORNERS_CCW[sourceFace]!.indexOf(piece);
-  const letter = ["A", "B", "C", "D", "E"][Math.max(0, sourceKite)] ?? "A";
-  return `${sourceFace + 1}${letter}`;
-}
-
 function readModelStatus(root: HTMLElement) {
   const section = root.firstElementChild as HTMLElement | null;
   const header = section?.firstElementChild as HTMLElement | null;
   return header?.querySelector("span")?.textContent?.trim() ?? "";
 }
 
+function guideDotTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(128, 128, 0, 128, 128, 128);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.2, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.45, "rgba(255,255,255,.82)");
+    gradient.addColorStop(0.72, "rgba(255,255,255,.3)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 256, 256);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function dispatchGuide(guide: SolveGuide | null) {
   window.dispatchEvent(new CustomEvent(GUIDE_EVENT, {
     detail: guide
       ? {
-          face: faceOfMove(guide.move),
+          face: guide.face,
           move: guide.move,
           kite: 0,
-          stickerLabel: guide.label,
-          color: guide.color,
+          // The Learn shell owns the face dot. Leaving the durable sticker label
+          // empty prevents the model's old label-based glow from selecting a
+          // different spatial face after a scramble.
+          stickerLabel: null,
+          color: null,
         }
       : {
           face: null,
@@ -83,10 +95,9 @@ function dispatchGuide(guide: SolveGuide | null) {
 /**
  * Learn-only interaction shell.
  *
- * The additive sticker glow is presentation-only and must never become a touch
- * target. This shell also turns the glow into a live human solve guide: after a
- * scramble, the engine selects the next move, highlights a durable sticker on
- * that face, and recomputes after every turn the player performs.
+ * The solve dot is resolved from the same current-spatial-face authority as the
+ * playable touch gesture. Durable sticker labels remain useful identity data,
+ * but they are never used to decide which face a human should turn.
  */
 export default function KilominxNotationTouchGuard() {
   const modelRootRef = useRef<HTMLDivElement>(null);
@@ -98,14 +109,74 @@ export default function KilominxNotationTouchGuard() {
   const lastScrambleRef = useRef("");
   const lastStatusRef = useRef("");
   const humanMovesRef = useRef(0);
+  const stickerMeshesRef = useRef<THREE.Mesh[]>([]);
+  const guideDotRef = useRef<GuideDot | null>(null);
+  const pulseFrameRef = useRef(0);
   const [guide, setGuide] = useState<SolveGuide | null>(null);
   const [humanMoves, setHumanMoves] = useState(0);
   const [feedback, setFeedback] = useState("Tap Scramble to begin a guided solve.");
+
+  const clearGuideDot = () => {
+    const dot = guideDotRef.current;
+    if (!dot) return;
+    dot.sprite.removeFromParent();
+    dot.sprite.visible = false;
+  };
+
+  const placeGuideDot = (nextGuide: SolveGuide | null) => {
+    clearGuideDot();
+    if (!nextGuide) return;
+
+    const targetSticker = stickerMeshesRef.current.find(sticker => {
+      const geometry = sticker.geometry;
+      if (!(geometry instanceof THREE.BufferGeometry)) return false;
+      const normals = geometry.getAttribute("normal");
+      const localNormal = normals
+        ? new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).normalize()
+        : new THREE.Vector3(0, 0, 1);
+      return resolveKilominxSpatialFace(sticker, localNormal) === nextGuide.face;
+    });
+
+    if (!targetSticker) return;
+
+    let dot = guideDotRef.current;
+    if (!dot) {
+      const texture = guideDotTexture();
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        color: "#ffffff",
+        transparent: true,
+        opacity: 1,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: true,
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.renderOrder = 45;
+      dot = { sprite, material, texture };
+      guideDotRef.current = dot;
+    }
+
+    const geometry = targetSticker.geometry as THREE.BufferGeometry;
+    geometry.computeBoundingSphere();
+    const center = geometry.boundingSphere?.center.clone() ?? new THREE.Vector3();
+    const normals = geometry.getAttribute("normal");
+    const normal = normals
+      ? new THREE.Vector3(normals.getX(0), normals.getY(0), normals.getZ(0)).normalize()
+      : new THREE.Vector3(0, 0, 1);
+
+    dot.material.color.set("#ffffff");
+    targetSticker.add(dot.sprite);
+    dot.sprite.position.copy(center).addScaledVector(normal, 0.12);
+    dot.sprite.scale.setScalar(0.3);
+    dot.sprite.visible = true;
+  };
 
   const setActiveGuide = (nextGuide: SolveGuide | null) => {
     guideRef.current = nextGuide;
     setGuide(nextGuide);
     dispatchGuide(nextGuide);
+    placeGuideDot(nextGuide);
   };
 
   const guideState = (state: KiloState, completedMoves: number, message?: string) => {
@@ -118,23 +189,24 @@ export default function KilominxNotationTouchGuard() {
 
     const move = solution[0]!;
     const face = faceOfMove(move);
-    const slot = FACE_CORNERS_CCW[face]![0]!;
-    const stickerFace = stickerFaceAt(state, slot, face);
     const nextGuide: SolveGuide = {
       move,
-      label: stickerLabelAt(state, slot, face),
-      color: FACE_COLORS[stickerFace]!,
+      face,
+      color: FACE_COLORS[face]!,
       remaining: solution.length,
       clockwise: dirOfMove(move) === 1,
     };
     setActiveGuide(nextGuide);
-    setFeedback(message ?? `Find the bright dot, then follow the ${nextGuide.clockwise ? "clockwise" : "counter-clockwise"} thumb guide.`);
+    setFeedback(message ?? `Find the bright dot on face ${face + 1}, then follow the ${nextGuide.clockwise ? "clockwise" : "counter-clockwise"} thumb guide.`);
     humanMovesRef.current = completedMoves;
     setHumanMoves(completedMoves);
   };
 
   useLayoutEffect(() => {
-    const originalRaycast = THREE.Sprite.prototype.raycast;
+    stickerMeshesRef.current = [];
+
+    const originalSpriteRaycast = THREE.Sprite.prototype.raycast;
+    const originalAdd = THREE.Object3D.prototype.add;
 
     const guardedRaycast = function (
       this: THREE.Sprite,
@@ -148,10 +220,34 @@ export default function KilominxNotationTouchGuard() {
         material.depthWrite === false;
 
       if (isPresentationGlow) return;
-      originalRaycast.call(this, raycaster, intersects);
+      originalSpriteRaycast.call(this, raycaster, intersects);
+    };
+
+    const captureStickerAdd = function (this: THREE.Object3D, ...objects: THREE.Object3D[]) {
+      for (const object of objects) {
+        if (
+          object instanceof THREE.Mesh &&
+          typeof object.userData.label === "string" &&
+          !stickerMeshesRef.current.includes(object)
+        ) {
+          stickerMeshesRef.current.push(object);
+        }
+      }
+      return originalAdd.apply(this, objects);
     };
 
     THREE.Sprite.prototype.raycast = guardedRaycast;
+    THREE.Object3D.prototype.add = captureStickerAdd as typeof THREE.Object3D.prototype.add;
+
+    const pulse = (now: number) => {
+      const sprite = guideDotRef.current?.sprite;
+      if (sprite?.visible) {
+        const scale = 0.3 + Math.sin(now * 0.006) * 0.045;
+        sprite.scale.setScalar(scale);
+      }
+      pulseFrameRef.current = requestAnimationFrame(pulse);
+    };
+    pulseFrameRef.current = requestAnimationFrame(pulse);
 
     const root = modelRootRef.current;
     const buttons = root ? Array.from(root.querySelectorAll<HTMLButtonElement>("button")) : [];
@@ -163,11 +259,20 @@ export default function KilominxNotationTouchGuard() {
     if (buttonRow) buttonRow.style.gridTemplateColumns = "repeat(3, minmax(0, 1fr))";
 
     return () => {
+      cancelAnimationFrame(pulseFrameRef.current);
       if (THREE.Sprite.prototype.raycast === guardedRaycast) {
-        THREE.Sprite.prototype.raycast = originalRaycast;
+        THREE.Sprite.prototype.raycast = originalSpriteRaycast;
+      }
+      if (THREE.Object3D.prototype.add === captureStickerAdd) {
+        THREE.Object3D.prototype.add = originalAdd;
       }
       if (solveButton) solveButton.style.display = previousDisplay;
       if (buttonRow) buttonRow.style.gridTemplateColumns = previousColumns;
+      clearGuideDot();
+      guideDotRef.current?.material.dispose();
+      guideDotRef.current?.texture.dispose();
+      guideDotRef.current = null;
+      stickerMeshesRef.current = [];
     };
   }, []);
 
@@ -244,7 +349,7 @@ export default function KilominxNotationTouchGuard() {
           completed,
           completed >= 3
             ? "Keep playing — remaining moves are now pinned at the top."
-            : "Good. Follow the new dot and thumb direction.",
+            : "Good. Follow the new face dot and thumb direction.",
         );
       }
     };
@@ -268,8 +373,14 @@ export default function KilominxNotationTouchGuard() {
         <KilominxNotationModel />
       </div>
 
+      {guide ? (
+        <div className="pointer-events-none absolute right-4 top-3 z-40 rounded-full border border-white/20 bg-black/90 px-3 py-2 text-xs font-black tracking-[.1em] text-white shadow-[0_0_20px_rgba(0,0,0,.65)] backdrop-blur">
+          FACE {guide.face + 1}
+        </div>
+      ) : null}
+
       {guide && humanMoves >= 3 ? (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full border border-white/20 bg-black/80 px-4 py-2 text-xs font-black tracking-[.08em] text-white shadow-[0_0_24px_rgba(0,0,0,.65)] backdrop-blur">
+        <div className="pointer-events-none absolute left-4 top-3 z-40 rounded-full border border-white/20 bg-black/90 px-3 py-2 text-xs font-black tracking-[.06em] text-white shadow-[0_0_20px_rgba(0,0,0,.65)] backdrop-blur">
           {remainingLabel}
         </div>
       ) : null}
@@ -284,6 +395,7 @@ export default function KilominxNotationTouchGuard() {
             {guide.clockwise ? "↻" : "↺"}
           </span>
           <span className="mt-1 text-sm font-black text-white">{moveLabel(guide.move)}</span>
+          <span className="mt-1 text-[10px] font-bold uppercase tracking-[.1em] text-white/60">Face {guide.face + 1}</span>
           {humanMoves < 3 ? <span className="mt-2 text-[10px] font-bold leading-4 text-white/70">{remainingLabel}</span> : null}
         </div>
       ) : null}
