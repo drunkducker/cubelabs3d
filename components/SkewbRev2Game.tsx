@@ -8,6 +8,7 @@ import {
   CENTER_POSITIONS,
   CORNER_POSITIONS,
   type SkewbMove,
+  type SkewbState,
   type Vec3,
   applyMove,
   inverseMove,
@@ -22,8 +23,9 @@ import {
 
 const TURN_ANGLE = (Math.PI * 2) / 3;
 const CORNER_DISTANCE = 0.68;
-const CENTER_DISTANCE = 0.90;
+const CENTER_DISTANCE = 0.9;
 const CORNER_SIZE = 0.72;
+const BASE_EMISSIVE = 0.035;
 
 const FACE_COLORS = [
   { normal: [1, 0, 0] as Vec3, color: "#e32636" },
@@ -37,6 +39,7 @@ const FACE_COLORS = [
 type PieceKind = "corner" | "center";
 type PieceMeta = { kind: PieceKind; index: number };
 type PieceGroup = THREE.Group;
+type ViewMode = "cube" | "net";
 
 type GameApi = {
   scramble: () => void;
@@ -45,8 +48,29 @@ type GameApi = {
   reset: () => void;
 };
 
+type NetFace = {
+  label: string;
+  normal: Vec3;
+  u: Vec3;
+  v: Vec3;
+  column: number;
+  row: number;
+};
+
+const NET_FACES: NetFace[] = [
+  { label: "U", normal: [0, 1, 0], u: [1, 0, 0], v: [0, 0, -1], column: 1, row: 0 },
+  { label: "L", normal: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0], column: 0, row: 1 },
+  { label: "F", normal: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0], column: 1, row: 1 },
+  { label: "R", normal: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0], column: 2, row: 1 },
+  { label: "B", normal: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0], column: 3, row: 1 },
+  { label: "D", normal: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1], column: 1, row: 2 },
+];
+
 const dot = (a: readonly number[], b: readonly number[]) =>
   a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+const sameVec = (a: readonly number[], b: readonly number[]) =>
+  a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 
 function meta(piece: PieceGroup): PieceMeta {
   return piece.userData as PieceMeta;
@@ -122,7 +146,7 @@ function makeDiamondStickerGeometry(radius: number) {
 }
 
 function colorForNormal(normal: Vec3) {
-  return FACE_COLORS.find(face => face.normal.every((value, index) => value === normal[index]))?.color ?? "#ffffff";
+  return FACE_COLORS.find(face => sameVec(face.normal, normal))?.color ?? "#ffffff";
 }
 
 function moveForCorner(position: readonly number[], direction: 1 | -1): SkewbMove {
@@ -141,8 +165,76 @@ function moveForCorner(position: readonly number[], direction: 1 | -1): SkewbMov
   return { ...layer, direction };
 }
 
+function localNormalForWorld(orientation: readonly number[], worldNormal: Vec3): Vec3 {
+  return [
+    Math.round(orientation[0] * worldNormal[0] + orientation[3] * worldNormal[1] + orientation[6] * worldNormal[2]),
+    Math.round(orientation[1] * worldNormal[0] + orientation[4] * worldNormal[1] + orientation[7] * worldNormal[2]),
+    Math.round(orientation[2] * worldNormal[0] + orientation[5] * worldNormal[1] + orientation[8] * worldNormal[2]),
+  ];
+}
+
+function visibleColor(orientation: readonly number[], worldNormal: Vec3) {
+  return colorForNormal(localNormalForWorld(orientation, worldNormal));
+}
+
+function cornerSlot(face: NetFace, sx: -1 | 1, sy: -1 | 1): Vec3 {
+  return [
+    Math.sign(face.normal[0] + face.u[0] * sx + face.v[0] * sy),
+    Math.sign(face.normal[1] + face.u[1] * sx + face.v[1] * sy),
+    Math.sign(face.normal[2] + face.u[2] * sx + face.v[2] * sy),
+  ];
+}
+
+function createNetSvg(state: SkewbState) {
+  const size = 72;
+  const gap = 9;
+  const cell = size + gap;
+  const topPad = 18;
+  const width = cell * 4 - gap;
+  const height = topPad + cell * 3 - gap;
+
+  const polygons = [
+    { signs: [-1, 1] as const, points: "2,2 36,2 12,36 2,36" },
+    { signs: [1, 1] as const, points: "36,2 70,2 70,36 60,36" },
+    { signs: [1, -1] as const, points: "70,36 70,70 36,70 60,36" },
+    { signs: [-1, -1] as const, points: "36,70 2,70 2,36 12,36" },
+  ];
+
+  const faces = NET_FACES.map(face => {
+    const x = face.column * cell;
+    const y = topPad + face.row * cell;
+    const centerPiece = state.centers.find(piece => sameVec(piece.position, face.normal));
+    const centerColor = centerPiece
+      ? visibleColor(centerPiece.orientation, face.normal)
+      : "#30343b";
+
+    const cornerMarkup = polygons.map(region => {
+      const slot = cornerSlot(face, region.signs[0], region.signs[1]);
+      const piece = state.corners.find(candidate => sameVec(candidate.position, slot));
+      const fill = piece ? visibleColor(piece.orientation, face.normal) : "#30343b";
+      return `<polygon points="${region.points}" fill="${fill}" />`;
+    }).join("");
+
+    return `
+      <g transform="translate(${x} ${y})">
+        <text x="4" y="-5" fill="rgba(255,255,255,.76)" font-size="10" font-family="system-ui,sans-serif" font-weight="800">${face.label}</text>
+        <rect x="0" y="0" width="72" height="72" rx="7" fill="#090d14" stroke="rgba(255,255,255,.17)" stroke-width="1.5" />
+        <g stroke="#05070b" stroke-width="3.5" stroke-linejoin="round">
+          ${cornerMarkup}
+          <polygon points="36,12 60,36 36,60 12,36" fill="${centerColor}" />
+        </g>
+      </g>`;
+  }).join("");
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Live flat Skewb net showing all six faces">
+      ${faces}
+    </svg>`;
+}
+
 export default function SkewbRev2Game() {
   const mountRef = useRef<HTMLDivElement>(null);
+  const netRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<GameApi | null>(null);
   const [status, setStatus] = useState("Drag a corner around its diagonal to turn");
   const [moves, setMoves] = useState(0);
@@ -150,6 +242,7 @@ export default function SkewbRev2Game() {
   const [busy, setBusy] = useState(false);
   const [selectedPivot, setSelectedPivot] = useState("none");
   const [controlsOpen, setControlsOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>("cube");
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -174,7 +267,7 @@ export default function SkewbRev2Game() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.16;
+    renderer.toneMappingExposure = 1.38;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.style.width = "100%";
@@ -192,15 +285,18 @@ export default function SkewbRev2Game() {
     controls.rotateSpeed = 0.72;
     controls.target.set(0, 0, 0);
 
-    scene.add(new THREE.HemisphereLight("#ffffff", "#101522", 2.65));
-    const keyLight = new THREE.DirectionalLight("#ffffff", 4.6);
+    scene.add(new THREE.HemisphereLight("#ffffff", "#26344c", 3.35));
+    const keyLight = new THREE.DirectionalLight("#ffffff", 5.3);
     keyLight.position.set(6, 9, 7);
     keyLight.castShadow = true;
     scene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight("#88a7ff", 1.45);
+    const fillLight = new THREE.DirectionalLight("#a7bdff", 2.35);
     fillLight.position.set(-6, 2, 5);
     scene.add(fillLight);
-    const rimLight = new THREE.DirectionalLight("#ff8b52", 0.72);
+    const frontLight = new THREE.DirectionalLight("#ffffff", 1.45);
+    frontLight.position.copy(camera.position);
+    scene.add(frontLight);
+    const rimLight = new THREE.DirectionalLight("#ff9b69", 0.95);
     rimLight.position.set(3, -4, -6);
     scene.add(rimLight);
 
@@ -208,14 +304,14 @@ export default function SkewbRev2Game() {
     scene.add(root);
 
     const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: "#080b10",
-      roughness: 0.29,
-      metalness: 0.05,
+      color: "#121925",
+      roughness: 0.34,
+      metalness: 0.025,
     });
     const coreMaterial = new THREE.MeshStandardMaterial({
-      color: "#030509",
-      roughness: 0.48,
-      metalness: 0.02,
+      color: "#080d16",
+      roughness: 0.52,
+      metalness: 0.01,
     });
     const coreGeometry = new RoundedBoxGeometry(1.72, 1.72, 1.72, 4, 0.11);
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
@@ -253,7 +349,7 @@ export default function SkewbRev2Game() {
         const material = new THREE.MeshStandardMaterial({
           color,
           emissive: color,
-          emissiveIntensity: 0.018,
+          emissiveIntensity: BASE_EMISSIVE,
           roughness: 0.2,
           metalness: 0,
           side: THREE.DoubleSide,
@@ -304,7 +400,7 @@ export default function SkewbRev2Game() {
       const stickerMaterial = new THREE.MeshStandardMaterial({
         color,
         emissive: color,
-        emissiveIntensity: 0.018,
+        emissiveIntensity: BASE_EMISSIVE,
         roughness: 0.18,
         metalness: 0,
         side: THREE.DoubleSide,
@@ -346,6 +442,10 @@ export default function SkewbRev2Game() {
     const renderDistance = (piece: PieceGroup) =>
       meta(piece).kind === "corner" ? CORNER_DISTANCE : CENTER_DISTANCE;
 
+    const renderNet = () => {
+      if (netRef.current) netRef.current.innerHTML = createNetSvg(state);
+    };
+
     const sync = () => {
       allPieces.forEach(piece => {
         const current = pieceState(piece);
@@ -363,11 +463,12 @@ export default function SkewbRev2Game() {
           0, 0, 0, 1,
         ));
       });
+      renderNet();
     };
 
     const clearHighlight = () => {
       stickerMeshes.forEach(sticker => {
-        (sticker.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.018;
+        (sticker.material as THREE.MeshStandardMaterial).emissiveIntensity = BASE_EMISSIVE;
       });
     };
 
@@ -377,7 +478,7 @@ export default function SkewbRev2Game() {
         .filter(piece => isPositionInLayer(pieceState(piece).position, move.axis, move.layer ?? 1))
         .forEach(piece => piece.traverse(child => {
           if (child instanceof THREE.Mesh && child.userData.isSticker) {
-            (child.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.26;
+            (child.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.28;
           }
         }));
     };
@@ -599,6 +700,7 @@ export default function SkewbRev2Game() {
 
     const render = () => {
       renderFrame = requestAnimationFrame(render);
+      frontLight.position.copy(camera.position);
       controls.update();
       renderer.render(scene, camera);
     };
@@ -624,19 +726,43 @@ export default function SkewbRev2Game() {
 
   return (
     <div className="relative min-h-[640px] overflow-hidden rounded-[30px] border border-white/10 bg-[#070a10] shadow-[0_28px_100px_rgba(0,0,0,.6)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between p-4">
+      <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-2 p-4">
         <div className="rounded-full border border-white/10 bg-black/45 px-3 py-2 text-[10px] font-black tracking-[0.2em] text-white/65 backdrop-blur-xl">
-          PHYSICAL SKEWB · REV 2
+          SKEWB · REV 2
         </div>
-        <div className="rounded-full border border-white/10 bg-black/45 px-3 py-2 text-[10px] font-black tracking-[0.18em] text-white/65 backdrop-blur-xl">
-          {moves} MOVES
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-full border border-white/10 bg-black/55 p-1 backdrop-blur-xl">
+            <button
+              type="button"
+              onClick={() => setViewMode("cube")}
+              className={`rounded-full px-3 py-1.5 text-[10px] font-black tracking-wide transition ${viewMode === "cube" ? "bg-white text-black" : "text-white/55"}`}
+            >
+              3D
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("net")}
+              className={`rounded-full px-3 py-1.5 text-[10px] font-black tracking-wide transition ${viewMode === "net" ? "bg-white text-black" : "text-white/55"}`}
+            >
+              FLAT
+            </button>
+          </div>
+          <div className="rounded-full border border-white/10 bg-black/45 px-3 py-2 text-[10px] font-black tracking-[0.18em] text-white/65 backdrop-blur-xl">
+            {moves} MOVES
+          </div>
         </div>
       </div>
 
-      <div
-        ref={mountRef}
-        className="h-[min(72dvh,720px)] min-h-[540px] w-full bg-[radial-gradient(circle_at_50%_42%,rgba(81,111,190,.25),rgba(9,12,19,.2)_42%,rgba(3,5,9,.92)_78%)]"
-      />
+      <div className="relative h-[min(72dvh,720px)] min-h-[540px] w-full">
+        <div
+          ref={mountRef}
+          className={`absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(117,149,222,.34),rgba(14,20,31,.35)_46%,rgba(4,7,12,.88)_82%)] transition-opacity duration-300 ${viewMode === "cube" ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        />
+        <div
+          ref={netRef}
+          className={`absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_50%_42%,rgba(66,91,146,.22),rgba(5,8,13,.96)_72%)] px-3 pb-36 pt-20 transition-opacity duration-300 [&_svg]:h-auto [&_svg]:w-full [&_svg]:max-w-[760px] ${viewMode === "net" ? "opacity-100" : "pointer-events-none opacity-0"}`}
+        />
+      </div>
 
       <div className="absolute inset-x-3 bottom-3 z-20 rounded-[24px] border border-white/10 bg-black/68 p-3 shadow-2xl backdrop-blur-2xl sm:inset-x-5 sm:bottom-5 sm:p-4">
         <button
@@ -647,7 +773,9 @@ export default function SkewbRev2Game() {
           <div>
             <div className="text-sm font-black text-white">{status}</div>
             <div className="mt-1 text-[11px] font-semibold tracking-wide text-white/42">
-              Pivot {selectedPivot} · empty-space drag rotates view
+              {viewMode === "cube"
+                ? `Pivot ${selectedPivot} · empty-space drag rotates view`
+                : "Live six-face net · every face matches the 3D state"}
             </div>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black text-white/55">
