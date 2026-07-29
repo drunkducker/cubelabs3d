@@ -60,7 +60,7 @@ export default function PyraminxSolver() {
   const [playing, setPlaying] = useState(false);
   const [speedIndex, setSpeedIndex] = useState(1);
   const [movesExpanded, setMovesExpanded] = useState(false);
-  const autoplayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoplayTimer = useRef<number | null>(null);
 
   const resetSolution = useCallback(() => {
     setPlaying(false);
@@ -73,7 +73,7 @@ export default function PyraminxSolver() {
   useEffect(() => {
     const id = window.setTimeout(() => {
       try {
-        solve(solved()); // Builds and caches the solved-side core table off first paint.
+        solve(solved());
         setReady(true);
         setStatus("Solver ready");
       } catch {
@@ -84,13 +84,15 @@ export default function PyraminxSolver() {
   }, []);
 
   useEffect(() => {
-    if (autoplayTimer.current) window.clearTimeout(autoplayTimer.current);
+    if (autoplayTimer.current !== null) window.clearTimeout(autoplayTimer.current);
     if (!playing || step >= solution.length) {
       if (step >= solution.length) setPlaying(false);
       return;
     }
     autoplayTimer.current = window.setTimeout(() => setStep((value) => Math.min(solution.length, value + 1)), SPEEDS[speedIndex].interval);
-    return () => { if (autoplayTimer.current) window.clearTimeout(autoplayTimer.current); };
+    return () => {
+      if (autoplayTimer.current !== null) window.clearTimeout(autoplayTimer.current);
+    };
   }, [playing, solution.length, speedIndex, step]);
 
   const loadScramble = useCallback((sequence: string) => {
