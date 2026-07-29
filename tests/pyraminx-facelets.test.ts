@@ -17,13 +17,20 @@ const fixtures = [
 
 describe("Pyraminx facelet adapter", () => {
   it("serializes the solved puzzle as nine stickers of each face colour", () => {
-    const facelets = stateToPyraminxFacelets(solved());
+    const facelets = stateToPyramininxFaceletsCompat(solved());
     expect(facelets).toHaveLength(36);
     expect([0, 1, 2, 3].map((color) => facelets.filter((value) => value === color).length)).toEqual([9, 9, 9, 9]);
     expect(pyraminxFaceletsToState(facelets)).toEqual(solved());
   });
 
-  it("round-trips legal scrambles without changing edge or tip state", () => {
+  it("models twelve tip, twelve axial-center, and twelve edge stickers", () => {
+    const counts = { tip: 0, center: 0, edge: 0 };
+    PYRAMINX_FACELETS.forEach((target) => { counts[target.kind] += 1; });
+    expect(counts).toEqual({ tip: 12, center: 12, edge: 12 });
+    expect(emptyManualPyraminxFacelets()).toEqual(new Array(36).fill(-1));
+  });
+
+  it("round-trips legal scrambles including independent center and tip orientation", () => {
     for (const sequence of fixtures) {
       const state = applySequence(solved(), sequence);
       const reconstructed = pyraminxFaceletsToState(stateToPyraminxFacelets(state));
@@ -32,20 +39,7 @@ describe("Pyraminx facelet adapter", () => {
     }
   });
 
-  it("keeps the twelve fixed center stickers prefilled for manual entry", () => {
-    const entry = emptyManualPyraminxFacelets();
-    expect(entry.filter((value) => value >= 0)).toHaveLength(12);
-    PYRAMINX_FACELETS.forEach((target, index) => {
-      expect(entry[index]).toBe(target.kind === "center" ? target.face : -1);
-    });
-  });
-
-  it("rejects a changed fixed center and duplicate physical pieces", () => {
-    const changedCenter = stateToPyraminxFacelets(solved());
-    const centerIndex = PYRAMINX_FACELETS.findIndex((target) => target.kind === "center" && target.face === 0);
-    changedCenter[centerIndex] = 1;
-    expect(pyraminxFaceletsToState(changedCenter)).toBeNull();
-
+  it("rejects duplicate physical pieces", () => {
     const duplicateEdge = stateToPyraminxFacelets(solved());
     const edgeZero = PYRAMINX_FACELETS.findIndex((target) => target.kind === "edge" && target.edge === 0);
     const edgeOne = PYRAMINX_FACELETS.findIndex((target) => target.kind === "edge" && target.edge === 1);
@@ -53,8 +47,13 @@ describe("Pyraminx facelet adapter", () => {
     expect(pyraminxFaceletsToState(duplicateEdge)).toBeNull();
   });
 
-  it("recognizes a structurally real but unreachable single edge swap", () => {
-    const impossible: PyraState = { ep: [1, 0, 2, 3, 4, 5], eo: [0, 0, 0, 0, 0, 0], to: [0, 0, 0, 0] };
+  it("recognizes a piece-valid but unreachable single edge swap", () => {
+    const impossible: PyraState = {
+      ep: [1, 0, 2, 3, 4, 5],
+      eo: [0, 0, 0, 0, 0, 0],
+      co: [0, 0, 0, 0],
+      to: [0, 0, 0, 0],
+    };
     const reconstructed = pyraminxFaceletsToState(stateToPyraminxFacelets(impossible));
     expect(reconstructed).toEqual(impossible);
     expect(reconstructed && isSolvablePyraminxState(reconstructed)).toBe(false);
@@ -70,3 +69,9 @@ describe("Pyraminx facelet adapter", () => {
     }
   });
 });
+
+// Keeps the first assertion visibly focused on the public serializer while
+// preserving a compile-time check that its return type is number[].
+function stateToPyramininxFaceletsCompat(state: PyraState): number[] {
+  return stateToPyraminxFacelets(state);
+}
