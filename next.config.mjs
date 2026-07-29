@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig={
   reactStrictMode:true,
+  webpack(config){
+    // The premium Skewb originally used a nearly full-size rounded cube as its
+    // internal core. Alias that one geometry import to a compact mechanism so
+    // the core cannot push through the turning surface pieces.
+    config.resolve.alias["three/examples/jsm/geometries/RoundedBoxGeometry.js"]=
+      new URL("./lib/skewb-core-geometry.ts",import.meta.url).pathname;
+    return config;
+  },
   async headers(){
     const csp=[
       "default-src 'self'",
