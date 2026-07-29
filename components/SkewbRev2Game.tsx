@@ -3,8 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import {
+  CENTER_POSITIONS,
+  CORNER_POSITIONS,
   type SkewbMove,
+  type Vec3,
   applyMove,
   inverseMove,
   isPositionInLayer,
@@ -12,54 +16,113 @@ import {
   moveLabel,
   pivotVector,
   randomScramble,
+  solve,
   solved,
 } from "@/lib/skewb-engine";
-import {
-  SKEWB_FACE_BASES,
-  anchorForFacePiece,
-  createSkewbFacePolygons,
-} from "@/lib/skewb-visual-geometry";
 
-const COLORS = ["#f5f5ef", "#ffd500", "#00a85a", "#1557d5", "#ef3340", "#ff7a00"];
 const TURN_ANGLE = (Math.PI * 2) / 3;
+const CORNER_DISTANCE = 0.68;
+const CENTER_DISTANCE = 0.90;
+const CORNER_SIZE = 0.72;
+
+const FACE_COLORS = [
+  { normal: [1, 0, 0] as Vec3, color: "#e32636" },
+  { normal: [-1, 0, 0] as Vec3, color: "#ff7a18" },
+  { normal: [0, 1, 0] as Vec3, color: "#f7f7f2" },
+  { normal: [0, -1, 0] as Vec3, color: "#ffd500" },
+  { normal: [0, 0, 1] as Vec3, color: "#00a651" },
+  { normal: [0, 0, -1] as Vec3, color: "#1457d9" },
+] as const;
 
 type PieceKind = "corner" | "center";
-type PieceMeta = { kind: PieceKind; index: number; key: string };
+type PieceMeta = { kind: PieceKind; index: number };
 type PieceGroup = THREE.Group;
 
-const CORNERS: [number, number, number][] = [];
-for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) CORNERS.push([x, y, z]);
-const CENTERS: [number, number, number][] = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+type GameApi = {
+  scramble: () => void;
+  solve: () => void;
+  undo: () => void;
+  reset: () => void;
+};
+
+const dot = (a: readonly number[], b: readonly number[]) =>
+  a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
 function meta(piece: PieceGroup): PieceMeta {
   return piece.userData as PieceMeta;
 }
 
-function extrudedPolygon(points: readonly [number, number][], depth: number) {
+function basisForNormal(normal: Vec3) {
+  if (normal[0] !== 0) {
+    return {
+      u: new THREE.Vector3(0, 1, 0),
+      v: new THREE.Vector3(0, 0, normal[0]),
+    };
+  }
+  if (normal[1] !== 0) {
+    return {
+      u: new THREE.Vector3(1, 0, 0),
+      v: new THREE.Vector3(0, 0, -normal[1]),
+    };
+  }
+  return {
+    u: new THREE.Vector3(1, 0, 0),
+    v: new THREE.Vector3(0, normal[2], 0),
+  };
+}
+
+function orientToFace(object: THREE.Object3D, normalTuple: Vec3) {
+  const normal = new THREE.Vector3(...normalTuple);
+  const { u, v } = basisForNormal(normalTuple);
+  object.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, normal));
+}
+
+function makeCornerStickerGeometry(position: Vec3, normal: Vec3) {
+  const { u, v } = basisForNormal(normal);
+  const qU = Math.sign(dot(position, u.toArray())) || 1;
+  const qV = Math.sign(dot(position, v.toArray())) || 1;
+  const edge = 0.292;
+  const inner = 0.092;
   const shape = new THREE.Shape();
-  points.forEach(([x, y], index) => index ? shape.lineTo(x, y) : shape.moveTo(x, y));
+  shape.moveTo(qU * edge, qV * edge);
+  shape.lineTo(-qU * edge * 0.88, qV * edge);
+  shape.lineTo(-qU * inner, -qV * inner);
+  shape.lineTo(qU * edge, -qV * edge * 0.88);
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape, 3);
+}
+
+function makeDiamondGeometry(radius: number, depth: number) {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, radius);
+  shape.lineTo(radius, 0);
+  shape.lineTo(0, -radius);
+  shape.lineTo(-radius, 0);
   shape.closePath();
   const geometry = new THREE.ExtrudeGeometry(shape, {
     depth,
     bevelEnabled: true,
-    bevelSegments: 2,
-    bevelSize: 0.028,
-    bevelThickness: 0.022,
-    curveSegments: 2,
+    bevelSegments: 3,
+    bevelSize: 0.045,
+    bevelThickness: 0.035,
+    curveSegments: 3,
   });
-  geometry.translate(0, 0, -depth);
+  geometry.translate(0, 0, -depth / 2);
   return geometry;
 }
 
-function placeOnFace(
-  object: THREE.Object3D,
-  normal: THREE.Vector3,
-  u: THREE.Vector3,
-  v: THREE.Vector3,
-  position: THREE.Vector3,
-) {
-  object.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, normal));
-  object.position.copy(position);
+function makeDiamondStickerGeometry(radius: number) {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, radius);
+  shape.lineTo(radius, 0);
+  shape.lineTo(0, -radius);
+  shape.lineTo(-radius, 0);
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape, 3);
+}
+
+function colorForNormal(normal: Vec3) {
+  return FACE_COLORS.find(face => face.normal.every((value, index) => value === normal[index]))?.color ?? "#ffffff";
 }
 
 function moveForCorner(position: readonly number[], direction: 1 | -1): SkewbMove {
@@ -73,37 +136,47 @@ function moveForCorner(position: readonly number[], direction: 1 | -1): SkewbMov
     "-1,-1,1": { axis: "B" },
     "1,1,-1": { axis: "B", layer: -1 },
   };
-  return { ...(mapping[position.join(",")] ?? { axis: "U" }), direction };
+  const layer = mapping[position.join(",")];
+  if (!layer) throw new Error(`Unknown Skewb corner pivot: ${position.join(",")}`);
+  return { ...layer, direction };
 }
 
 export default function SkewbRev2Game() {
   const mountRef = useRef<HTMLDivElement>(null);
-  const apiRef = useRef<{ scramble: () => void; undo: () => void; reset: () => void } | null>(null);
-  const [status, setStatus] = useState("Tap a visible corner to select its pivot");
+  const apiRef = useRef<GameApi | null>(null);
+  const [status, setStatus] = useState("Drag a corner around its diagonal to turn");
   const [moves, setMoves] = useState(0);
-  const [scrambleText, setScrambleText] = useState("");
+  const [notation, setNotation] = useState("");
   const [busy, setBusy] = useState(false);
-  const [selectedPivot, setSelectedPivot] = useState("None");
+  const [selectedPivot, setSelectedPivot] = useState("none");
+  const [controlsOpen, setControlsOpen] = useState(true);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
-    camera.position.set(4.8, 4.2, 5.8);
+    const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 100);
+    camera.position.set(4.45, 3.55, 5.25);
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
     } catch {
       setStatus("3D view unavailable in this browser");
       return;
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.16;
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.display = "block";
@@ -112,147 +185,214 @@ export default function SkewbRev2Game() {
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
     controls.enablePan = false;
-    controls.minDistance = 3.5;
-    controls.maxDistance = 10;
+    controls.minDistance = 3.75;
+    controls.maxDistance = 8.5;
+    controls.rotateSpeed = 0.72;
     controls.target.set(0, 0, 0);
 
-    scene.add(new THREE.HemisphereLight("#ffffff", "#151d2f", 2.2));
-    const keyLight = new THREE.DirectionalLight("#ffffff", 3.2);
-    keyLight.position.set(7, 10, 8);
+    scene.add(new THREE.HemisphereLight("#ffffff", "#101522", 2.65));
+    const keyLight = new THREE.DirectionalLight("#ffffff", 4.6);
+    keyLight.position.set(6, 9, 7);
     keyLight.castShadow = true;
     scene.add(keyLight);
-    const rimLight = new THREE.DirectionalLight("#6c7fff", 1.1);
-    rimLight.position.set(-8, 3, -7);
+    const fillLight = new THREE.DirectionalLight("#88a7ff", 1.45);
+    fillLight.position.set(-6, 2, 5);
+    scene.add(fillLight);
+    const rimLight = new THREE.DirectionalLight("#ff8b52", 0.72);
+    rimLight.position.set(3, -4, -6);
     scene.add(rimLight);
 
     const root = new THREE.Group();
     scene.add(root);
-    const plastic = new THREE.MeshStandardMaterial({ color: "#07090d", roughness: 0.38, metalness: 0.025 });
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.8, 24, 16), plastic);
+
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: "#080b10",
+      roughness: 0.29,
+      metalness: 0.05,
+    });
+    const coreMaterial = new THREE.MeshStandardMaterial({
+      color: "#030509",
+      roughness: 0.48,
+      metalness: 0.02,
+    });
+    const coreGeometry = new RoundedBoxGeometry(1.72, 1.72, 1.72, 4, 0.11);
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
     core.castShadow = true;
+    core.receiveShadow = true;
     root.add(core);
 
-    const groups = new Map<string, PieceGroup>();
-    const allGroups: PieceGroup[] = [];
+    const allPieces: PieceGroup[] = [];
     const pickables: THREE.Mesh[] = [];
-    const materials: THREE.Material[] = [plastic];
-    const geometries: THREE.BufferGeometry[] = [core.geometry];
-    const polygons = createSkewbFacePolygons(0.43, 0.95);
+    const stickerMeshes: THREE.Mesh[] = [];
+    const geometries: THREE.BufferGeometry[] = [coreGeometry];
+    const materials: THREE.Material[] = [bodyMaterial, coreMaterial];
 
-    SKEWB_FACE_BASES.forEach((basis, faceIndex) => {
-      const normal = new THREE.Vector3(...basis.normal);
-      const u = new THREE.Vector3(...basis.u);
-      const v = new THREE.Vector3(...basis.v);
-      const facePlane = normal.clone().multiplyScalar(1.04);
+    CORNER_POSITIONS.forEach((identityPosition, index) => {
+      const piece = new THREE.Group();
+      piece.userData = { kind: "corner", index } satisfies PieceMeta;
+      piece.position.set(
+        identityPosition[0] * CORNER_DISTANCE,
+        identityPosition[1] * CORNER_DISTANCE,
+        identityPosition[2] * CORNER_DISTANCE,
+      );
 
-      polygons.forEach((polygon) => {
-        const anchor = anchorForFacePiece(basis, polygon);
-        const keyName = `${polygon.kind}:${anchor.join(",")}`;
-        let piece = groups.get(keyName);
-        if (!piece) {
-          piece = new THREE.Group();
-          const anchors = polygon.kind === "corner" ? CORNERS : CENTERS;
-          piece.userData = {
-            kind: polygon.kind,
-            key: keyName,
-            index: anchors.findIndex(candidate => candidate.every((value, i) => value === anchor[i])),
-          } satisfies PieceMeta;
-          piece.position.set(...anchor);
-          groups.set(keyName, piece);
-          allGroups.push(piece);
-          root.add(piece);
-        }
+      const bodyGeometry = new RoundedBoxGeometry(CORNER_SIZE, CORNER_SIZE, CORNER_SIZE, 5, 0.095);
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      body.userData.pieceGroup = piece;
+      piece.add(body);
+      pickables.push(body);
+      geometries.push(bodyGeometry);
 
-        const panel = new THREE.Group();
-        const shellGeometry = extrudedPolygon(polygon.points, polygon.kind === "corner" ? 0.30 : 0.38);
-        const shell = new THREE.Mesh(shellGeometry, plastic);
-        shell.castShadow = true;
-        shell.receiveShadow = true;
-        shell.userData.pieceGroup = piece;
-        panel.add(shell);
-        pickables.push(shell);
-        geometries.push(shellGeometry);
-
-        const stickerPoints = polygon.points.map(([x, y]) => [x * 0.87, y * 0.87] as [number, number]);
-        const stickerGeometry = extrudedPolygon(stickerPoints, 0.022);
-        const stickerMaterial = new THREE.MeshStandardMaterial({
-          color: COLORS[faceIndex], emissive: COLORS[faceIndex], emissiveIntensity: 0.025,
-          roughness: 0.24, metalness: 0.01,
+      FACE_COLORS.forEach(({ normal, color }) => {
+        if (dot(identityPosition, normal) <= 0) return;
+        const geometry = makeCornerStickerGeometry(identityPosition, normal);
+        const material = new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: 0.018,
+          roughness: 0.2,
+          metalness: 0,
+          side: THREE.DoubleSide,
         });
-        const sticker = new THREE.Mesh(stickerGeometry, stickerMaterial);
-        sticker.position.z = 0.032;
-        sticker.castShadow = true;
+        const sticker = new THREE.Mesh(geometry, material);
+        orientToFace(sticker, normal);
+        sticker.position.set(
+          normal[0] * (CORNER_SIZE / 2 + 0.008),
+          normal[1] * (CORNER_SIZE / 2 + 0.008),
+          normal[2] * (CORNER_SIZE / 2 + 0.008),
+        );
         sticker.userData.pieceGroup = piece;
         sticker.userData.isSticker = true;
-        panel.add(sticker);
+        sticker.castShadow = true;
+        piece.add(sticker);
         pickables.push(sticker);
-        geometries.push(stickerGeometry);
-        materials.push(stickerMaterial);
-
-        placeOnFace(panel, normal, u, v, facePlane.clone().sub(new THREE.Vector3(...anchor)));
-        piece.add(panel);
+        stickerMeshes.push(sticker);
+        geometries.push(geometry);
+        materials.push(material);
       });
+
+      allPieces.push(piece);
+      root.add(piece);
+    });
+
+    CENTER_POSITIONS.forEach((identityNormal, index) => {
+      const piece = new THREE.Group();
+      piece.userData = { kind: "center", index } satisfies PieceMeta;
+      piece.position.set(
+        identityNormal[0] * CENTER_DISTANCE,
+        identityNormal[1] * CENTER_DISTANCE,
+        identityNormal[2] * CENTER_DISTANCE,
+      );
+
+      const panel = new THREE.Group();
+      orientToFace(panel, identityNormal);
+      const bodyGeometry = makeDiamondGeometry(0.655, 0.25);
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      body.userData.pieceGroup = piece;
+      panel.add(body);
+      pickables.push(body);
+      geometries.push(bodyGeometry);
+
+      const color = colorForNormal(identityNormal);
+      const stickerGeometry = makeDiamondStickerGeometry(0.565);
+      const stickerMaterial = new THREE.MeshStandardMaterial({
+        color,
+        emissive: color,
+        emissiveIntensity: 0.018,
+        roughness: 0.18,
+        metalness: 0,
+        side: THREE.DoubleSide,
+      });
+      const sticker = new THREE.Mesh(stickerGeometry, stickerMaterial);
+      sticker.position.z = 0.135;
+      sticker.userData.pieceGroup = piece;
+      sticker.userData.isSticker = true;
+      sticker.castShadow = true;
+      panel.add(sticker);
+      pickables.push(sticker);
+      stickerMeshes.push(sticker);
+      geometries.push(stickerGeometry);
+      materials.push(stickerMaterial);
+
+      piece.add(panel);
+      allPieces.push(piece);
+      root.add(piece);
     });
 
     let state = solved();
     const history: SkewbMove[] = [];
     let active = false;
+    let disposed = false;
     let selectedCorner: PieceGroup | null = null;
     let selectedDirection: 1 | -1 = 1;
+    let gestureTangent = new THREE.Vector2(1, 0);
     let pointerDown = false;
     let startX = 0;
     let startY = 0;
-    let animationFrame = 0;
+    let moveFrame = 0;
     let renderFrame = 0;
-    let disposed = false;
 
     const pieceState = (piece: PieceGroup) => {
       const data = meta(piece);
       return (data.kind === "corner" ? state.corners : state.centers)[data.index];
     };
 
+    const renderDistance = (piece: PieceGroup) =>
+      meta(piece).kind === "corner" ? CORNER_DISTANCE : CENTER_DISTANCE;
+
     const sync = () => {
-      allGroups.forEach(piece => {
+      allPieces.forEach(piece => {
         const current = pieceState(piece);
-        piece.position.set(...current.position);
+        const scale = renderDistance(piece);
+        piece.position.set(
+          current.position[0] * scale,
+          current.position[1] * scale,
+          current.position[2] * scale,
+        );
         const o = current.orientation;
         piece.quaternion.setFromRotationMatrix(new THREE.Matrix4().set(
-          o[0], o[1], o[2], 0, o[3], o[4], o[5], 0, o[6], o[7], o[8], 0, 0, 0, 0, 1,
+          o[0], o[1], o[2], 0,
+          o[3], o[4], o[5], 0,
+          o[6], o[7], o[8], 0,
+          0, 0, 0, 1,
         ));
       });
     };
 
-    const clearSelection = () => {
-      allGroups.forEach(piece => piece.traverse(child => {
-        if (child instanceof THREE.Mesh && child.userData.isSticker) {
-          (child.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.025;
-        }
-      }));
+    const clearHighlight = () => {
+      stickerMeshes.forEach(sticker => {
+        (sticker.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.018;
+      });
     };
 
-    const selectCorner = (piece: PieceGroup) => {
-      clearSelection();
-      selectedCorner = piece;
-      selectedDirection = 1;
-      const position = pieceState(piece).position;
-      setSelectedPivot(position.join(", "));
-      const selectedMove = moveForCorner(position, 1);
-      allGroups
-        .filter(candidate => isPositionInLayer(pieceState(candidate).position, selectedMove.axis, selectedMove.layer ?? 1))
-        .forEach(candidate => candidate.traverse(child => {
+    const highlightLayer = (move: SkewbMove) => {
+      clearHighlight();
+      allPieces
+        .filter(piece => isPositionInLayer(pieceState(piece).position, move.axis, move.layer ?? 1))
+        .forEach(piece => piece.traverse(child => {
           if (child instanceof THREE.Mesh && child.userData.isSticker) {
-            (child.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.18;
+            (child.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.26;
           }
         }));
-      setStatus("Corner pivot locked · drag left or right");
+    };
+
+    const finishSequenceState = () => {
+      selectedCorner = null;
+      setSelectedPivot("none");
+      clearHighlight();
     };
 
     const animateMove = (move: SkewbMove, record = true, onDone?: () => void) => {
       if (active || disposed) return false;
       active = true;
       setBusy(true);
-      const selected = allGroups.filter(piece =>
+      const selected = allPieces.filter(piece =>
         isPositionInLayer(pieceState(piece).position, move.axis, move.layer ?? 1),
       );
       const pivot = new THREE.Group();
@@ -260,78 +400,127 @@ export default function SkewbRev2Game() {
       selected.forEach(piece => pivot.attach(piece));
       const axis = new THREE.Vector3(...pivotVector(move)).normalize();
       const started = performance.now();
+
       const animate = (now: number) => {
         if (disposed) return;
-        const progress = Math.min(1, (now - started) / 430);
-        const eased = 1 - Math.pow(1 - progress, 3);
+        const progress = Math.min(1, (now - started) / 360);
+        const eased = progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
         pivot.quaternion.setFromAxisAngle(axis, move.direction * TURN_ANGLE * eased);
         if (progress < 1) {
-          animationFrame = requestAnimationFrame(animate);
+          moveFrame = requestAnimationFrame(animate);
           return;
         }
+
         state = applyMove(state, move);
         selected.forEach(piece => root.attach(piece));
         root.remove(pivot);
         sync();
         if (record) history.push(move);
         setMoves(history.length);
-        setStatus(isSolved(state) ? "Solved!" : `${moveLabel(move)} complete`);
+        setStatus(isSolved(state) ? "Solved" : `${moveLabel(move)} complete`);
         active = false;
         setBusy(false);
+        finishSequenceState();
         onDone?.();
       };
-      animationFrame = requestAnimationFrame(animate);
+
+      moveFrame = requestAnimationFrame(animate);
       return true;
+    };
+
+    const playSequence = (sequence: SkewbMove[], done: () => void) => {
+      let index = 0;
+      const next = () => {
+        if (index >= sequence.length) {
+          done();
+          return;
+        }
+        animateMove(sequence[index++], false, next);
+      };
+      next();
     };
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
+
     const hitPiece = (event: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
-      pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+      pointer.set(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      );
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.intersectObjects(pickables, false)[0];
       return hit?.object.userData.pieceGroup as PieceGroup | undefined;
     };
 
+    const calculateTangent = (piece: PieceGroup) => {
+      const cornerWorld = piece.getWorldPosition(new THREE.Vector3()).project(camera);
+      const centerWorld = root.getWorldPosition(new THREE.Vector3()).project(camera);
+      const radial = new THREE.Vector2(
+        cornerWorld.x - centerWorld.x,
+        -(cornerWorld.y - centerWorld.y),
+      );
+      if (radial.lengthSq() < 0.0001) return new THREE.Vector2(1, 0);
+      radial.normalize();
+      return new THREE.Vector2(-radial.y, radial.x).normalize();
+    };
+
     const onPointerDown = (event: PointerEvent) => {
       if (active) return;
+      const piece = hitPiece(event);
+      if (!piece || meta(piece).kind !== "corner") {
+        pointerDown = false;
+        selectedCorner = null;
+        clearHighlight();
+        setSelectedPivot("none");
+        controls.enabled = true;
+        setStatus("Drag empty space to rotate the cube");
+        return;
+      }
+
+      event.preventDefault();
       pointerDown = true;
+      selectedCorner = piece;
+      selectedDirection = 1;
       startX = event.clientX;
       startY = event.clientY;
-      const piece = hitPiece(event);
-      if (piece && meta(piece).kind === "corner") {
-        event.preventDefault();
-        controls.enabled = false;
-        selectCorner(piece);
-        renderer.domElement.setPointerCapture(event.pointerId);
-      } else {
-        selectedCorner = null;
-        clearSelection();
-        controls.enabled = true;
-        setSelectedPivot("None");
-        setStatus("Rotate view, or tap a visible corner");
-      }
+      gestureTangent = calculateTangent(piece);
+      controls.enabled = false;
+      const position = pieceState(piece).position;
+      const move = moveForCorner(position, 1);
+      highlightLayer(move);
+      setSelectedPivot(position.join(","));
+      setStatus("Pivot locked — drag around the highlighted diagonal");
+      renderer.domElement.setPointerCapture(event.pointerId);
     };
 
     const onPointerMove = (event: PointerEvent) => {
       if (!pointerDown || !selectedCorner || active) return;
-      const dx = event.clientX - startX;
-      const dy = event.clientY - startY;
-      if (Math.hypot(dx, dy) < 18) return;
-      selectedDirection = dx >= 0 ? 1 : -1;
-      setStatus(`${selectedDirection === 1 ? "Clockwise" : "Counterclockwise"} · release to turn`);
+      const drag = new THREE.Vector2(event.clientX - startX, event.clientY - startY);
+      const signedDistance = drag.dot(gestureTangent);
+      if (Math.abs(signedDistance) < 15) return;
+      selectedDirection = signedDistance >= 0 ? 1 : -1;
+      setStatus(`${selectedDirection === 1 ? "Clockwise" : "Counterclockwise"} — release to turn`);
     };
 
     const finishPointer = (event: PointerEvent) => {
+      if (!pointerDown) return;
       pointerDown = false;
       if (selectedCorner && !active) {
-        const dx = event.clientX - startX;
-        const dy = event.clientY - startY;
-        if (Math.hypot(dx, dy) >= 28) animateMove(moveForCorner(pieceState(selectedCorner).position, selectedDirection));
-        else setStatus("Pivot selected · drag left or right");
+        const drag = new THREE.Vector2(event.clientX - startX, event.clientY - startY);
+        const signedDistance = drag.dot(gestureTangent);
+        if (Math.abs(signedDistance) >= 26) {
+          animateMove(moveForCorner(pieceState(selectedCorner).position, selectedDirection));
+        } else {
+          setStatus("Drag farther around the corner to turn");
+        }
       }
-      if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      }
       controls.enabled = true;
     };
 
@@ -348,19 +537,35 @@ export default function SkewbRev2Game() {
         sync();
         setMoves(0);
         const sequence = randomScramble(10);
-        setScrambleText(sequence.map(moveLabel).join(" "));
-        let index = 0;
-        const next = () => {
-          if (index >= sequence.length) {
-            setStatus("Scrambled · select a corner pivot");
-            return;
+        setNotation(sequence.map(moveLabel).join(" "));
+        setStatus("Scrambling");
+        playSequence(sequence, () => {
+          setStatus("Scrambled — drag any visible corner");
+          setBusy(false);
+        });
+      },
+      solve: () => {
+        if (active || isSolved(state)) return;
+        setStatus("Finding a verified solution");
+        window.setTimeout(() => {
+          try {
+            const solution = solve(state, history);
+            setNotation(solution.map(moveLabel).join(" "));
+            setStatus(`Solving in ${solution.length} moves`);
+            playSequence(solution, () => {
+              history.length = 0;
+              setMoves(0);
+              setStatus("Solved");
+              setBusy(false);
+            });
+          } catch {
+            setStatus("This position could not be solved");
+            setBusy(false);
           }
-          animateMove(sequence[index++], false, next);
-        };
-        next();
+        }, 20);
       },
       undo: () => {
-        if (active || !history.length) return;
+        if (active || history.length === 0) return;
         const move = history.pop();
         if (!move) return;
         setMoves(history.length);
@@ -372,11 +577,11 @@ export default function SkewbRev2Game() {
         history.length = 0;
         selectedCorner = null;
         setMoves(0);
-        setScrambleText("");
-        setSelectedPivot("None");
-        clearSelection();
+        setNotation("");
+        setSelectedPivot("none");
+        clearHighlight();
         sync();
-        setStatus("Tap a visible corner to select its pivot");
+        setStatus("Drag a corner around its diagonal to turn");
       },
     };
 
@@ -390,6 +595,7 @@ export default function SkewbRev2Game() {
     const observer = new ResizeObserver(resize);
     observer.observe(mount);
     resize();
+    sync();
 
     const render = () => {
       renderFrame = requestAnimationFrame(render);
@@ -400,7 +606,7 @@ export default function SkewbRev2Game() {
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(animationFrame);
+      cancelAnimationFrame(moveFrame);
       cancelAnimationFrame(renderFrame);
       observer.disconnect();
       controls.dispose();
@@ -417,22 +623,53 @@ export default function SkewbRev2Game() {
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0a0e16] shadow-2xl shadow-black/50">
-      <div className="grid grid-cols-3 border-b border-white/10 bg-black/20 text-center text-[10px] font-black tracking-[0.18em] text-white/55">
-        <div className="px-2 py-3"><span className="text-emerald-300">●</span> REV 2 ENGINE</div>
-        <div className="border-x border-white/10 px-2 py-3">PIVOT {selectedPivot}</div>
-        <div className="px-2 py-3">{moves} MOVES</div>
-      </div>
-      <div ref={mountRef} className="h-[min(64dvh,640px)] min-h-[440px] w-full bg-[radial-gradient(circle_at_50%_38%,rgba(75,98,180,.18),transparent_56%)]" />
-      <div className="border-t border-white/10 bg-black/25 p-4">
-        <div className="mb-3 text-center text-sm font-semibold text-white/80">{status}</div>
-        {scrambleText && <div className="mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center font-mono text-xs text-white/60">{scrambleText}</div>}
-        <div className="grid grid-cols-3 gap-2">
-          <button disabled={busy} onClick={() => apiRef.current?.scramble()} className="rounded-xl bg-emerald-400 px-3 py-3 text-sm font-black text-black disabled:opacity-40">Scramble</button>
-          <button disabled={busy || moves === 0} onClick={() => apiRef.current?.undo()} className="rounded-xl border border-white/15 bg-white/5 px-3 py-3 text-sm font-black disabled:opacity-40">Undo</button>
-          <button disabled={busy} onClick={() => apiRef.current?.reset()} className="rounded-xl border border-white/15 bg-white/5 px-3 py-3 text-sm font-black disabled:opacity-40">Reset</button>
+    <div className="relative min-h-[640px] overflow-hidden rounded-[30px] border border-white/10 bg-[#070a10] shadow-[0_28px_100px_rgba(0,0,0,.6)]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between p-4">
+        <div className="rounded-full border border-white/10 bg-black/45 px-3 py-2 text-[10px] font-black tracking-[0.2em] text-white/65 backdrop-blur-xl">
+          PHYSICAL SKEWB · REV 2
         </div>
-        <p className="mt-3 text-center text-xs text-white/45">Tap a corner · drag left/right to turn · drag empty space to rotate view</p>
+        <div className="rounded-full border border-white/10 bg-black/45 px-3 py-2 text-[10px] font-black tracking-[0.18em] text-white/65 backdrop-blur-xl">
+          {moves} MOVES
+        </div>
+      </div>
+
+      <div
+        ref={mountRef}
+        className="h-[min(72dvh,720px)] min-h-[540px] w-full bg-[radial-gradient(circle_at_50%_42%,rgba(81,111,190,.25),rgba(9,12,19,.2)_42%,rgba(3,5,9,.92)_78%)]"
+      />
+
+      <div className="absolute inset-x-3 bottom-3 z-20 rounded-[24px] border border-white/10 bg-black/68 p-3 shadow-2xl backdrop-blur-2xl sm:inset-x-5 sm:bottom-5 sm:p-4">
+        <button
+          type="button"
+          onClick={() => setControlsOpen(open => !open)}
+          className="flex w-full items-center justify-between gap-3 text-left"
+        >
+          <div>
+            <div className="text-sm font-black text-white">{status}</div>
+            <div className="mt-1 text-[11px] font-semibold tracking-wide text-white/42">
+              Pivot {selectedPivot} · empty-space drag rotates view
+            </div>
+          </div>
+          <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-black text-white/55">
+            {controlsOpen ? "Hide" : "Controls"}
+          </span>
+        </button>
+
+        {controlsOpen && (
+          <div className="mt-3 border-t border-white/10 pt-3">
+            {notation && (
+              <div className="mb-3 overflow-x-auto whitespace-nowrap rounded-xl border border-white/8 bg-white/[0.045] px-3 py-2 font-mono text-xs text-white/58">
+                {notation}
+              </div>
+            )}
+            <div className="grid grid-cols-4 gap-2">
+              <button disabled={busy} onClick={() => apiRef.current?.scramble()} className="rounded-xl bg-emerald-400 px-2 py-3 text-xs font-black text-black disabled:opacity-35">Scramble</button>
+              <button disabled={busy || moves === 0} onClick={() => apiRef.current?.undo()} className="rounded-xl border border-white/12 bg-white/[0.055] px-2 py-3 text-xs font-black text-white disabled:opacity-35">Undo</button>
+              <button disabled={busy || moves === 0} onClick={() => apiRef.current?.solve()} className="rounded-xl border border-sky-300/25 bg-sky-300/10 px-2 py-3 text-xs font-black text-sky-100 disabled:opacity-35">Solve</button>
+              <button disabled={busy} onClick={() => apiRef.current?.reset()} className="rounded-xl border border-white/12 bg-white/[0.055] px-2 py-3 text-xs font-black text-white disabled:opacity-35">Reset</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
