@@ -82,5 +82,5 @@ export function uniqueSkewbPieceAnchors() {
       (polygon.kind === "center" ? centers : corners).add(anchor);
     }
   }
-  return { centers: [...centers], corners: [...corners] };
+  return { centers: Array.from(centers), corners: Array.from(corners) };
 }
