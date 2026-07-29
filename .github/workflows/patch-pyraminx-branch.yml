@@ -1,0 +1,198 @@
+name: Patch Pyraminx branch records
+
+on:
+  push:
+    branches:
+      - agent/pyraminx-manual-solver
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[pyraminx-docs]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/pyraminx-manual-solver
+          fetch-depth: 0
+      - name: Patch renderer and permanent docs
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"Missing expected text in {path}: {old[:100]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          renderer = "app/PyraminxGame.tsx"
+          replace_once(renderer,
+              'type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number };',
+              'type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center"; vertex: number };')
+          replace_once(renderer,
+              'type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center" } };',
+              'type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center"; vertex: number } };')
+          replace_once(renderer,
+              '    return { kind: "center" };',
+              '    const totals = [0, 1, 2].map(pos => ijk.reduce((sum, corner) => sum + corner[pos], 0));\n    const axialPosition = totals.indexOf(Math.max(...totals));\n    return { kind: "center", vertex: verts[axialPosition] };')
+          replace_once(renderer,
+              '''        // Only tip/edge stickers are grabbable — centers never turn, so
+        // tapping one should fall through to camera orbit like empty space.
+        if (cell.target.kind === "tip") { sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick; pickables.push(sticker); }
+        else if (cell.target.kind === "edge") { sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick; pickables.push(sticker); }
+
+        const group = cell.target.kind === "tip" ? tipGroups[cell.target.vertex]
+          : cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
+          : centerGroups[face];''',
+              '''        if (cell.target.kind === "tip") sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick;
+        else if (cell.target.kind === "edge") sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick;
+        else sticker.userData.pick = { kind: "center", vertex: cell.target.vertex } satisfies Pick;
+        pickables.push(sticker);
+
+        const group = cell.target.kind === "tip" ? tipGroups[cell.target.vertex]
+          : cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
+          : centerGroups[cell.target.vertex];''')
+          replace_once(renderer,
+              '''      if (move.depth === "deep") {
+        EDGES_AT_VERTEX[move.vertex].forEach(slot => groups.push(edgeGroups[logicalState.ep[slot]]));
+      }''',
+              '''      if (move.depth === "deep") {
+        groups.push(centerGroups[move.vertex]);
+        EDGES_AT_VERTEX[move.vertex].forEach(slot => groups.push(edgeGroups[logicalState.ep[slot]]));
+      }''')
+          replace_once(renderer,
+              '''    // ---- Swipe-to-turn: mobile-first primary interaction. Tap+drag a tip
+    // or edge sticker to turn it; drag empty space (or a center sticker,
+    // which is never pickable) to orbit the camera instead.''',
+              '''    // ---- Swipe-to-turn: mobile-first primary interaction. Tap+drag a tip,
+    // edge, or axial-center sticker to turn it; drag empty space to orbit.''')
+          replace_once(renderer,
+              '      const candidates = start.pick.kind === "tip" ? [start.pick.vertex] : EDGE_PAIRS[start.pick.edge];',
+              '      const candidates = start.pick.kind === "edge" ? EDGE_PAIRS[start.pick.edge] : [start.pick.vertex];')
+          replace_once(renderer,
+              '''    // finger on, not derived from the drag itself: touching a tip sticker
+    // grabs only that corner piece (a "shallow" twist — mirrors the
+    // lowercase u/l/r/b buttons), while touching an edge sticker grabs the
+    // whole vertex layer including its 3 neighboring edges (a "deep" turn —''',
+              '''    // finger on, not derived from the drag itself: touching a tip sticker
+    // grabs only that corner piece (a "shallow" twist — mirrors the
+    // lowercase u/l/r/b buttons), while touching an edge or center sticker
+    // grabs the whole vertex layer including its axial center and 3 edges —''')
+
+          current = Path("docs/CURRENT_STATUS.md")
+          text = current.read_text()
+          marker = "## Active Pyraminx solver PR — 2026-07-28"
+          if marker not in text:
+              section = '''## Active Pyraminx solver PR — 2026-07-28
+
+Draft PR #11 (`agent/pyraminx-manual-solver`) replaces the simplified Pyraminx solver route with a real manual-entry solver while preserving the playable puzzle at `/play/pyraminx`:
+
+- `/solver/pyraminx` accepts all 36 visible stickers on a geometry-derived four-face net or generates a legal scramble.
+- `lib/pyraminx-engine.ts` now models 6 edges, 4 axial-center orientations, and 4 independent tips. Deep turns move the axial center, three touching edges, and tip; lowercase turns remain tip-only.
+- The core solver is exact bidirectional search over edge + axial-center state, followed by tip cleanup and final solved-state verification.
+- Validation includes legal facelet reconstruction, duplicate-piece rejection, unreachable-state rejection, randomized round trips, and repository regression tests.
+- The Three.js play renderer is included in the same branch correction so its center groups rotate and can start deep-turn gestures.
+- Status remains `[~]` until PR CI, browser/mobile verification, owner approval, merge, and deployment evidence are complete. No database or environment migration is required.
+
+'''
+              text = text.replace("## Current production baseline\n", section + "## Current production baseline\n", 1)
+              text = text.replace("| `main` | RootA | Canonical branch |", "| `agent/pyraminx-manual-solver` | RootA | Real 36-sticker Pyraminx solver, physical center model, route split, tests | 🔎 draft PR #11; CI/browser/mobile/owner review pending |\n| `main` | RootA | Canonical branch |", 1)
+              text = text.replace("- [x] Playable Pyraminx with solver and touch interaction", "- [~] Playable Pyraminx remains on `main`; draft PR #11 adds the real 36-sticker manual solver, physical axial-center state, corrected play renderer, and exact verified core solve; CI/browser/mobile/merge remain")
+              current.write_text(text)
+
+          roadmap = Path("docs/ROADMAP.md")
+          text = roadmap.read_text()
+          text = text.replace("**Last updated:** 2026-07-27", "**Last updated:** 2026-07-28", 1)
+          text = text.replace("- [x] Pyraminx engine, solver, timer, undo, scramble history, and swipe behavior", "- [~] Draft PR #11: real 36-sticker Pyraminx manual-entry solver, physical axial-center state, exact bidirectional edge+center solve, corrected play renderer, route split (`/solver/pyraminx` vs `/play/pyraminx`), and regression tests; CI/browser/mobile/owner approval/merge remain", 1)
+          if "Test draft Pyraminx PR #11" not in text:
+              text = text.replace("### P1 — browser and account verification\n", "### P1 — browser and account verification\n\n- [ ] Test draft Pyraminx PR #11 on phone and desktop: enter a physical state, reject an impossible state, solve/play every move, verify center motion, swipe tips/edges/centers, save/load a scramble, and confirm the final solved net and 3D puzzle.\n", 1)
+          roadmap.write_text(text)
+
+          engine = Path("docs/CUBE-ENGINE.md")
+          text = engine.read_text()
+          marker = "## Pyraminx physical-state solver (draft PR #11)"
+          if marker not in text:
+              section = '''## Pyraminx physical-state solver (draft PR #11)
+
+`agent/pyraminx-manual-solver` corrects the earlier simplified model and applies the solver/play route boundary from ADR 0005:
+
+- `PyraState` owns six edge identities/orientations, four axial-center orientations (`co`), and four absolute tip orientations (`to`).
+- A shallow lowercase move changes one tip only. A deep uppercase move changes that tip and axial center and cycles/flips the three touching edges.
+- `solveCore()` uses exact bidirectional search against the renderer-independent edge + axial-center state; `solveTips()` then cleans up the four independent tips. `solve()` applies the result back to the input and throws unless the full state is solved.
+- `lib/pyraminx-facelets.ts` maps the physical state to all 36 visible stickers (12 tip, 12 center, 12 edge), reconstructs legal pieces, and rejects unreachable states through the exact solver.
+- `lib/pyraminx-net-layout.ts` unfolds a tetrahedron net from the same geometry and preserves the facelet order; `components/PyraminxSolver.tsx` provides scramble and manual-entry modes plus verified flat-net playback.
+- `/solver/pyraminx` is the real solver and `/play/pyraminx` is the interactive game. `app/PyraminxGame.tsx` assigns the three center stickers around each vertex to one moving axial-center group so visual turns match the state model.
+- Branch evidence: strict type checks, randomized state/facelet/solve round trips, exhaustive reachable-core traversal, impossible-state fixtures, and PR CI. Hosted phone/browser evidence remains required before `[x]` status.
+
+'''
+              text = text.replace("## Kilominx solver: engine vs optimized planner (branch)\n", section + "## Kilominx solver: engine vs optimized planner (branch)\n", 1)
+          engine.write_text(text)
+
+          decisions = Path("docs/DECISIONS.md")
+          text = decisions.read_text()
+          marker = "## ADR 0008 — Physical Pyraminx state and solver route"
+          if marker not in text:
+              text += '''
+
+---
+
+## ADR 0008 — Physical Pyraminx state and solver route
+
+- **Status:** accepted for draft PR #11; merge and hosted verification pending
+- **Date:** 2026-07-28
+- **Branch:** `agent/pyraminx-manual-solver`
+
+### Context
+
+The existing route displayed a playable Three.js Pyraminx under `/solver/pyraminx`, but it did not accept an arbitrary physical puzzle. Its logical state treated the four axial center pieces as fixed even though a standard Pyraminx deep turn rotates one axial center with the layer.
+
+### Decision
+
+Use one renderer-independent physical state containing six edge identities/orientations, four axial-center orientations, and four independent tip orientations. Uppercase U/L/R/B are deep turns; lowercase u/l/r/b are tip-only. Solve the edge + axial-center core exactly with bidirectional search, clean up tips afterward, and verify the emitted sequence by applying it to the entered state.
+
+Apply ADR 0005 consistently: `/solver/pyraminx` owns manual/scramble input and verified playback; `/play/pyraminx` owns the interactive game. Derive sticker mapping and the flat net from the same tetrahedron geometry. Correct the play renderer so its center groups move with deep turns rather than maintaining a second simplified visual model.
+
+### Consequences
+
+The solver can represent and validate all 36 visible stickers and reject piece-valid but unreachable arrangements. The engine state changes, so every renderer and test using `PyraState` must include `co`. Initial solution playback remains a flat net; a dedicated solver-only 3D playback can be added under ADR 0006 without changing solver truth.
+
+### Rollback
+
+Revert PR #11. No database, auth, provider, environment, or migration rollback is needed.
+'''
+              decisions.write_text(text)
+
+          history = Path("docs/HISTORY.md")
+          text = history.read_text()
+          marker = "## 2026-07-28 — Real manual-entry Pyraminx solver and physical center model"
+          if marker not in text:
+              entry = '''## 2026-07-28 — Real manual-entry Pyraminx solver and physical center model
+
+- **Author:** OpenAI GPT agent, requested by the project owner.
+- **Branch / PR:** `agent/pyraminx-manual-solver`, draft PR #11; based directly on current `main` with no unrelated layout, database, auth, or homepage changes.
+- **Purpose:** replace the playable-only `/solver/pyraminx` route with a solver that accepts a real physical Pyraminx while preserving the existing game at `/play/pyraminx`.
+- **Engine correction:** `lib/pyraminx-engine.ts` now models 6 edges, 4 axial centers, and 4 independent tips. Deep turns rotate the center, edges, and tip at one vertex; lowercase moves twist only the tip. The exact edge+center core search is followed by tip cleanup, and the final sequence is reapplied and verified solved.
+- **Manual entry / playback:** added `lib/pyraminx-facelets.ts`, `lib/pyraminx-net-layout.ts`, and `components/PyraminxSolver.tsx` for a 36-sticker four-face net, scramble mode, legality/reachability feedback, move list, scrubber, autoplay speeds, and verified flat-net playback. Shared saved-scramble loading and Save & Friend Play remain wired.
+- **Play renderer:** `app/PyraminxGame.tsx` now classifies and groups the 12 center stickers by axial vertex, moves one center group on every deep turn, and allows center stickers to start deep-turn gestures.
+- **Routes:** `/solver/pyraminx` is the solver; `/play/pyraminx` preserves the 3D game; `/solve` copy is updated. ADR 0008 records the physical state boundary and reuses ADR 0005 for the route split.
+- **Tests / evidence:** added facelet fixtures for 12 tips + 12 centers + 12 edges, legal round trips, duplicate-piece rejection, an unreachable single-edge swap, and end-to-end solution verification. Standalone validation covered 10,000 randomized full-state round trips and an exhaustive traversal of the reachable edge+center core. PR CI runs docs, TypeScript, Vitest, and production build.
+- **Deployment:** none; draft PR, browser/mobile/owner approval and merge remain.
+- **Known issues:** solver playback is a flat net rather than dedicated 3D; real-device entry, center gesture, share/load, and performance still need verification.
+- **Migration impact:** none.
+- **Rollback:** revert PR #11; the previous game component remains isolated and no persisted data changes.
+
+'''
+              text = text.replace("## 2026-07-28 — Reconcile the move-count-optimized Kilominx solver", entry + "## 2026-07-28 — Reconcile the move-count-optimized Kilominx solver", 1)
+              history.write_text(text)
+          PY
+          rm .github/workflows/patch-pyraminx-branch.yml
+          git config user.name "cube-labs-doc-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/PyraminxGame.tsx docs/CURRENT_STATUS.md docs/ROADMAP.md docs/CUBE-ENGINE.md docs/DECISIONS.md docs/HISTORY.md .github/workflows/patch-pyraminx-branch.yml
+          git commit -m "Document and align physical Pyraminx solver [pyraminx-docs]"
+          git push origin HEAD:agent/pyraminx-manual-solver
