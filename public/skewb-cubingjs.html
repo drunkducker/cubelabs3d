@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#05070d" />
+  <title>Skewb cubing.js proof | Cube Lab 3D</title>
+  <style>
+    :root{color-scheme:dark;--bg:#05070d;--surface:rgba(255,255,255,.055);--border:rgba(255,255,255,.11);--text:#eaf0f8;--muted:#91a0b6;--blue:#2ea6ff;--green:#86e01e;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+    *{box-sizing:border-box} body{margin:0;min-height:100dvh;color:var(--text);background:radial-gradient(700px 500px at 50% -80px,rgba(46,166,255,.2),transparent 65%),radial-gradient(500px 400px at 110% 55%,rgba(139,92,246,.14),transparent 68%),var(--bg)}
+    main{width:min(100%,560px);margin:auto;padding:max(16px,env(safe-area-inset-top)) 14px calc(28px + env(safe-area-inset-bottom))}
+    a{color:var(--muted);text-decoration:none;font-weight:750}.back{display:inline-flex;align-items:center;min-height:42px}
+    .eyebrow{margin:10px 0 0;font-size:12px;font-weight:850;letter-spacing:.18em;color:var(--blue)}
+    h1{margin:8px 0 0;font-size:clamp(36px,10vw,50px);line-height:.99;letter-spacing:-.045em}.accent{background:linear-gradient(100deg,#2ea6ff,#52d7ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{margin:12px 0 0;color:var(--muted);font-size:14px;line-height:1.6}
+    .card{margin-top:14px;border:1px solid var(--border);border-radius:24px;overflow:hidden;background:radial-gradient(420px 300px at 50% 40%,rgba(46,166,255,.15),transparent 68%),rgba(8,12,20,.82);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+    .status{min-height:48px;padding:14px 16px;border-bottom:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:750}
+    twisty-player{display:block;width:100%;height:440px;background:none} twisty-alg-editor{display:block;width:100%;min-height:86px;margin-top:10px;border:1px solid var(--border);border-radius:14px;background:rgba(0,0,0,.22);padding:10px;color:var(--text)}
+    .hint{padding:11px 14px;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:12px;font-weight:700}
+    .panel{margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:20px;background:var(--surface)}
+    .label{font-size:11px;font-weight:850;letter-spacing:.14em;color:var(--muted)}
+    .buttons{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}button{min-height:48px;border:1px solid var(--border);border-radius:13px;color:var(--text);font:inherit;font-weight:850;background:rgba(255,255,255,.055)}button.primary{color:#061406;border:0;background:linear-gradient(100deg,#43bd32,#93e51f)}button:disabled{opacity:.45}
+    .solution{margin:8px 0 0;min-height:24px;color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;line-height:1.6;word-break:break-word}
+    #solution{height:340px}.note{margin-top:12px;padding:14px;border:1px solid var(--border);border-radius:18px;color:var(--muted);font-size:13px;line-height:1.55;background:rgba(255,255,255,.035)}
+  </style>
+</head>
+<body>
+<main>
+  <a class="back" href="/solver/skewb">← Stable Skewb</a>
+  <p class="eyebrow">CUBING.JS PROOF</p>
+  <h1>Real Skewb geometry.<br><span class="accent">One state model.</span></h1>
+  <p class="lead">This isolated test uses cubing.js for the Skewb geometry, legal 120° movement, current state, and solver playback. The approved Cube Labs route remains unchanged.</p>
+
+  <section class="card">
+    <div id="status" class="status">Loading cubing.js…</div>
+    <twisty-player id="setup" puzzle="skewb" alg="[x: [R', F]]" background="none" control-panel="none" hint-facelets="none" experimental-drag-input="auto" tempo-scale="0.85"></twisty-player>
+    <div class="hint">Drag the actual Skewb. The library owns the moving geometry and state.</div>
+  </section>
+
+  <section class="panel">
+    <div class="label">SETUP ALGORITHM</div>
+    <twisty-alg-editor for-twisty-player="setup"></twisty-alg-editor>
+    <div class="buttons">
+      <button id="reset">Reset</button>
+      <button id="solve" class="primary">Solve current state</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="status"><span class="label" style="color:var(--green)">VERIFIED SOLUTION</span><div id="solution-text" class="solution">Solve the current state to create playback.</div></div>
+    <twisty-player id="solution" puzzle="skewb" background="none" hint-facelets="none" tempo-scale="0.8"></twisty-player>
+  </section>
+
+  <div class="note"><strong style="color:var(--text)">Why this route exists:</strong> the earlier premium renderer changed appearance without preserving true Skewb clearance. This test delegates geometry, animation, and state to the same puzzle library before any replacement is considered.</div>
+</main>
+
+<script type="module">
+  import { Alg } from "https://cdn.cubing.net/v0/js/cubing/alg";
+  import { puzzles } from "https://cdn.cubing.net/v0/js/cubing/puzzles";
+  import { solveSkewb } from "https://cdn.cubing.net/v0/js/cubing/search";
+  import "https://cdn.cubing.net/v0/js/cubing/twisty";
+
+  const status = document.querySelector("#status");
+  const solveButton = document.querySelector("#solve");
+  const resetButton = document.querySelector("#reset");
+  const setupPlayer = document.querySelector("#setup");
+  const solutionPlayer = document.querySelector("#solution");
+  const solutionText = document.querySelector("#solution-text");
+  const kpuzzle = await puzzles.skewb.kpuzzle();
+
+  status.textContent = "Drag the puzzle or edit the algorithm, then solve the exact current state.";
+
+  solveButton.addEventListener("click", async () => {
+    solveButton.disabled = true;
+    resetButton.disabled = true;
+    status.textContent = "Solving the exact cubing.js Skewb state…";
+    try {
+      const setupAlg = await setupPlayer.experimentalGet.alg();
+      const pattern = kpuzzle.defaultPattern().applyAlg(setupAlg);
+      const solutionAlg = await solveSkewb(pattern);
+      solutionPlayer.experimentalSetupAlg = setupAlg;
+      solutionPlayer.alg = solutionAlg;
+      solutionText.textContent = solutionAlg.toString() || "Already solved";
+      status.textContent = "Solution generated from the same state used by the renderer.";
+    } catch (error) {
+      console.error(error);
+      status.textContent = error instanceof Error ? error.message : "Unable to solve this state.";
+    } finally {
+      solveButton.disabled = false;
+      resetButton.disabled = false;
+    }
+  });
+
+  resetButton.addEventListener("click", () => {
+    const empty = new Alg();
+    setupPlayer.alg = empty;
+    solutionPlayer.experimentalSetupAlg = empty;
+    solutionPlayer.alg = empty;
+    solutionText.textContent = "Solve the current state to create playback.";
+    status.textContent = "Solved Skewb ready.";
+  });
+</script>
+</body>
+</html>
