@@ -11,6 +11,8 @@ type Cubie = { mesh: THREE.Group; grid: THREE.Vector3; home: THREE.Vector3 };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; cubie: Cubie; normal: THREE.Vector3; label: string };
 type Gesture = { axis: Axis; layer: number; direction: Direction; label: string };
 type QueueItem = { gesture: Gesture; emit: string | null; fast: boolean };
+type GuideInfo = { token: string; face: Face; axis: Axis; layer: number; dir: Direction; color: string };
+type Px = { x: number; y: number };
 
 export type NotationCube3DHandle = {
   /** Animate a token sequence programmatically (scramble / solution playback). Does not emit onCommit. */
@@ -19,8 +21,8 @@ export type NotationCube3DHandle = {
   reset: () => void;
   /** Reset the camera framing. */
   resetView: () => void;
-  /** Glow the centre sticker of a face to point at the next guided move. */
-  setGuide: (face: Face | null, dir?: "cw" | "ccw" | "half" | null) => void;
+  /** Show the play-engine flick needed for a move token (single quarter, e.g. "R" / "R'"), or clear it. */
+  setGuide: (token: string | null) => void;
   /** Whether a turn / playback is currently animating. */
   isBusy: () => boolean;
 };
@@ -30,6 +32,8 @@ type Props = {
   onCommit?: (token: string) => void;
   onStatus?: (status: string) => void;
   onBusyChange?: (busy: boolean) => void;
+  /** Coaching feedback graded against the ideal flick, for tuning thumb moves. */
+  onSwipeGrade?: (grade: { text: string; quality: "great" | "ok" | "off" }) => void;
 };
 
 const SIZE = 3;
@@ -106,22 +110,32 @@ function haloTexture() {
 
 /**
  * Interactive labelled 3×3 cube. Swipe a sticker to turn its outer face, tap to
- * identify. The parent lab owns logical state; this component only reports the
+ * identify. The parent lab owns logical state; this component reports the
  * committed face token (onCommit) and animates programmatic sequences on request.
- * Middle-slice swipes are intentionally not committed — this trainer teaches the
- * six face turns, so a slice gesture surfaces a hint instead of desyncing state.
+ *
+ * The guide teaches the real play-engine gesture: for the next move it finds the
+ * exact anchor sticker + screen direction the swipe resolver needs (touching a
+ * face centre does NOT turn that face — you flick a sticker on the layer's
+ * adjacent face), then draws a looping glowing flick there. Your live drag is
+ * overlaid and graded so you can fine-tune the thumb move used in play.
  */
 const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function NotationCube3D(
-  { onCommit, onStatus, onBusyChange },
+  { onCommit, onStatus, onBusyChange, onSwipeGrade },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const guideRef = useRef<HTMLDivElement>(null);
-  const beamRef = useRef<HTMLDivElement>(null);
-  const beamLabelRef = useRef<HTMLDivElement>(null);
+  const idealWrapRef = useRef<HTMLDivElement>(null);
+  const idealRingRef = useRef<HTMLDivElement>(null);
+  const idealTrailRef = useRef<HTMLDivElement>(null);
+  const idealCometRef = useRef<HTMLDivElement>(null);
+  const idealArrowRef = useRef<HTMLDivElement>(null);
+  const idealBadgeRef = useRef<HTMLDivElement>(null);
+  const userWrapRef = useRef<HTMLDivElement>(null);
+  const userTrailRef = useRef<HTMLDivElement>(null);
+  const userHeadRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<NotationCube3DHandle | null>(null);
-  const callbacks = useRef({ onCommit, onStatus, onBusyChange });
-  callbacks.current = { onCommit, onStatus, onBusyChange };
+  const callbacks = useRef({ onCommit, onStatus, onBusyChange, onSwipeGrade });
+  callbacks.current = { onCommit, onStatus, onBusyChange, onSwipeGrade };
 
   const [selected, setSelected] = useState("Swipe a sticker to turn • tap to identify");
 
@@ -129,7 +143,7 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
     playMoves: (tokens, opts) => apiRef.current?.playMoves(tokens, opts),
     reset: () => apiRef.current?.reset(),
     resetView: () => apiRef.current?.resetView(),
-    setGuide: (face, dir) => apiRef.current?.setGuide(face, dir),
+    setGuide: (token) => apiRef.current?.setGuide(token),
     isBusy: () => apiRef.current?.isBusy() ?? false,
   }), []);
 
@@ -182,7 +196,6 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
     const textures: THREE.Texture[] = [];
     const cubies: Cubie[] = [];
     const pickables: THREE.Mesh[] = [];
-    const centerByFace = new Map<Face, THREE.Mesh>();
 
     const addSticker = (
       group: THREE.Group,
@@ -236,15 +249,7 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
           cubies.push(cubie);
         }
 
-    // A face-centre cubie has exactly one non-zero grid coordinate; its lone
-    // sticker is the durable glow target for that face's guided move.
-    for (const sticker of pickables) {
-      const home = (sticker.userData.cubie as Cubie).home;
-      const nonZero = [home.x, home.y, home.z].filter((v) => Math.abs(v) > 0.01).length;
-      if (nonZero === 1) centerByFace.set(sticker.userData.face as Face, sticker);
-    }
-
-    // Guided-move glow.
+    // Guide glow (3D halo attached to the anchor sticker you should flick).
     const haloMap = haloTexture();
     textures.push(haloMap);
     const haloMaterial = new THREE.SpriteMaterial({ map: haloMap, color: "#ffffff", transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -252,18 +257,80 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
     const halo = new THREE.Sprite(haloMaterial);
     halo.visible = false;
     halo.renderOrder = 20;
-    let guideMesh: THREE.Mesh | null = null;
 
-    const clearGuideGlow = () => {
-      if (guideMesh) {
-        const mat = guideMesh.material as THREE.MeshStandardMaterial;
-        mat.emissive.set(guideMesh.userData.baseColor as string);
+    let guideInfo: GuideInfo | null = null;
+    let anchor: THREE.Mesh | null = null;
+    let idealDir: Px | null = null; // latest ideal flick direction in screen space (for grading)
+
+    const tmpA = new THREE.Vector3();
+    const tmpB = new THREE.Vector3();
+
+    const worldNormalOf = (sticker: THREE.Mesh) => {
+      const sp = sticker.getWorldPosition(tmpA.clone());
+      const cp = (sticker.userData.cubie as Cubie).mesh.getWorldPosition(tmpB.clone());
+      return sp.sub(cp).normalize();
+    };
+    const facingCamera = (sticker: THREE.Mesh) => {
+      const sp = sticker.getWorldPosition(new THREE.Vector3());
+      const n = worldNormalOf(sticker);
+      return n.dot(camera.position.clone().sub(sp).normalize());
+    };
+    const projectToPx = (world: THREE.Vector3): Px | null => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const v = world.clone().project(camera);
+      if (v.z > 1) return null;
+      return { x: (v.x * 0.5 + 0.5) * rect.width, y: (-v.y * 0.5 + 0.5) * rect.height };
+    };
+
+    const clearAnchorGlow = () => {
+      if (anchor) {
+        const mat = anchor.material as THREE.MeshStandardMaterial;
+        mat.emissive.set(anchor.userData.baseColor as string);
         mat.emissiveIntensity = 0.04;
       }
       halo.removeFromParent();
       halo.visible = false;
       haloMaterial.opacity = 0;
-      guideMesh = null;
+    };
+    const setAnchor = (next: THREE.Mesh | null) => {
+      if (next === anchor) return;
+      clearAnchorGlow();
+      anchor = next;
+      if (!anchor || !guideInfo) return;
+      const mat = anchor.material as THREE.MeshStandardMaterial;
+      mat.emissive.set(guideInfo.color);
+      mat.emissiveIntensity = 0.85;
+      haloMaterial.color.set(guideInfo.color);
+      anchor.add(halo);
+      halo.position.set(0, 0, 0.16);
+      halo.scale.setScalar(0.6);
+      halo.visible = true;
+      haloMaterial.opacity = 0.85;
+    };
+    const pickAnchor = (info: GuideInfo): THREE.Mesh | null => {
+      const axisHat = axisVector(info.axis);
+      let best: THREE.Mesh | null = null;
+      let bestScore = -Infinity;
+      for (const sticker of pickables) {
+        const cubie = sticker.userData.cubie as Cubie;
+        if (Math.abs(cubie.grid[info.axis] - info.layer) > 0.01) continue;
+        const n = worldNormalOf(sticker);
+        if (Math.abs(n.dot(axisHat)) > 0.5) continue; // a face-normal-along-axis sticker can't flick this layer
+        const score = facingCamera(sticker);
+        if (score > bestScore) {
+          bestScore = score;
+          best = sticker;
+        }
+      }
+      return best;
+    };
+    const idealFlickWorld = (mesh: THREE.Mesh, info: GuideInfo) => {
+      const n = worldNormalOf(mesh);
+      const start = mesh.getWorldPosition(new THREE.Vector3()).addScaledVector(n, 0.05);
+      // tangent = dir * (axis × normal) → resolver reads this as the wanted quarter turn.
+      const tangent = axisVector(info.axis).cross(n).multiplyScalar(info.dir).normalize();
+      const end = start.clone().addScaledVector(tangent, 0.82);
+      return { start, end };
     };
 
     const raycaster = new THREE.Raycaster();
@@ -284,24 +351,21 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
     const setBusy = (busy: boolean) => callbacks.current.onBusyChange?.(busy);
 
     const glowSticker = (mesh: THREE.Mesh | null, intensity: number) => {
-      if (!mesh || mesh === guideMesh) return;
+      if (!mesh || mesh === anchor) return;
       const mat = mesh.material as THREE.MeshStandardMaterial;
       mat.emissive.set(intensity ? "#4d7cff" : (mesh.userData.baseColor as string));
       mat.emissiveIntensity = intensity || 0.04;
     };
-
     const glowCubie = (cubie: Cubie, intensity: number) =>
       cubie.mesh.traverse((child) => {
         if (child instanceof THREE.Mesh && child.userData.isSticker) glowSticker(child, intensity);
       });
-
     const clearHighlight = (keepSelection = true) => {
       highlighted.forEach((cubie) => glowCubie(cubie, 0));
       highlighted = [];
       previewGesture = null;
       if (keepSelection && selectedSticker) glowSticker(selectedSticker, 0.42);
     };
-
     const highlightLayer = (gesture: Gesture) => {
       clearHighlight();
       highlighted = cubies.filter((cubie) => Math.abs(cubie.grid[gesture.axis] - gesture.layer) < 0.01);
@@ -325,7 +389,6 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
       const endpoint = worldDirection.clone().project(camera);
       return new THREE.Vector2(endpoint.x - origin.x, -(endpoint.y - origin.y)).normalize();
     };
-
     const resolveGesture = (start: PointerStart, dx: number, dy: number): Gesture => {
       const faceAxis = dominantAxis(start.normal);
       const candidates = (["x", "y", "z"] as Axis[]).filter((axis) => axis !== faceAxis);
@@ -348,10 +411,8 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
 
     const runNext = () => {
       if (active || queue.length === 0) return;
-      const item = queue.shift()!;
-      turnLayer(item);
+      turnLayer(queue.shift()!);
     };
-
     const turnLayer = (item: QueueItem) => {
       const { gesture, emit, fast } = item;
       active = true;
@@ -363,12 +424,10 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
         selectedSticker = null;
       }
       clearHighlight(false);
-
       const selectedCubies = cubies.filter((cubie) => Math.abs(cubie.grid[gesture.axis] - gesture.layer) < 0.01);
       const pivot = new THREE.Group();
       root.add(pivot);
       selectedCubies.forEach((cubie) => pivot.attach(cubie.mesh));
-
       const startedAt = performance.now();
       const duration = fast ? 120 : 240;
       const animateTurn = (now: number) => {
@@ -410,35 +469,91 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
       return [quarter(fm.clockwise), quarter(fm.clockwise)];
     };
 
-    // Touch matrix overlay.
-    const showTouchGuide = (event: PointerEvent) => {
-      const guide = guideRef.current;
-      const beam = beamRef.current;
-      const label = beamLabelRef.current;
-      if (!guide || !beam || !label) return;
+    // Flick-guide overlay updates (screen space).
+    const setLine = (el: HTMLDivElement, from: Px, len: number, angleDeg: number) => {
+      el.style.left = `${from.x}px`;
+      el.style.top = `${from.y}px`;
+      el.style.width = `${len}px`;
+      el.style.transform = `rotate(${angleDeg}deg)`;
+    };
+    const setDot = (el: HTMLDivElement, at: Px) => {
+      el.style.left = `${at.x}px`;
+      el.style.top = `${at.y}px`;
+    };
+    const hideIdeal = () => {
+      if (idealWrapRef.current) idealWrapRef.current.style.opacity = "0";
+      idealDir = null;
+    };
+    const showIdeal = (cometT: number) => {
+      const wrap = idealWrapRef.current;
+      if (!wrap || !guideInfo || !anchor) return hideIdeal();
+      const { start, end } = idealFlickWorld(anchor, guideInfo);
+      const s = projectToPx(start);
+      const e = projectToPx(end);
+      if (!s || !e) return hideIdeal();
+      const dx = e.x - s.x;
+      const dy = e.y - s.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      idealDir = { x: dx / len, y: dy / len };
+      wrap.style.opacity = "1";
+      wrap.style.color = guideInfo.color;
+      if (idealRingRef.current) setDot(idealRingRef.current, s);
+      if (idealTrailRef.current) setLine(idealTrailRef.current, s, len, angle);
+      if (idealCometRef.current) setDot(idealCometRef.current, { x: s.x + dx * cometT, y: s.y + dy * cometT });
+      if (idealArrowRef.current) {
+        setDot(idealArrowRef.current, e);
+        idealArrowRef.current.style.transform = `translate(-50%,-50%) rotate(${angle}deg)`;
+      }
+      if (idealBadgeRef.current) {
+        setDot(idealBadgeRef.current, { x: s.x, y: s.y - 22 });
+        idealBadgeRef.current.textContent = guideInfo.token;
+      }
+    };
+    const showUserAttempt = (from: Px, to: Px) => {
+      const wrap = userWrapRef.current;
+      if (!wrap) return;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const len = Math.hypot(dx, dy);
+      wrap.style.opacity = len > 6 ? "1" : "0";
+      if (userTrailRef.current) setLine(userTrailRef.current, from, len, (Math.atan2(dy, dx) * 180) / Math.PI);
+      if (userHeadRef.current) setDot(userHeadRef.current, to);
+    };
+    const hideUserAttempt = () => {
+      if (userWrapRef.current) userWrapRef.current.style.opacity = "0";
+    };
+    const canvasPx = (clientX: number, clientY: number): Px => {
       const rect = renderer.domElement.getBoundingClientRect();
-      guide.style.left = `${event.clientX - rect.left}px`;
-      guide.style.top = `${event.clientY - rect.top}px`;
-      guide.style.opacity = "1";
-      guide.style.transform = "translate(-50%, -50%) scale(1)";
-      beam.style.width = "0px";
-      beam.style.transform = "rotate(0deg)";
-      label.textContent = "TOUCH";
+      return { x: clientX - rect.left, y: clientY - rect.top };
     };
-    const updateTouchGuide = (dx: number, dy: number, text: string) => {
-      const beam = beamRef.current;
-      const label = beamLabelRef.current;
-      if (!beam || !label) return;
-      const distance = Math.min(96, Math.hypot(dx, dy));
-      beam.style.width = `${distance}px`;
-      beam.style.transform = `rotate(${(Math.atan2(dy, dx) * 180) / Math.PI}deg)`;
-      label.textContent = text;
-    };
-    const hideTouchGuide = () => {
-      const guide = guideRef.current;
-      if (!guide) return;
-      guide.style.opacity = "0";
-      guide.style.transform = "translate(-50%, -50%) scale(.82)";
+
+    const gradeAttempt = (start: PointerStart, endX: number, endY: number) => {
+      if (!guideInfo || !idealDir) return;
+      const dx = endX - start.clientX;
+      const dy = endY - start.clientY;
+      const len = Math.hypot(dx, dy);
+      const resolved = len >= 34 ? previewGesture?.label : undefined;
+      let text: string;
+      let quality: "great" | "ok" | "off";
+      if (len < 34) {
+        text = "Too short — flick a little further along the arrow to commit.";
+        quality = "off";
+      } else {
+        const dot = (dx / len) * idealDir.x + (dy / len) * idealDir.y;
+        const angleErr = Math.round((Math.acos(Math.max(-1, Math.min(1, dot))) * 180) / Math.PI);
+        if (resolved === guideInfo.token) {
+          quality = angleErr <= 16 ? "great" : "ok";
+          text = angleErr <= 16 ? `Clean ${guideInfo.token} flick — ${angleErr}° off the ideal line.` : `Landed ${guideInfo.token}, ${angleErr}° off — aim straighter down the arrow.`;
+        } else if (resolved) {
+          text = `That flick made ${resolved}; the guide wanted ${guideInfo.token}. Start on the glowing sticker.`;
+          quality = "off";
+        } else {
+          text = "Keep the flick straight along the glowing arrow.";
+          quality = "off";
+        }
+      }
+      callbacks.current.onSwipeGrade?.({ text, quality });
     };
 
     const onPointerDown = (event: PointerEvent) => {
@@ -470,7 +585,6 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
         label: hit.userData.label as string,
       };
       controls.enabled = false;
-      showTouchGuide(event);
       renderer.domElement.setPointerCapture(event.pointerId);
       event.preventDefault();
     };
@@ -479,26 +593,21 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
       if (active || !pointerStart || event.pointerId !== pointerStart.pointerId) return;
       const dx = event.clientX - pointerStart.clientX;
       const dy = event.clientY - pointerStart.clientY;
-      if (Math.hypot(dx, dy) < 16) {
-        updateTouchGuide(dx, dy, "TOUCH");
-        return;
-      }
+      showUserAttempt(canvasPx(pointerStart.clientX, pointerStart.clientY), canvasPx(event.clientX, event.clientY));
+      if (Math.hypot(dx, dy) < 16) return;
       event.preventDefault();
       const gesture = resolveGesture(pointerStart, dx, dy);
-      const isSlice = Math.abs(gesture.layer) < 0.5;
-      if (isSlice) {
+      if (Math.abs(gesture.layer) < 0.5) {
         clearHighlight();
-        updateTouchGuide(dx, dy, "SLICE");
         setStatus("Slice move — this trainer drills the six face turns");
         return;
       }
       highlightLayer(gesture);
-      updateTouchGuide(dx, dy, gesture.label);
       setStatus(`${gesture.label} layer`);
     };
 
     const onPointerUp = (event: PointerEvent) => {
-      hideTouchGuide();
+      hideUserAttempt();
       if (!pointerStart || event.pointerId !== pointerStart.pointerId) {
         controls.enabled = true;
         return;
@@ -513,10 +622,12 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
         const gesture = previewGesture ?? resolveGesture(start, dx, dy);
         if (Math.abs(gesture.layer) < 0.5) {
           clearHighlight();
-          setStatus("Slice moves aren't scored — swipe an outer face (U D L R F B)");
+          setStatus("Slice moves aren't scored — flick an outer face (U D L R F B)");
           controls.enabled = true;
           return;
         }
+        previewGesture = gesture;
+        gradeAttempt(start, event.clientX, event.clientY);
         queue.push({ gesture, emit: gesture.label, fast: false });
         runNext();
         return;
@@ -537,7 +648,7 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
 
     const onPointerCancel = () => {
       pointerStart = null;
-      hideTouchGuide();
+      hideUserAttempt();
       clearHighlight();
       controls.enabled = true;
     };
@@ -563,12 +674,18 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
     const render = () => {
       frame = requestAnimationFrame(render);
       controls.update();
-      if (guideMesh && halo.visible) {
-        const pulse = 1 + Math.sin(clock.getElapsedTime() * 4) * 0.16;
-        halo.scale.setScalar(0.62 * pulse);
-        haloMaterial.opacity = 0.7 + (pulse - 1) * 0.9;
-        const mat = guideMesh.material as THREE.MeshStandardMaterial;
-        mat.emissiveIntensity = 0.6 + (pulse - 1) * 1.4;
+      const t = clock.getElapsedTime();
+      if (guideInfo && !active) {
+        if (!anchor || facingCamera(anchor) < 0.12) setAnchor(pickAnchor(guideInfo));
+        if (anchor && halo.visible) {
+          const pulse = 1 + Math.sin(t * 4) * 0.16;
+          halo.scale.setScalar(0.6 * pulse);
+          haloMaterial.opacity = 0.72 + (pulse - 1) * 0.9;
+          (anchor.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.65 + (pulse - 1) * 1.3;
+        }
+        showIdeal((t * 0.85) % 1);
+      } else {
+        hideIdeal();
       }
       renderer.render(scene, camera);
     };
@@ -586,30 +703,26 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
           cubie.mesh.quaternion.identity();
           cubie.grid.copy(cubie.home);
         });
-        clearGuideGlow();
+        guideInfo = null;
+        setAnchor(null);
+        hideIdeal();
         setStatus("Reset to solved");
       },
       resetView: () => {
         controls.reset();
         setStatus("View reset");
       },
-      setGuide: (face, dir) => {
-        clearGuideGlow();
-        if (!face) return;
-        const mesh = centerByFace.get(face);
-        if (!mesh) return;
-        guideMesh = mesh;
-        const color = mesh.userData.baseColor as string;
-        const mat = mesh.material as THREE.MeshStandardMaterial;
-        mat.emissive.set(color);
-        mat.emissiveIntensity = 0.8;
-        haloMaterial.color.set(color);
-        mesh.add(halo);
-        halo.position.set(0, 0, 0.16);
-        halo.scale.setScalar(0.62);
-        halo.visible = true;
-        haloMaterial.opacity = 0.8;
-        void dir;
+      setGuide: (token) => {
+        setAnchor(null);
+        guideInfo = null;
+        hideIdeal();
+        if (!token) return;
+        const face = token[0] as Face;
+        const fm = FACE_MOVE[face];
+        const prime = token.endsWith("'");
+        const dir = (prime ? -fm.clockwise : fm.clockwise) as Direction;
+        guideInfo = { token, face, axis: fm.axis, layer: fm.layerSign * EDGE, dir, color: FACE_COLORS[face] };
+        setAnchor(pickAnchor(guideInfo));
       },
       isBusy: () => active || queue.length > 0,
     };
@@ -623,7 +736,7 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
       renderer.domElement.removeEventListener("pointermove", onPointerMove, true);
       renderer.domElement.removeEventListener("pointerup", onPointerUp, true);
       renderer.domElement.removeEventListener("pointercancel", onPointerCancel, true);
-      clearGuideGlow();
+      setAnchor(null);
       controls.dispose();
       bodyGeometry.dispose();
       stickerGeometry.dispose();
@@ -638,24 +751,30 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
   return (
     <div className="relative h-full w-full overflow-hidden">
       <div ref={mountRef} className="h-full w-full touch-none" />
-      <div
-        ref={guideRef}
-        className="pointer-events-none absolute z-20 h-20 w-20 opacity-0 transition-[opacity,transform] duration-150"
-        style={{ transform: "translate(-50%, -50%) scale(.82)" }}
-      >
-        <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-1.5 rounded-2xl border border-white/25 bg-black/25 p-1.5 backdrop-blur-[2px]">
-          {Array.from({ length: 9 }, (_, index) => (
-            <span key={index} className={`rounded-full border ${index === 4 ? "border-white bg-white/80" : "border-white/35 bg-white/10"}`} />
-          ))}
-        </div>
-        <div ref={beamRef} className="absolute left-1/2 top-1/2 h-1 origin-left rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,.9)]" />
+
+      {/* Ideal play-engine flick — the glowing guide. */}
+      <div ref={idealWrapRef} className="pointer-events-none absolute inset-0 z-20 opacity-0 transition-opacity duration-200">
+        <div ref={idealRingRef} className="absolute h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-current shadow-[0_0_16px_currentColor]" />
         <div
-          ref={beamLabelRef}
-          className="absolute left-1/2 top-[calc(100%+6px)] -translate-x-1/2 whitespace-nowrap rounded-full border border-white/20 bg-black/80 px-2 py-1 text-[10px] font-black tracking-[.12em] text-white"
-        >
-          TOUCH
-        </div>
+          ref={idealTrailRef}
+          className="absolute h-[6px] origin-left rounded-full"
+          style={{ transformOrigin: "0 50%", background: "linear-gradient(90deg, transparent, currentColor)" }}
+        />
+        <div ref={idealCometRef} className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current shadow-[0_0_16px_currentColor]" />
+        <div
+          ref={idealArrowRef}
+          className="absolute h-0 w-0"
+          style={{ borderTop: "9px solid transparent", borderBottom: "9px solid transparent", borderLeft: "15px solid currentColor", filter: "drop-shadow(0 0 6px currentColor)" }}
+        />
+        <div ref={idealBadgeRef} className="absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-black/85 px-1.5 py-0.5 text-xs font-black text-white" />
       </div>
+
+      {/* Your live flick, for tuning. */}
+      <div ref={userWrapRef} className="pointer-events-none absolute inset-0 z-[19] opacity-0">
+        <div ref={userTrailRef} className="absolute h-[3px] origin-left rounded-full bg-white/80" style={{ transformOrigin: "0 50%" }} />
+        <div ref={userHeadRef} className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white/40" />
+      </div>
+
       <button
         type="button"
         aria-label="Reset the cube camera view"

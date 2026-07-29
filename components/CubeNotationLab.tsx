@@ -20,18 +20,15 @@ import {
   inverseSequence,
   inverseToken,
   simplify,
+  toQuarterTurns,
   turnsOf,
   type Face,
 } from "@/lib/cube-notation";
 
 const SCRAMBLE_LENGTH = 18;
 
-const dirOfToken = (token: string): "cw" | "ccw" | "half" =>
-  turnsOf(token) === 2 ? "half" : turnsOf(token) === 3 ? "ccw" : "cw";
-
-const dirGlyph = (dir: "cw" | "ccw" | "half") => (dir === "ccw" ? "↺" : "↻");
-const dirWords = (dir: "cw" | "ccw" | "half") =>
-  dir === "half" ? "half turn · 180°" : dir === "ccw" ? "counter-clockwise" : "clockwise";
+const dirOfToken = (token: string): "cw" | "ccw" => (turnsOf(token) === 3 ? "ccw" : "cw");
+const dirWords = (dir: "cw" | "ccw") => (dir === "ccw" ? "counter-clockwise" : "clockwise");
 
 /**
  * 3×3 Notation Lab — the Learn page's interactive trainer.
@@ -72,42 +69,47 @@ export default function CubeNotationLab() {
     setSolvedNow(isSolved(state));
   }, []);
 
-  // Drive the 3D glow from the shared route (declarative: glow == route[0]).
+  // Drive the 3D flick guide from the shared route (declarative: guide == route[0]).
   useEffect(() => {
-    cubeRef.current?.setGuide(guideFace, guideDir);
-  }, [guideFace, guideDir]);
+    cubeRef.current?.setGuide(solvedNow ? null : guideToken);
+  }, [guideToken, solvedNow]);
 
   const handleCommit = useCallback(
     (token: string) => {
       const previousRoute = routeRef.current;
       const followed = previousRoute[0] === token;
       const nextState = applyMove(stateRef.current, token);
-      const nextRoute = followed ? previousRoute.slice(1) : simplify([inverseToken(token), ...previousRoute]);
+      const nextRoute = followed
+        ? previousRoute.slice(1)
+        : toQuarterTurns(simplify([inverseToken(token), ...previousRoute]));
       const nowSolved = isSolved(nextState);
       const completed = humanRef.current + 1;
       humanRef.current = completed;
       setHumanMoves(completed);
       commit(nextState, nextRoute);
-      if (nowSolved) {
-        setFeedback("Solved! Every sticker is home. Scramble again to keep practising.");
-      } else if (followed) {
-        setFeedback(`Nice — ${token} matched the guide. ${nextRoute.length} move${nextRoute.length === 1 ? "" : "s"} to go.`);
-      } else {
-        setFeedback(`You explored ${token}. The guide added the shortest recovery and kept the route valid.`);
-      }
+      // Non-solved feedback comes from the swipe grade (onSwipeGrade); only the
+      // terminal "solved" message overrides it here.
+      if (nowSolved) setFeedback("Solved! Every sticker is home. Scramble again to keep practising.");
     },
     [commit],
   );
+
+  const [gradeQuality, setGradeQuality] = useState<"great" | "ok" | "off" | null>(null);
+  const handleSwipeGrade = useCallback((grade: { text: string; quality: "great" | "ok" | "off" }) => {
+    setFeedback(grade.text);
+    setGradeQuality(grade.quality);
+  }, []);
 
   const scramble = useCallback(() => {
     if (cubeRef.current?.isBusy()) return;
     const tokens = tokenize(randomScramble(SCRAMBLE_LENGTH));
     const nextState = applySequence(solved(), tokens.join(" "));
-    const nextRoute = simplify(inverseSequence(tokens));
+    const nextRoute = toQuarterTurns(simplify(inverseSequence(tokens)));
     humanRef.current = 0;
     setHumanMoves(0);
+    setGradeQuality(null);
     setScrambleText(tokens.join(" "));
-    setFeedback("Find the bright target sticker and follow the direction badge.");
+    setFeedback("Touch the glowing sticker and flick along the arrow — that's the real play gesture.");
     commit(nextState, nextRoute);
     cubeRef.current?.reset();
     cubeRef.current?.playMoves(tokens, { fast: true });
@@ -120,6 +122,7 @@ export default function CubeNotationLab() {
     cubeRef.current?.playMoves(tokens);
     commit(solved(), []);
     setScrambleText("");
+    setGradeQuality(null);
     setFeedback(`Played the ${tokens.length}-move guided route back to solved.`);
   }, [commit]);
 
@@ -129,6 +132,7 @@ export default function CubeNotationLab() {
     humanRef.current = 0;
     setHumanMoves(0);
     setScrambleText("");
+    setGradeQuality(null);
     setFeedback("Back to solved. Tap a sticker to read its face, or scramble to start a guided solve.");
     commit(solved(), []);
   }, [commit]);
@@ -140,21 +144,27 @@ export default function CubeNotationLab() {
     if (solvedNow || !guideFace || !guideToken) return null;
     return (
       <div
-        className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/20 bg-black/80 px-4 py-2 text-center shadow-[0_18px_38px_rgba(0,0,0,.6)] backdrop-blur"
+        className="pointer-events-none absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/20 bg-black/80 px-4 py-2 shadow-[0_18px_38px_rgba(0,0,0,.6)] backdrop-blur"
         aria-hidden="true"
       >
-        <span className="animate-pulse text-4xl font-black leading-none" style={{ color: guideColor }}>
-          {dirGlyph(guideDir ?? "cw")}
+        <span
+          className="grid h-9 w-9 place-items-center rounded-lg text-lg font-black text-white"
+          style={{ background: guideColor }}
+        >
+          {guideToken}
         </span>
         <span className="text-left">
-          <span className="block text-lg font-black text-white">{guideToken}</span>
-          <span className="block text-[11px] font-bold uppercase tracking-[.12em] text-white/65">
-            {FACE_NAMES[guideFace]} face • {dirWords(guideDir ?? "cw")}
+          <span className="block text-[13px] font-black text-white">Flick the glowing sticker</span>
+          <span className="block text-[11px] font-bold uppercase tracking-[.1em] text-white/65">
+            {FACE_NAMES[guideFace]} · {dirWords(guideDir ?? "cw")}
           </span>
         </span>
       </div>
     );
   }, [solvedNow, guideFace, guideToken, guideDir, guideColor]);
+
+  const feedbackColor =
+    gradeQuality === "great" ? "var(--green)" : gradeQuality === "off" ? "#ff8f6a" : gradeQuality === "ok" ? "var(--blue)" : undefined;
 
   return (
     <div className="space-y-3">
@@ -165,7 +175,7 @@ export default function CubeNotationLab() {
           </div>
         )}
         {guideCard}
-        <NotationCube3D ref={cubeRef} onCommit={handleCommit} onStatus={setStatus} onBusyChange={setBusy} />
+        <NotationCube3D ref={cubeRef} onCommit={handleCommit} onStatus={setStatus} onBusyChange={setBusy} onSwipeGrade={handleSwipeGrade} />
       </section>
 
       <div className="grid grid-cols-3 gap-2">
@@ -214,7 +224,10 @@ export default function CubeNotationLab() {
         <div className="mt-3">
           <NotationNetLive facelets={facelets} guideFace={solvedNow ? null : guideFace} guideDir={guideDir} />
         </div>
-        <p className="mt-3 rounded-full border border-white/10 bg-black/30 px-4 py-2 text-center text-xs font-bold text-white/75">
+        <p
+          className="mt-3 rounded-full border border-white/10 bg-black/30 px-4 py-2 text-center text-xs font-bold"
+          style={{ color: feedbackColor ?? "rgba(255,255,255,.75)" }}
+        >
           {feedback}
         </p>
       </section>

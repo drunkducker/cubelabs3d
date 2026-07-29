@@ -107,6 +107,16 @@ export function simplify(tokens: string[]): string[] {
   return out;
 }
 
+/**
+ * Expand half turns into two quarter turns (R2 → R R). The guided trainer teaches
+ * one thumb flick per step, and a physical flick is a single 90° turn, so the
+ * route must be quarter-only for "one flick = one guided move" to hold. This never
+ * changes the resulting state (R R is R2).
+ */
+export function toQuarterTurns(tokens: string[]): string[] {
+  return tokens.flatMap((token) => (turnsOf(token) === 2 ? [token[0]!, token[0]!] : [token]));
+}
+
 export type NotationReference = { symbol: string; name: string; detail: string };
 
 /** Reference copy for the notation legend on the Learn page. */

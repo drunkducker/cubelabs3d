@@ -36,8 +36,9 @@ export default function ThreeByThreeNotationPage() {
             Read it. <span className="accent-text">Turn it.</span> Solve it.
           </h1>
           <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">
-            Tap a sticker to name its face, swipe to turn and watch the move notation appear, then hit Scramble to follow a
-            live guided route home. The flat net below mirrors the same puzzle in real time.
+            Tap a sticker to name its face, then hit Scramble. The guide glows the exact sticker to touch and the exact
+            direction to flick — the real play-engine gesture — and grades each thumb move so you can tune it. The flat
+            net below mirrors the same puzzle in real time.
           </p>
         </section>
 
@@ -90,9 +91,12 @@ export default function ThreeByThreeNotationPage() {
 
         <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
           <p>
-            <strong className="text-[var(--text)]">How the guide works:</strong> a scramble builds one guaranteed route by
-            reversing itself, so the remaining-move count never loops. Follow the glowing target and the direction badge
-            to shrink it. Explore a different move any time — the guide simply adds the shortest recovery and keeps going.
+            <strong className="text-[var(--text)]">How the flick guide works:</strong> turning a face isn&apos;t a swipe on
+            that face — you flick a sticker on the layer&apos;s neighbour. The guide computes the exact anchor sticker and
+            screen direction the play engine reads for the next move, then loops a glowing arrow there. Your live drag is
+            overlaid and graded on angle and length, so it doubles as a thumb-move trainer for play. A scramble builds one
+            guaranteed route by reversing itself, so the count never loops; explore a different move and the guide adds the
+            shortest recovery and keeps going.
           </p>
         </section>
       </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyMove, applySequence, isSolved, randomScramble, solved, tokenize } from "@/lib/cube-engine";
-import { faceOfToken, inverseSequence, inverseToken, simplify, turnsOf } from "@/lib/cube-notation";
+import { faceOfToken, inverseSequence, inverseToken, simplify, toQuarterTurns, turnsOf } from "@/lib/cube-notation";
 
 describe("cube-notation token algebra", () => {
   it("inverts single tokens", () => {
@@ -20,6 +20,15 @@ describe("cube-notation token algebra", () => {
     expect(simplify(["R2", "R"])).toEqual(["R'"]);
     expect(simplify(["R2", "R2"])).toEqual([]);
     expect(simplify(["U", "R", "R", "U'"])).toEqual(["U", "R2", "U'"]);
+  });
+
+  it("expands half turns into two quarter turns without changing state", () => {
+    expect(toQuarterTurns(["R2", "U", "F'"])).toEqual(["R", "R", "U", "F'"]);
+    const tokens = tokenize(randomScramble(18));
+    const route = toQuarterTurns(simplify(inverseSequence(tokens)));
+    expect(route.every((t) => t.length <= 2 && !t.endsWith("2"))).toBe(true);
+    const scrambled = applySequence(solved(), tokens.join(" "));
+    expect(isSolved(applySequence(scrambled, route.join(" ")))).toBe(true);
   });
 
   it("reads quarter-turn counts and faces", () => {
