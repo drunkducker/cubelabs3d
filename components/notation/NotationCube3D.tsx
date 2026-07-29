@@ -563,14 +563,16 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
       if (active) return;
       let hit = pickSticker(event);
       controls.autoRotate = false;
-      // The glow (halo + arrow bloom) is larger than the sticker's pick area, so
-      // a thumb aimed at the bright target can land just off the geometry. If a
-      // guide is active and the touch is near the glowing anchor, grab the anchor
-      // instead of letting the miss fall through to camera rotation.
-      if (!hit && guideInfo && anchor) {
+      // Prefer the glowing guide anchor whenever the touch lands near it — even
+      // if the raycast hit a sticker occluding the anchor from this angle, or
+      // landed just off the anchor's pick area (the glow is larger than the
+      // sticker). This makes "touch the glowing sticker" reliable and guarantees
+      // the flick uses the anchor's own normal, so following the arrow resolves
+      // to the guided move instead of whatever sticker sat under the thumb.
+      if (guideInfo && anchor) {
         const ap = projectToPx(anchor.getWorldPosition(new THREE.Vector3()));
         const cp = canvasPx(event.clientX, event.clientY);
-        if (ap && Math.hypot(cp.x - ap.x, cp.y - ap.y) < 52) hit = anchor;
+        if (ap && Math.hypot(cp.x - ap.x, cp.y - ap.y) < 48) hit = anchor;
       }
       if (!hit) {
         pointerStart = null;
@@ -579,21 +581,18 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
       }
       const cubie = hit.userData.cubie as Cubie | undefined;
       if (!cubie) return;
-      const normalMatrix = new THREE.Matrix3().getNormalMatrix(hit.matrixWorld);
-      const face = hit.userData.face as Face;
-      const base =
-        face === "R" ? new THREE.Vector3(1, 0, 0) :
-        face === "L" ? new THREE.Vector3(-1, 0, 0) :
-        face === "U" ? new THREE.Vector3(0, 1, 0) :
-        face === "D" ? new THREE.Vector3(0, -1, 0) :
-        face === "F" ? new THREE.Vector3(0, 0, 1) :
-        new THREE.Vector3(0, 0, -1);
+      // Use the sticker's true current outward normal (position − cubie centre),
+      // NOT the original face letter rotated by the cubie matrix: each sticker
+      // mesh carries its own local rotation, so the letter-based method returns
+      // the wrong normal for every non-Front sticker after a scramble, which made
+      // the resolver pick the wrong axis. This matches the guide's own normal, so
+      // flicking along the guide arrow now resolves to the guided move.
       pointerStart = {
         pointerId: event.pointerId,
         clientX: event.clientX,
         clientY: event.clientY,
         cubie,
-        normal: base.applyMatrix3(normalMatrix).normalize(),
+        normal: worldNormalOf(hit),
         label: hit.userData.label as string,
       };
       controls.enabled = false;
