@@ -1,222 +1,233 @@
-.rev2 {
+.workspace {
   position: relative;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden;
   background:
-    radial-gradient(circle at 12% 10%, rgba(80, 112, 255, .24), transparent 28rem),
-    radial-gradient(circle at 88% 22%, rgba(52, 208, 88, .15), transparent 30rem),
-    linear-gradient(180deg, #090b13 0%, #0d1020 54%, #080a11 100%);
-  color: #f7f8ff;
+    radial-gradient(circle at 50% 24%, rgba(42, 76, 150, .24), transparent 30rem),
+    linear-gradient(180deg, #05070b 0%, #090d14 46%, #05070b 100%);
+  color: #f6f8ff;
 }
 
-.backdrop {
+.ambient {
   pointer-events: none;
-  position: absolute;
+  position: fixed;
   inset: 0;
-  opacity: .22;
-  background-image:
-    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: linear-gradient(to bottom, black, transparent 72%);
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, #000, transparent 82%);
 }
 
-.labHeader,
-.featureRail,
-.gameFrame {
+.topbar {
   position: relative;
-  z-index: 2;
-  width: min(100% - 28px, 1120px);
-  margin-inline: auto;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 44px 1fr 54px;
+  align-items: center;
+  gap: 12px;
+  width: min(100% - 24px, 920px);
+  margin: 0 auto;
+  padding: calc(12px + env(safe-area-inset-top)) 0 10px;
 }
 
-.labHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 28px;
-  padding: 30px 4px 18px;
-}
-
-.eyebrow {
-  margin: 0;
-  color: #91a4ff;
-  font-size: 11px;
+.iconButton,
+.revision {
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 13px;
+  background: rgba(255,255,255,.045);
+  color: #eef2ff;
+  font-size: 13px;
   font-weight: 900;
-  letter-spacing: .2em;
+  text-decoration: none;
+  backdrop-filter: blur(14px);
 }
 
-.titleRow {
+.iconButton { font-size: 21px; }
+.revision { color: #8298ff; font-size: 10px; letter-spacing: .1em; }
+
+.brandBlock {
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+
+.brandBlock strong {
+  margin-top: 5px;
+  font-size: 22px;
+  letter-spacing: .24em;
+  text-indent: .24em;
+}
+
+.brand {
+  color: #7d879e;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .28em;
+  text-indent: .28em;
+}
+
+.readout {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: min(100% - 24px, 920px);
+  margin: 2px auto 10px;
+}
+
+.readout div {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.titleRow h1 {
-  margin: 0;
-  font-size: clamp(38px, 7vw, 72px);
-  line-height: .95;
-  letter-spacing: -.05em;
-}
-
-.titleRow h1 span {
-  background: linear-gradient(90deg, #7f93ff, #34d058);
-  background-clip: text;
-  color: transparent;
-}
-
-.badge {
-  border: 1px solid rgba(127,147,255,.45);
+  gap: 6px;
+  border: 1px solid rgba(255,255,255,.075);
   border-radius: 999px;
   padding: 7px 10px;
-  background: rgba(127,147,255,.12);
-  color: #bac5ff;
-  font-size: 10px;
+  background: rgba(5,8,14,.7);
+  color: #778197;
+  font-size: 8px;
   font-weight: 900;
-  letter-spacing: .12em;
+  letter-spacing: .1em;
 }
 
-.subtitle {
-  max-width: 680px;
-  margin: 14px 0 0;
-  color: #aeb4ca;
-  font-size: 15px;
-  line-height: 1.65;
+.greenDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3ee078;
+  box-shadow: 0 0 12px #3ee078;
 }
 
-.nav {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+.stage {
+  position: relative;
+  z-index: 3;
+  width: min(100%, 920px);
+  margin: 0 auto;
+  border-block: 1px solid rgba(255,255,255,.07);
+  background:
+    radial-gradient(circle at 50% 32%, rgba(56, 88, 170, .16), transparent 30rem),
+    rgba(5,8,13,.82);
+  box-shadow: 0 30px 100px rgba(0,0,0,.42);
 }
 
-.nav a {
-  border: 1px solid rgba(255,255,255,.11);
-  border-radius: 12px;
-  padding: 10px 13px;
-  background: rgba(255,255,255,.055);
-  color: #e9ecf8;
-  font-size: 12px;
-  font-weight: 800;
-  text-decoration: none;
-  backdrop-filter: blur(16px);
+.cornerLabel {
+  position: absolute;
+  z-index: 5;
+  top: 12px;
+  left: 14px;
+  color: rgba(154,170,211,.55);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .15em;
 }
 
-.featureRail {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.featureRail article {
-  display: grid;
-  gap: 4px;
-  min-height: 88px;
-  align-content: center;
-  border: 1px solid rgba(255,255,255,.09);
-  border-radius: 16px;
-  padding: 14px;
-  background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(18px);
-}
-
-.featureRail strong {
-  font-size: 13px;
-}
-
-.featureRail span {
-  color: #969db5;
+.footerNote {
+  position: relative;
+  z-index: 3;
+  width: min(100% - 32px, 700px);
+  margin: 14px auto 0;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  color: #747d91;
   font-size: 11px;
-  line-height: 1.4;
+  font-weight: 700;
+  text-align: center;
 }
 
-.gameFrame {
-  margin-top: 14px;
-  margin-bottom: 40px;
-  border: 1px solid rgba(127,147,255,.22);
-  border-radius: 28px;
-  padding: 8px;
-  background: rgba(7,9,16,.74);
-  box-shadow: 0 30px 90px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(22px);
-}
-
-.frameLabel {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 13px 4px;
-  color: #8e97b4;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .14em;
-}
-
-.liveDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #34d058;
-  box-shadow: 0 0 14px #34d058;
-}
-
-.rev2 :global(main.app-shell) {
-  max-width: 760px;
+/* Remove the original page chrome. Only the working puzzle engine and controls remain. */
+.workspace :global(main.app-shell) {
+  width: 100%;
+  max-width: none;
   min-height: auto;
-  margin-inline: auto;
-  padding-top: 10px;
+  overflow: visible;
+  padding: 0 12px 22px;
   background: transparent;
 }
 
-.rev2 :global(main.app-shell .cube-card) {
-  border: 1px solid rgba(127,147,255,.18);
-  background: radial-gradient(circle at 50% 25%, rgba(78,97,190,.18), rgba(11,13,22,.94) 65%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 50px rgba(0,0,0,.3);
+.workspace :global(main.app-shell > .orb) { display: none; }
+.workspace :global(main.app-shell > div:last-child > header) { display: none; }
+.workspace :global(main.app-shell > div:last-child > a) { display: none; }
+.workspace :global(main.app-shell > div:last-child > section:first-of-type) { display: none; }
+
+.workspace :global(main.app-shell > div:last-child) {
+  width: min(100%, 760px);
+  margin-inline: auto;
 }
 
-.rev2 :global(main.app-shell button) {
-  transition: transform .16s ease, filter .16s ease, border-color .16s ease;
+.workspace :global(main.app-shell .cube-card) {
+  margin-top: 0 !important;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(70,102,190,.2), transparent 52%),
+    transparent;
+  box-shadow: none;
 }
 
-.rev2 :global(main.app-shell button:active) {
-  transform: scale(.97);
+.workspace :global(main.app-shell .cube-card > div:first-child) {
+  margin: 12px 4px 0;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 14px;
+  background: rgba(4,7,12,.72);
 }
 
-@media (max-width: 760px) {
-  .labHeader {
-    display: block;
-    padding-top: 22px;
+.workspace :global([data-testid="skewb-canvas"]) {
+  height: min(58dvh, 560px) !important;
+  min-height: 410px;
+}
+
+.workspace :global(main.app-shell button) {
+  min-height: 50px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 15px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: transform .13s ease, filter .13s ease;
+}
+
+.workspace :global(main.app-shell button:active) { transform: scale(.965); }
+
+.workspace :global(main.app-shell .cta-purple) {
+  background: linear-gradient(145deg, #5269df, #3448a9);
+}
+
+.workspace :global(main.app-shell .cta-green) {
+  background: linear-gradient(145deg, #39c96d, #158442);
+  color: #041109;
+}
+
+.workspace :global(main.app-shell .glass) {
+  background: rgba(255,255,255,.045);
+  backdrop-filter: blur(14px);
+}
+
+.workspace :global(main.app-shell section.glass) {
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 16px;
+  background: rgba(255,255,255,.035);
+}
+
+@media (min-width: 760px) {
+  .stage {
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 24px;
+    overflow: hidden;
   }
 
-  .nav {
-    margin-top: 18px;
-  }
+  .workspace :global(main.app-shell) { padding-inline: 26px; }
+  .workspace :global([data-testid="skewb-canvas"]) { min-height: 500px; }
+}
 
-  .featureRail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .gameFrame {
-    width: 100%;
-    margin-top: 12px;
-    border-left: 0;
-    border-right: 0;
-    border-radius: 24px 24px 0 0;
-    padding-inline: 0;
-  }
-
-  .rev2 :global(main.app-shell) {
-    width: 100%;
-    max-width: 520px;
-  }
+@media (max-width: 420px) {
+  .readout div:nth-child(2) { display: none; }
+  .workspace :global(main.app-shell) { padding-inline: 10px; }
+  .workspace :global([data-testid="skewb-canvas"]) { min-height: 390px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rev2 :global(*) {
-    scroll-behavior: auto !important;
-    transition-duration: .01ms !important;
-  }
+  .workspace :global(*) { transition-duration: .01ms !important; }
 }
