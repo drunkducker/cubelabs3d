@@ -30,6 +30,19 @@ describe("Pyraminx facelet adapter", () => {
     expect(emptyManualPyraminxFacelets()).toEqual(new Array(36).fill(-1));
   });
 
+  it("distinguishes a deep axial-center turn from an independent tip twist", () => {
+    const deep = applySequence(solved(), "U");
+    expect(deep.co).toEqual([1, 0, 0, 0]);
+    expect(deep.to).toEqual([1, 0, 0, 0]);
+    expect(deep.ep).not.toEqual(solved().ep);
+
+    const shallow = applySequence(solved(), "u");
+    expect(shallow.co).toEqual([0, 0, 0, 0]);
+    expect(shallow.to).toEqual([1, 0, 0, 0]);
+    expect(shallow.ep).toEqual(solved().ep);
+    expect(shallow.eo).toEqual(solved().eo);
+  });
+
   it("round-trips legal scrambles including independent center and tip orientation", () => {
     for (const sequence of fixtures) {
       const state = applySequence(solved(), sequence);
