@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import SkewbGame from "@/app/SkewbGame";
+import SkewbRev2Shell from "@/components/SkewbRev2Shell";
 
 export const metadata: Metadata = {
-  title: "Skewb Puzzle | Cube Lab 3D",
-  description: "Playable 3D Skewb with sticker swipes, scramble, undo, timer, sharing, and a verified state-based solver.",
+  title: "Skewb Rev 2 | Cube Lab 3D",
+  description: "A redesigned mobile-first Skewb experience combining the strongest Cube Labs 3x3, 4x4, and Kilominx interaction patterns.",
 };
 
 export default function SkewbPage() {
-  return <SkewbGame />;
+  return <SkewbRev2Shell />;
 }
