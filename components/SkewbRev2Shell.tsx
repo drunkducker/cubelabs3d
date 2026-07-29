@@ -1,5 +1,5 @@
 import Link from "next/link";
-import SkewbPhysicalGame from "@/components/SkewbPhysicalGame";
+import SkewbGame from "@/app/SkewbGame";
 import styles from "./SkewbRev2Shell.module.css";
 
 export default function SkewbRev2Shell() {
@@ -14,17 +14,17 @@ export default function SkewbRev2Shell() {
         </div>
         <Link href="/solver/skewb/rev1" className={styles.revision}>REV 1</Link>
       </header>
-      <section className={styles.readout} aria-label="Skewb model status">
-        <div><span className={styles.greenDot} /> PHYSICAL MODEL</div>
-        <div>TRUE CORNER CUTS</div>
-        <div>120° TURNS</div>
+      <section className={styles.readout} aria-label="Skewb control guide">
+        <div><span className={styles.greenDot} /> ENGINE ONLINE</div>
+        <div>120° CORNER TURNS</div>
+        <div>SWIPE TO MOVE</div>
       </section>
       <main className={styles.stage}>
-        <div className={styles.cornerLabel}>SKEWB / PHYSICAL REVISION</div>
-        <SkewbPhysicalGame />
+        <div className={styles.cornerLabel}>SKEWB / STABLE MODE</div>
+        <SkewbGame />
       </main>
       <footer className={styles.footerNote}>
-        Built to resemble a real speed Skewb: deep diagonal cuts, thick black plastic, beveled pieces, and large diamond centers.
+        Stable renderer restored while the physical model is rebuilt and tested separately.
       </footer>
     </div>
   );
