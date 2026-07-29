@@ -1,0 +1,287 @@
+/* Skewb-specific presentation layer.
+   The solver, move engine, tracking, and Three.js interaction stay in SkewbGame.
+   This file only gives the route a larger, more product-like mobile stage. */
+
+.skewb-page-v2 {
+  position: relative;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(900px 540px at 50% -120px, rgba(38, 132, 255, 0.22), transparent 64%),
+    radial-gradient(620px 520px at 112% 38%, rgba(0, 214, 255, 0.11), transparent 65%),
+    radial-gradient(580px 460px at -18% 78%, rgba(107, 70, 255, 0.12), transparent 68%),
+    #05070d;
+}
+
+.skewb-page-v2::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0.34;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
+}
+
+.skewb-page-v2 .app-shell {
+  width: 100%;
+  max-width: 560px !important;
+  margin-inline: auto;
+  padding-inline: clamp(12px, 4vw, 22px) !important;
+  padding-top: max(14px, env(safe-area-inset-top)) !important;
+  background: transparent !important;
+}
+
+.skewb-page-v2 .orb {
+  opacity: 0.25;
+  filter: blur(72px);
+}
+
+.skewb-page-v2 .app-shell > .relative > a {
+  margin-top: 10px !important;
+  min-height: 36px;
+  align-items: center;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.skewb-page-v2 .app-shell > .relative > section:first-of-type {
+  margin-top: 14px !important;
+  padding-inline: 2px;
+}
+
+.skewb-page-v2 .app-shell > .relative > section:first-of-type > p:first-child {
+  color: #69c8ff !important;
+  letter-spacing: 0.22em !important;
+}
+
+.skewb-page-v2 .app-shell > .relative > section:first-of-type h1 {
+  margin-top: 7px !important;
+  max-width: 480px;
+  font-size: clamp(36px, 9.7vw, 52px) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.045em !important;
+  text-wrap: balance;
+}
+
+.skewb-page-v2 .app-shell > .relative > section:first-of-type h1 .accent-text {
+  background: linear-gradient(100deg, #53bfff 0%, #55e4ff 55%, #8c7cff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.skewb-page-v2 .app-shell > .relative > section:first-of-type > p:last-child {
+  max-width: 500px;
+  margin-top: 11px !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: #9daabd !important;
+}
+
+/* Main interactive stage */
+.skewb-page-v2 .cube-card {
+  position: relative;
+  isolation: isolate;
+  margin-top: 16px !important;
+  overflow: hidden;
+  border: 1px solid rgba(126, 190, 255, 0.2) !important;
+  border-radius: 30px !important;
+  background:
+    radial-gradient(470px 360px at 50% 42%, rgba(38, 131, 255, 0.19), transparent 62%),
+    radial-gradient(310px 240px at 72% 18%, rgba(88, 225, 255, 0.1), transparent 70%),
+    linear-gradient(180deg, rgba(17, 25, 42, 0.96), rgba(6, 10, 18, 0.98)) !important;
+  box-shadow:
+    0 30px 72px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(33, 139, 255, 0.04);
+}
+
+.skewb-page-v2 .cube-card::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 11%;
+  right: 11%;
+  bottom: 42px;
+  height: 84px;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(45, 164, 255, 0.26), rgba(45, 164, 255, 0.07) 38%, transparent 70%);
+  filter: blur(7px);
+  transform: perspective(260px) rotateX(64deg);
+}
+
+.skewb-page-v2 .cube-card::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 72px 14px 60px;
+  pointer-events: none;
+  border-radius: 24px;
+  background:
+    linear-gradient(rgba(107, 195, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(107, 195, 255, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(circle at 50% 48%, black 0%, transparent 72%);
+}
+
+.skewb-page-v2 .cube-card > div:first-child {
+  position: absolute;
+  z-index: 4;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  min-height: 46px;
+  padding: 9px 12px !important;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 15px;
+  background: rgba(7, 12, 22, 0.72);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-size: 12px !important;
+}
+
+.skewb-page-v2 [data-testid="skewb-canvas"] {
+  position: relative;
+  z-index: 2;
+  height: clamp(430px, 58dvh, 550px) !important;
+  min-height: 430px;
+}
+
+.skewb-page-v2 [data-testid="skewb-canvas"] canvas {
+  filter:
+    drop-shadow(0 28px 24px rgba(0, 0, 0, 0.52))
+    drop-shadow(0 0 24px rgba(49, 148, 255, 0.1));
+}
+
+.skewb-page-v2 .cube-card > div:last-child {
+  position: absolute;
+  z-index: 4;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  padding: 9px 11px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(6, 10, 18, 0.68);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-size: 12px !important;
+}
+
+/* Turn/View segmented control immediately under the stage */
+.skewb-page-v2 .cube-card + div {
+  margin-top: 10px !important;
+  padding: 4px;
+  gap: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.skewb-page-v2 .cube-card + div button {
+  min-height: 44px !important;
+  border-radius: 12px !important;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.skewb-page-v2 .cta-purple {
+  color: #f7fbff;
+  background: linear-gradient(135deg, #2459e8, #168ee8 58%, #1ab9db) !important;
+  box-shadow: 0 8px 22px rgba(29, 129, 234, 0.25) !important;
+}
+
+.skewb-page-v2 .cta-green {
+  background: linear-gradient(135deg, #50c728, #94e820) !important;
+  box-shadow: 0 8px 22px rgba(112, 213, 32, 0.22) !important;
+}
+
+.skewb-page-v2 button {
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, opacity 140ms ease;
+}
+
+.skewb-page-v2 button:not(:disabled):active {
+  transform: scale(0.975);
+}
+
+/* Scramble display and main action row */
+.skewb-page-v2 [data-puzzle-scramble] {
+  margin-top: 10px !important;
+  border-color: rgba(97, 176, 255, 0.15) !important;
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, rgba(32, 110, 206, 0.11), rgba(255, 255, 255, 0.025)) !important;
+  padding: 13px 14px !important;
+}
+
+.skewb-page-v2 [data-puzzle-scramble] > p:last-child {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.035em;
+}
+
+.skewb-page-v2 [data-puzzle-scramble] + div {
+  margin-top: 9px !important;
+  gap: 7px !important;
+}
+
+.skewb-page-v2 [data-puzzle-scramble] + div button {
+  min-height: 48px !important;
+  border-radius: 14px !important;
+  font-size: 13px;
+}
+
+.skewb-page-v2 .glass {
+  border-color: rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.038);
+}
+
+.skewb-page-v2 details,
+.skewb-page-v2 [data-puzzle-scramble] ~ section {
+  border-radius: 17px !important;
+}
+
+.skewb-page-v2 details summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+@media (min-width: 520px) {
+  .skewb-page-v2 .app-shell {
+    padding-inline: 24px !important;
+  }
+
+  .skewb-page-v2 [data-testid="skewb-canvas"] {
+    height: 545px !important;
+  }
+}
+
+@media (max-width: 370px) {
+  .skewb-page-v2 .cube-card > div:first-child {
+    font-size: 11px !important;
+  }
+
+  .skewb-page-v2 .cube-card > div:first-child > span:last-child {
+    gap: 7px !important;
+  }
+
+  .skewb-page-v2 [data-testid="skewb-canvas"] {
+    min-height: 410px;
+    height: 410px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skewb-page-v2 button {
+    transition: none;
+  }
+}
