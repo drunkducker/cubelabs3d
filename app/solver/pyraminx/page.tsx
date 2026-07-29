@@ -19,7 +19,7 @@ export default function PyraminxSolverPage() {
       <section className="mt-5">
         <p className="text-xs font-extrabold tracking-[.18em] text-[var(--gold)]">REAL PYRAMINX SOLVER</p>
         <h1 className="mt-2 text-[38px] font-extrabold leading-[1.02] tracking-[-1px]">Enter. Solve.<br /><span className="accent-text">Verify every turn.</span></h1>
-        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Match your physical Pyraminx on the four-face net, or generate a legal scramble. The exact edge solver and tip cleanup are verified before any solution is shown.</p>
+        <p className="mt-3 text-[15px] leading-6 text-[var(--muted)]">Match your physical Pyraminx on the four-face net, or generate a legal scramble. The exact edge-and-center solver and independent tip cleanup are verified before any solution is shown.</p>
       </section>
       <div className="mt-5"><PyraminxSolver /></div>
       <Suspense fallback={<section className="glass mt-5 min-h-[72px] rounded-[18px]" />}>
