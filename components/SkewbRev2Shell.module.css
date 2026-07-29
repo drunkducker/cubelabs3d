@@ -1,0 +1,222 @@
+.rev2 {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(80, 112, 255, .24), transparent 28rem),
+    radial-gradient(circle at 88% 22%, rgba(52, 208, 88, .15), transparent 30rem),
+    linear-gradient(180deg, #090b13 0%, #0d1020 54%, #080a11 100%);
+  color: #f7f8ff;
+}
+
+.backdrop {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: .22;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
+}
+
+.labHeader,
+.featureRail,
+.gameFrame {
+  position: relative;
+  z-index: 2;
+  width: min(100% - 28px, 1120px);
+  margin-inline: auto;
+}
+
+.labHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 30px 4px 18px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: #91a4ff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .2em;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.titleRow h1 {
+  margin: 0;
+  font-size: clamp(38px, 7vw, 72px);
+  line-height: .95;
+  letter-spacing: -.05em;
+}
+
+.titleRow h1 span {
+  background: linear-gradient(90deg, #7f93ff, #34d058);
+  background-clip: text;
+  color: transparent;
+}
+
+.badge {
+  border: 1px solid rgba(127,147,255,.45);
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(127,147,255,.12);
+  color: #bac5ff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.subtitle {
+  max-width: 680px;
+  margin: 14px 0 0;
+  color: #aeb4ca;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.nav {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.nav a {
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 12px;
+  padding: 10px 13px;
+  background: rgba(255,255,255,.055);
+  color: #e9ecf8;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+}
+
+.featureRail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.featureRail article {
+  display: grid;
+  gap: 4px;
+  min-height: 88px;
+  align-content: center;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 16px;
+  padding: 14px;
+  background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(18px);
+}
+
+.featureRail strong {
+  font-size: 13px;
+}
+
+.featureRail span {
+  color: #969db5;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.gameFrame {
+  margin-top: 14px;
+  margin-bottom: 40px;
+  border: 1px solid rgba(127,147,255,.22);
+  border-radius: 28px;
+  padding: 8px;
+  background: rgba(7,9,16,.74);
+  box-shadow: 0 30px 90px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(22px);
+}
+
+.frameLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px 4px;
+  color: #8e97b4;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #34d058;
+  box-shadow: 0 0 14px #34d058;
+}
+
+.rev2 :global(main.app-shell) {
+  max-width: 760px;
+  min-height: auto;
+  margin-inline: auto;
+  padding-top: 10px;
+  background: transparent;
+}
+
+.rev2 :global(main.app-shell .cube-card) {
+  border: 1px solid rgba(127,147,255,.18);
+  background: radial-gradient(circle at 50% 25%, rgba(78,97,190,.18), rgba(11,13,22,.94) 65%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 50px rgba(0,0,0,.3);
+}
+
+.rev2 :global(main.app-shell button) {
+  transition: transform .16s ease, filter .16s ease, border-color .16s ease;
+}
+
+.rev2 :global(main.app-shell button:active) {
+  transform: scale(.97);
+}
+
+@media (max-width: 760px) {
+  .labHeader {
+    display: block;
+    padding-top: 22px;
+  }
+
+  .nav {
+    margin-top: 18px;
+  }
+
+  .featureRail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gameFrame {
+    width: 100%;
+    margin-top: 12px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 24px 24px 0 0;
+    padding-inline: 0;
+  }
+
+  .rev2 :global(main.app-shell) {
+    width: 100%;
+    max-width: 520px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rev2 :global(*) {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
