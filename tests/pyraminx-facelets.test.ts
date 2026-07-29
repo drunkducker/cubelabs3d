@@ -17,7 +17,7 @@ const fixtures = [
 
 describe("Pyraminx facelet adapter", () => {
   it("serializes the solved puzzle as nine stickers of each face colour", () => {
-    const facelets = stateToPyramininxFaceletsCompat(solved());
+    const facelets = stateToPyraminxFacelets(solved());
     expect(facelets).toHaveLength(36);
     expect([0, 1, 2, 3].map((color) => facelets.filter((value) => value === color).length)).toEqual([9, 9, 9, 9]);
     expect(pyraminxFaceletsToState(facelets)).toEqual(solved());
@@ -69,9 +69,3 @@ describe("Pyraminx facelet adapter", () => {
     }
   });
 });
-
-// Keeps the first assertion visibly focused on the public serializer while
-// preserving a compile-time check that its return type is number[].
-function stateToPyramininxFaceletsCompat(state: PyraState): number[] {
-  return stateToPyraminxFacelets(state);
-}
