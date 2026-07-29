@@ -8,12 +8,13 @@ const nextConfig={
       "object-src 'none'",
       "frame-ancestors 'none'",
       "form-action 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.cubing.net",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data:",
       "media-src 'self' blob: https:",
-      "connect-src 'self' https://*.supabase.co https://api.stripe.com https://*.stripe.com",
+      "connect-src 'self' https://cdn.cubing.net https://*.supabase.co https://api.stripe.com https://*.stripe.com",
+      "worker-src 'self' blob: https://cdn.cubing.net",
       "frame-src https://js.stripe.com",
       "upgrade-insecure-requests",
     ].join("; ");
@@ -31,7 +32,11 @@ const nextConfig={
       },
     ];
   },
-  // Keep the faithful standalone Learn rebuild reachable for visual comparison.
-  async rewrites(){return [{source:"/learn/standalone",destination:"/learn.html"}];},
+  async rewrites(){
+    return [
+      {source:"/learn/standalone",destination:"/learn.html"},
+      {source:"/solver/skewb-cubingjs",destination:"/skewb-cubingjs.html"},
+    ];
+  },
 };
 export default nextConfig;
