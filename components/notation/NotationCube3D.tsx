@@ -486,11 +486,14 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
     };
     const showIdeal = (cometT: number) => {
       const wrap = idealWrapRef.current;
-      if (!wrap || !guideInfo || !anchor) return hideIdeal();
+      // Hold the last good position on a transient miss (anchor re-pick or a
+      // point that fails to project for one frame) instead of blinking the glow
+      // off. The render loop hides it outright when there is no active guide.
+      if (!wrap || !guideInfo || !anchor) return;
       const { start, end } = idealFlickWorld(anchor, guideInfo);
       const s = projectToPx(start);
       const e = projectToPx(end);
-      if (!s || !e) return hideIdeal();
+      if (!s || !e) return;
       const dx = e.x - s.x;
       const dy = e.y - s.y;
       const len = Math.hypot(dx, dy) || 1;
@@ -558,8 +561,17 @@ const NotationCube3D = forwardRef<NotationCube3DHandle, Props>(function Notation
 
     const onPointerDown = (event: PointerEvent) => {
       if (active) return;
-      const hit = pickSticker(event);
+      let hit = pickSticker(event);
       controls.autoRotate = false;
+      // The glow (halo + arrow bloom) is larger than the sticker's pick area, so
+      // a thumb aimed at the bright target can land just off the geometry. If a
+      // guide is active and the touch is near the glowing anchor, grab the anchor
+      // instead of letting the miss fall through to camera rotation.
+      if (!hit && guideInfo && anchor) {
+        const ap = projectToPx(anchor.getWorldPosition(new THREE.Vector3()));
+        const cp = canvasPx(event.clientX, event.clientY);
+        if (ap && Math.hypot(cp.x - ap.x, cp.y - ap.y) < 52) hit = anchor;
+      }
       if (!hit) {
         pointerStart = null;
         controls.enabled = true;
