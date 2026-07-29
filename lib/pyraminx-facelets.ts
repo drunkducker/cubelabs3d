@@ -138,7 +138,7 @@ function readRotatingPieces(facelets: readonly number[], kind: "tip" | "center")
       colorsByFace.set(face, facelets[index]);
     }
     const expected = [...adjacentFaces].sort((a, b) => a - b);
-    const actual = [...colorsByFace.values()].sort((a, b) => a - b);
+    const actual = Array.from(colorsByFace.values()).sort((a, b) => a - b);
     if (actual.some((color, index) => color !== expected[index])) return null;
     const orientation = [0, 1, 2].find((candidate) =>
       adjacentFaces.every((face) => rotatingPieceColorAtFace(vertex, face, candidate) === colorsByFace.get(face)));
