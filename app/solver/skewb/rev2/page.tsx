@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function SkewbRev2Page() {
   return (
-    <main className="min-h-screen bg-[#030509] text-white">
+    <main className="min-h-screen bg-[#070b12] text-white">
       <div className="mx-auto w-full max-w-6xl px-3 pb-6 pt-3 sm:px-5 sm:pb-10 sm:pt-5">
         <div className="mb-3 flex items-center justify-between gap-3 px-1 sm:mb-4">
           <Link
@@ -24,12 +24,20 @@ export default function SkewbRev2Page() {
           </div>
         </div>
 
-        <SkewbRev2Game />
+        <div className="skewb-rev2-lighting">
+          <SkewbRev2Game />
+        </div>
 
-        <p className="mx-auto mt-4 max-w-2xl px-3 text-center text-xs leading-5 text-white/38">
+        <p className="mx-auto mt-4 max-w-2xl px-3 text-center text-xs leading-5 text-white/46">
           Touch a visible corner and drag around that corner’s diagonal. Drag empty space to inspect the puzzle from any angle.
         </p>
       </div>
+
+      <style>{`
+        .skewb-rev2-lighting canvas {
+          filter: brightness(1.22) contrast(0.94) saturate(1.03);
+        }
+      `}</style>
     </main>
   );
 }
