@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import SiteHeader from "@/components/SiteHeader";
 import UniversalPuzzleActions from "@/components/UniversalPuzzleActions";
 import {
@@ -136,6 +135,12 @@ function premiumPanelGeometry(
     bevelSize: options.bevel,
     bevelThickness: options.bevel,
   });
+
+  // ExtrudeGeometry grows along local +Z. A Skewb surface piece must grow
+  // inward toward the mechanism instead, otherwise the caps flare away from
+  // the cube when a corner layer turns.
+  geometry.translate(0, 0, -options.depth);
+
   const transform = new THREE.Matrix4().makeBasis(face.u, face.v, face.normal);
   transform.setPosition(face.normal.clone().multiplyScalar(options.plane).sub(anchor));
   geometry.applyMatrix4(transform);
@@ -266,7 +271,10 @@ export default function SkewbGamePremium() {
       clearcoat: 0.48,
       clearcoatRoughness: 0.45,
     });
-    const coreGeometry = new RoundedBoxGeometry(1.91, 1.91, 1.91, 5, 0.14);
+    // The previous 1.91-unit rounded cube was almost the same size as the
+    // finished puzzle and pushed visibly through every turn. A compact sphere
+    // behaves like the hidden Skewb mechanism and stays behind the piece shells.
+    const coreGeometry = new THREE.SphereGeometry(0.68, 32, 22);
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
     core.castShadow = true;
     core.receiveShadow = true;
@@ -326,10 +334,10 @@ export default function SkewbGamePremium() {
 
         const backingGeometry = premiumPanelGeometry(poly.points, face, anchor, {
           inset: poly.kind === "center" ? 0.95 : 0.965,
-          plane: 0.962,
-          depth: 0.088,
+          plane: 1.018,
+          depth: 0.1,
           radius: poly.kind === "center" ? 0.075 : 0.095,
-          bevel: 0.018,
+          bevel: 0.014,
         });
         const backing = new THREE.Mesh(backingGeometry, backingMaterial);
         backing.castShadow = true;
@@ -351,11 +359,11 @@ export default function SkewbGamePremium() {
           side: THREE.DoubleSide,
         });
         const stickerGeometry = premiumPanelGeometry(poly.points, face, anchor, {
-          inset: poly.kind === "center" ? 0.77 : 0.805,
-          plane: 1.055,
+          inset: poly.kind === "center" ? 0.79 : 0.82,
+          plane: 1.047,
           depth: 0.018,
           radius: poly.kind === "center" ? 0.062 : 0.078,
-          bevel: 0.008,
+          bevel: 0.007,
         });
         const sticker = new THREE.Mesh(stickerGeometry, stickerMaterial);
         sticker.castShadow = true;
@@ -370,7 +378,7 @@ export default function SkewbGamePremium() {
           const logoGeometry = new THREE.CylinderGeometry(0.07, 0.07, 0.012, 36);
           logoGeometry.rotateX(Math.PI / 2);
           const basis = new THREE.Matrix4().makeBasis(face.u, face.v, face.normal);
-          basis.setPosition(face.normal.clone().multiplyScalar(1.082).sub(anchor));
+          basis.setPosition(face.normal.clone().multiplyScalar(1.068).sub(anchor));
           logoGeometry.applyMatrix4(basis);
           const logoMaterial = new THREE.MeshPhysicalMaterial({
             color: "#10131a",
@@ -913,7 +921,7 @@ export default function SkewbGamePremium() {
       </details>
 
       <section className="glass mt-3 rounded-[18px] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p><strong className="text-[var(--text)]">Premium model:</strong> rounded plastic, inset colored tiles, beveled borders, realistic gaps, and a compact center logo.</p>
+        <p><strong className="text-[var(--text)]">Premium model:</strong> rounded plastic, inset colored tiles, beveled borders, realistic gaps, and a compact hidden mechanism.</p>
         <p><strong className="text-[var(--text)]">Turn Pieces:</strong> drag any colored piece and its full Skewb layer follows your finger through the 120° turn.</p>
         <p><strong className="text-[var(--text)]">Solver:</strong> finds and verifies a solution from the actual current state.</p>
       </section>
