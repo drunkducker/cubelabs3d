@@ -1,6 +1,6 @@
 # Cube Labs 3D — Master Roadmap
 
-**Last updated:** 2026-07-27
+**Last updated:** 2026-07-28
 **Repository audited:** `main` at `c5f7b58` plus draft Skewb PR #9 at `c3b5502`
 
 This file contains both the high-level roadmap and the numbered, one-task-at-a-time
@@ -43,6 +43,8 @@ documentation support completion.
       below.
 
 ### P1 — browser and account verification
+
+- [ ] Test draft Pyraminx PR #11 on phone and desktop: enter a physical state, reject an impossible state, solve/play every move, verify center motion, swipe tips/edges/centers, save/load a scramble, and confirm the final solved net and 3D puzzle.
 
 - [ ] Verify the latest Vercel production deployment.
 - [ ] Test Skewb PR #9 on a real phone through repeated turns, direction,
@@ -104,7 +106,7 @@ documentation support completion.
 - [x] Playable 3×3 experience
 - [x] Reusable NxN cube work
 - [x] Larger-cube interaction, viewport, zoom, high-DPI, and performance improvements
-- [x] Pyraminx engine, solver, timer, undo, scramble history, and swipe behavior
+- [~] Draft PR #11: real 36-sticker Pyraminx manual-entry solver, physical axial-center state, exact bidirectional edge+center solve, corrected play renderer, route split (`/solver/pyraminx` vs `/play/pyraminx`), and regression tests; CI/browser/mobile/owner approval/merge remain
 - [x] Permanent cube-engine architecture documented
 - [~] Kilominx interactive 3D puzzle and verified reduction solver merged; production mobile/browser QA remains
 - [x] Kilominx engine regression tests include geometry/move invariants, scramble round trips, and random-scramble solves

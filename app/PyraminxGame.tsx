@@ -37,7 +37,7 @@ const TWO_PI_3 = (2 * Math.PI) / 3;
 // `Move.record`) — kept as a local extension rather than added to the
 // shared, pure `PyraMove` type in lib/pyraminx-engine.ts.
 type QueuedMove = PyraMove & { record?: boolean };
-type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number };
+type Pick = { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center"; vertex: number };
 type PointerStart = { pointerId: number; clientX: number; clientY: number; hitPoint: THREE.Vector3; pick: Pick };
 type Gesture = { vertex: 0 | 1 | 2 | 3; direction: 1 | -1; depth: "shallow" | "deep" };
 
@@ -84,7 +84,7 @@ function faceCells(faceIndex: number) {
   const P = (i: number, j: number, k: number) =>
     new THREE.Vector3().addScaledVector(A, i / 3).addScaledVector(B, j / 3).addScaledVector(C, k / 3);
 
-  type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center" } };
+  type Cell = { corners: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; target: { kind: "tip"; vertex: number } | { kind: "edge"; edge: number } | { kind: "center"; vertex: number } };
   const cells: Cell[] = [];
 
   const classify = (ijk: [number, number, number][]): Cell["target"] => {
@@ -101,7 +101,9 @@ function faceCells(faceIndex: number) {
         return { kind: "edge", edge };
       }
     }
-    return { kind: "center" };
+    const totals = [0, 1, 2].map(pos => ijk.reduce((sum, corner) => sum + corner[pos], 0));
+    const axialPosition = totals.indexOf(Math.max(...totals));
+    return { kind: "center", vertex: verts[axialPosition] };
   };
 
   // 6 upward cells: i+j+k = 2.
@@ -268,14 +270,14 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
         const sticker = new THREE.Mesh(stickerGeo, stickerMat);
         const backing = new THREE.Mesh(backingGeo, bodyMaterial);
         sticker.userData.isSticker = true;
-        // Only tip/edge stickers are grabbable — centers never turn, so
-        // tapping one should fall through to camera orbit like empty space.
-        if (cell.target.kind === "tip") { sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick; pickables.push(sticker); }
-        else if (cell.target.kind === "edge") { sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick; pickables.push(sticker); }
+                if (cell.target.kind === "tip") sticker.userData.pick = { kind: "tip", vertex: cell.target.vertex } satisfies Pick;
+        else if (cell.target.kind === "edge") sticker.userData.pick = { kind: "edge", edge: cell.target.edge } satisfies Pick;
+        else sticker.userData.pick = { kind: "center", vertex: cell.target.vertex } satisfies Pick;
+        pickables.push(sticker);
 
         const group = cell.target.kind === "tip" ? tipGroups[cell.target.vertex]
-          : cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
-          : centerGroups[face];
+: cell.target.kind === "edge" ? edgeGroups[cell.target.edge]
+: centerGroups[cell.target.vertex];
         group.add(backing);
         group.add(sticker);
       }
@@ -307,6 +309,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     const groupsForMove = (move: PyraMove): THREE.Group[] => {
       const groups = [tipGroups[move.vertex]];
       if (move.depth === "deep") {
+        groups.push(centerGroups[move.vertex]);
         EDGES_AT_VERTEX[move.vertex].forEach(slot => groups.push(edgeGroups[logicalState.ep[slot]]));
       }
       return groups;
@@ -412,9 +415,8 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
 
     actionsRef.current = { scramble, solveNow, resetPuzzle, resetView, undo, turnLabel: queueLabel };
 
-    // ---- Swipe-to-turn: mobile-first primary interaction. Tap+drag a tip
-    // or edge sticker to turn it; drag empty space (or a center sticker,
-    // which is never pickable) to orbit the camera instead.
+    // ---- Swipe-to-turn: mobile-first primary interaction. Tap+drag a tip,
+    // edge, or axial-center sticker to turn it; drag empty space to orbit.
     //
     // A Pyraminx turn axis passes through a VERTEX, not a world axis, so
     // resolving "which way did the user drag" can't reuse a fixed
@@ -454,8 +456,8 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     // A swipe's DEPTH is decided by what the player actually put their
     // finger on, not derived from the drag itself: touching a tip sticker
     // grabs only that corner piece (a "shallow" twist — mirrors the
-    // lowercase u/l/r/b buttons), while touching an edge sticker grabs the
-    // whole vertex layer including its 3 neighboring edges (a "deep" turn —
+    // lowercase u/l/r/b buttons), while touching an edge or center sticker
+    // grabs the whole vertex layer including its axial center and 3 edges —
     // mirrors the uppercase U/L/R/B buttons). This matches how a physical
     // Pyraminx works: you can pinch just the small tip and twist it
     // independently of the layer beneath it, or grab further down to turn
@@ -464,7 +466,7 @@ export default function PyraminxGame({ variant = "full" }: { variant?: "full" | 
     // neighboring edges along with it — there was no way to isolate a
     // tip-only twist by touch, only via the on-screen tip-twist buttons.
     const resolveGesture = (start: PointerStart, dx: number, dy: number): Gesture => {
-      const candidates = start.pick.kind === "tip" ? [start.pick.vertex] : EDGE_PAIRS[start.pick.edge];
+      const candidates = start.pick.kind === "edge" ? EDGE_PAIRS[start.pick.edge] : [start.pick.vertex];
       const drag = new THREE.Vector2(dx, dy).normalize();
       let bestVertex = candidates[0], bestScore = 0;
       for (const vertex of candidates) {

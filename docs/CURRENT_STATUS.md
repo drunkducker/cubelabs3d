@@ -7,6 +7,17 @@
 
 This document is the single current-state summary. Dated checkpoints and unmerged branches are historical or in-progress evidence and must not override this file.
 
+## Active Pyraminx solver PR — 2026-07-28
+
+Draft PR #11 (`agent/pyraminx-manual-solver`) replaces the simplified Pyraminx solver route with a real manual-entry solver while preserving the playable puzzle at `/play/pyraminx`:
+
+- `/solver/pyraminx` accepts all 36 visible stickers on a geometry-derived four-face net or generates a legal scramble.
+- `lib/pyraminx-engine.ts` now models 6 edges, 4 axial-center orientations, and 4 independent tips. Deep turns move the axial center, three touching edges, and tip; lowercase turns remain tip-only.
+- The core solver is exact bidirectional search over edge + axial-center state, followed by tip cleanup and final solved-state verification.
+- Validation includes legal facelet reconstruction, duplicate-piece rejection, unreachable-state rejection, randomized round trips, and repository regression tests.
+- The Three.js play renderer is included in the same branch correction so its center groups rotate and can start deep-turn gestures.
+- Status remains `[~]` until PR CI, browser/mobile verification, owner approval, merge, and deployment evidence are complete. No database or environment migration is required.
+
 ## Current production baseline
 
 - `main` is the repository default branch and the Vercel production source.
@@ -95,6 +106,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 
 | Branch | History | Purpose | State |
 | --- | --- | --- | --- |
+| `agent/pyraminx-manual-solver` | RootA | Real 36-sticker Pyraminx solver, physical center model, route split, tests | 🔎 draft PR #11; CI/browser/mobile/owner review pending |
 | `main` | RootA | Canonical branch | ✅ current at `4123239` (Skewb + doc reconciliation) |
 | `feature/skewb-puzzle` | RootA | Rebuilt Skewb, solver, results, save/send | ✔ merged into `main` via the 2026-07-27 reconciliation merge |
 | `claude/puzzle-gen-twisting-69clo3` | RootA | Kilominx + saved scrambles | ✔ merged through PR #4; safe to delete after production verification |
@@ -148,7 +160,7 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
 - [x] Playable 3×3 and reusable NxN engine work
 - [x] NxN timer, solved detection, and scramble history
 - [x] Mobile viewport and high-DPI fixes
-- [x] Playable Pyraminx with solver and touch interaction
+- [~] Playable Pyraminx remains on `main`; draft PR #11 adds the real 36-sticker manual solver, physical axial-center state, corrected play renderer, and exact verified core solve; CI/browser/mobile/merge remain
 - [~] Kilominx engine, interactive 3D puzzle, verified reduction solver, tests, and saved-scramble UI are merged; production mobile/browser QA remains
 - [~] Skewb engine, fourteen-piece renderer, continuous touch turns, verified
   solver, result tracking, and save/share/send UI pass all branch checks on PR

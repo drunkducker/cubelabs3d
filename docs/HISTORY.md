@@ -12,6 +12,21 @@ commit or working-tree state, purpose, affected systems, tests, deployment,
 known issues, migration impact, and rollback notes. Create no separate daily
 log, changelog, checkpoint, transfer, or deploy-trigger Markdown file.
 
+## 2026-07-28 — Real manual-entry Pyraminx solver and physical center model
+
+- **Author:** OpenAI GPT agent, requested by the project owner.
+- **Branch / PR:** `agent/pyraminx-manual-solver`, draft PR #11; based directly on current `main` with no unrelated layout, database, auth, or homepage changes.
+- **Purpose:** replace the playable-only `/solver/pyraminx` route with a solver that accepts a real physical Pyraminx while preserving the existing game at `/play/pyraminx`.
+- **Engine correction:** `lib/pyraminx-engine.ts` now models 6 edges, 4 axial centers, and 4 independent tips. Deep turns rotate the center, edges, and tip at one vertex; lowercase moves twist only the tip. The exact edge+center core search is followed by tip cleanup, and the final sequence is reapplied and verified solved.
+- **Manual entry / playback:** added `lib/pyraminx-facelets.ts`, `lib/pyraminx-net-layout.ts`, and `components/PyraminxSolver.tsx` for a 36-sticker four-face net, scramble mode, legality/reachability feedback, move list, scrubber, autoplay speeds, and verified flat-net playback. Shared saved-scramble loading and Save & Friend Play remain wired.
+- **Play renderer:** `app/PyraminxGame.tsx` now classifies and groups the 12 center stickers by axial vertex, moves one center group on every deep turn, and allows center stickers to start deep-turn gestures.
+- **Routes:** `/solver/pyraminx` is the solver; `/play/pyraminx` preserves the 3D game; `/solve` copy is updated. ADR 0008 records the physical state boundary and reuses ADR 0005 for the route split.
+- **Tests / evidence:** added facelet fixtures for 12 tips + 12 centers + 12 edges, legal round trips, duplicate-piece rejection, an unreachable single-edge swap, and end-to-end solution verification. Standalone validation covered 10,000 randomized full-state round trips and an exhaustive traversal of the reachable edge+center core. PR CI runs docs, TypeScript, Vitest, and production build.
+- **Deployment:** none; draft PR, browser/mobile/owner approval and merge remain.
+- **Known issues:** solver playback is a flat net rather than dedicated 3D; real-device entry, center gesture, share/load, and performance still need verification.
+- **Migration impact:** none.
+- **Rollback:** revert PR #11; the previous game component remains isolated and no persisted data changes.
+
 ## 2026-07-28 — Reconcile the move-count-optimized Kilominx solver and actually wire it into the app
 
 - **Author:** Claude, requested by the project owner.

@@ -23,6 +23,18 @@ This document defines the permanent cube-engine architecture and records recover
 - Mobile touch behavior is a first-class requirement.
 - Homepage behavior must not be changed indirectly through shared engine work without explicit approval and verification.
 
+## Pyraminx physical-state solver (draft PR #11)
+
+`agent/pyraminx-manual-solver` corrects the earlier simplified model and applies the solver/play route boundary from ADR 0005:
+
+- `PyraState` owns six edge identities/orientations, four axial-center orientations (`co`), and four absolute tip orientations (`to`).
+- A shallow lowercase move changes one tip only. A deep uppercase move changes that tip and axial center and cycles/flips the three touching edges.
+- `solveCore()` uses exact bidirectional search against the renderer-independent edge + axial-center state; `solveTips()` then cleans up the four independent tips. `solve()` applies the result back to the input and throws unless the full state is solved.
+- `lib/pyraminx-facelets.ts` maps the physical state to all 36 visible stickers (12 tip, 12 center, 12 edge), reconstructs legal pieces, and rejects unreachable states through the exact solver.
+- `lib/pyraminx-net-layout.ts` unfolds a tetrahedron net from the same geometry and preserves the facelet order; `components/PyraminxSolver.tsx` provides scramble and manual-entry modes plus verified flat-net playback.
+- `/solver/pyraminx` is the real solver and `/play/pyraminx` is the interactive game. `app/PyraminxGame.tsx` assigns the three center stickers around each vertex to one moving axial-center group so visual turns match the state model.
+- Branch evidence: strict type checks, randomized state/facelet/solve round trips, exhaustive reachable-core traversal, impossible-state fixtures, and PR CI. Hosted phone/browser evidence remains required before `[x]` status.
+
 ## Kilominx solver: engine vs optimized planner (branch)
 
 `lib/kilominx-engine.ts` stays the source of truth — geometry, moves, validation,
