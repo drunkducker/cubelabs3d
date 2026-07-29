@@ -3,9 +3,9 @@
 /**
  * Manual-entry Pyraminx solver.
  *
- * Scramble mode creates a legal state from notation. Manual mode paints the 24
- * movable stickers while the 12 fixed center stickers anchor the four faces.
- * Both modes feed the same engine state, verified solution, and flat-net step
+ * Scramble mode creates a legal state from notation. Manual mode paints all 36
+ * stickers: 12 tips, 12 axial-center stickers, and 12 edge stickers. Both
+ * modes feed the same engine state, verified solution, and flat-net step
  * playback. No puzzle combinatorics are duplicated in this component.
  */
 import Link from "next/link";
@@ -20,7 +20,6 @@ import {
 } from "@/lib/pyraminx-engine";
 import {
   PYRAMINX_COLORS,
-  PYRAMINX_FACELETS,
   emptyManualPyraminxFacelets,
   isSolvablePyraminxState,
   pyraminxFaceletsToState,
@@ -74,7 +73,7 @@ export default function PyraminxSolver() {
   useEffect(() => {
     const id = window.setTimeout(() => {
       try {
-        solve(solved()); // Builds and caches the edge BFS table off first paint.
+        solve(solved()); // Builds and caches the solved-side core table off first paint.
         setReady(true);
         setStatus("Solver ready");
       } catch {
@@ -134,11 +133,10 @@ export default function PyraminxSolver() {
     setMode(next);
     setManualBase(null);
     resetSolution();
-    setStatus(next === "manual" ? "Match the 24 movable stickers on your Pyraminx" : "Tap Random Scramble to create a test puzzle");
+    setStatus(next === "manual" ? "Match all 36 stickers on your Pyraminx" : "Tap Random Scramble to create a test puzzle");
   };
 
   const paintCell = (index: number) => {
-    if (PYRAMINX_FACELETS[index].kind === "center") return;
     setManualFacelets((previous) => {
       const next = [...previous];
       next[index] = paintColor;
@@ -150,7 +148,7 @@ export default function PyraminxSolver() {
     setManualFacelets(emptyManualPyraminxFacelets());
     setManualBase(null);
     resetSolution();
-    setStatus("Movable stickers cleared");
+    setStatus("Sticker entry cleared");
   };
 
   const scramblePuzzle = () => {
@@ -174,7 +172,7 @@ export default function PyraminxSolver() {
       const moves = solve(base);
       const verified = isSolved(applySequence(base, moves.join(" ")));
       if (!verified) {
-        setStatus("This sticker state is impossible — check for one swapped or flipped edge");
+        setStatus("This sticker state is impossible — check the entry");
         return;
       }
       if (source === "manual") setManualBase(base);
@@ -196,7 +194,7 @@ export default function PyraminxSolver() {
     if (!parsed) {
       setManualBase(null);
       resetSolution();
-      setStatus("Those colours do not form the six real edges and four real tips — check the entry");
+      setStatus("Those colours do not form the four real centers, four real tips, and six real edges — check the entry");
       return;
     }
     if (!isSolvablePyraminxState(parsed)) {
@@ -226,14 +224,13 @@ export default function PyraminxSolver() {
 
     <section className="glass rounded-[22px] p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
-        <div><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FOUR-FACE PYRAMINX NET</p><p className="mt-1 text-xs text-[var(--faint)]">The three fixed center triangles on each face identify its colour.</p></div>
+        <div><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">FOUR-FACE PYRAMINX NET</p><p className="mt-1 text-xs text-[var(--faint)]">The G/R/B/Y badges are solved-face references; all 36 stickers can move.</p></div>
         <span className="max-w-[155px] text-right text-xs font-bold leading-5 text-[var(--green)]">{status}</span>
       </div>
       <svg viewBox={`0 0 ${NET.width} ${NET.height}`} className="mx-auto block w-full max-w-[430px]" role="img" aria-label="Pyraminx sticker-entry net">
         {NET.cells.map((cell) => {
           const value = displayFacelets[cell.index];
           const filled = value >= 0;
-          const editable = entryOpen && cell.target.kind !== "center";
           return <polygon
             key={cell.index}
             points={polygonPoints(cell.triangle, 0.87)}
@@ -241,8 +238,8 @@ export default function PyraminxSolver() {
             stroke="#080b12"
             strokeWidth={0.055}
             strokeLinejoin="round"
-            onClick={editable ? () => paintCell(cell.index) : undefined}
-            className={editable ? "cursor-pointer" : ""}
+            onClick={entryOpen ? () => paintCell(cell.index) : undefined}
+            className={entryOpen ? "cursor-pointer" : ""}
             style={{ strokeDasharray: filled ? undefined : "0.12 0.08" }}
           ><title>{FACE_NAMES[cell.face]} face — {cell.target.kind}</title></polygon>;
         })}
@@ -264,7 +261,7 @@ export default function PyraminxSolver() {
       </section>
     </> : <>
       <section className="glass rounded-[22px] p-4">
-        <p className="mb-3 text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">TAP A COLOUR, THEN TAP A MOVABLE STICKER</p>
+        <p className="mb-3 text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">TAP A COLOUR, THEN TAP A STICKER</p>
         <div className="grid grid-cols-4 gap-2">
           {PYRAMINX_COLORS.map((hex, color) => {
             const count = colorCounts[color];
@@ -277,12 +274,12 @@ export default function PyraminxSolver() {
         </div>
       </section>
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={clearManualEntry} className="glass rounded-2xl p-4 font-extrabold">CLEAR MOVABLES</button>
+        <button onClick={clearManualEntry} className="glass rounded-2xl p-4 font-extrabold">CLEAR ENTRY</button>
         <button disabled={!ready || !manualComplete} onClick={solveManual} className="cta-green rounded-2xl p-4 font-extrabold disabled:opacity-50">SOLVE MY PUZZLE</button>
       </div>
       <section className="glass rounded-[22px] p-4 text-sm leading-6 text-[var(--muted)]">
-        <p><strong className="text-[var(--text)]">Orient by the fixed centers.</strong> Match the green, red, blue, and yellow faces shown in the net, then paint only the tip and edge stickers.</p>
-        <p className="mt-2"><strong className="text-[var(--text)]">Impossible states are rejected.</strong> The solver checks colour counts, real pieces, tip orientation, edge flips, edge permutation, and the final solved result.</p>
+        <p><strong className="text-[var(--text)]">Use the solved-face references.</strong> Rotate the whole physical puzzle until its colour scheme matches the G/R/B/Y net, then enter every tip, center, and edge sticker.</p>
+        <p className="mt-2"><strong className="text-[var(--text)]">Impossible states are rejected.</strong> The solver checks colour counts, all four tips, all four axial centers, all six edges, core reachability, and the final solved result.</p>
       </section>
     </>}
 
