@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -44,52 +44,3 @@ jobs:
 
       - name: Build production app
         run: npm run build
-
-  reconcile-pyraminx:
-    name: Reconcile Pyraminx renderer and permanent docs
-    needs: verify
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/pyraminx-manual-solver'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out feature branch
-        uses: actions/checkout@v4
-        with:
-          ref: agent/pyraminx-manual-solver
-          fetch-depth: 0
-
-      - name: Execute and remove one-shot reconciler
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          workflow = Path('.github/workflows/patch-pyraminx-branch.yml').read_text()
-          begin_marker = "          python - <<'PY'\n"
-          end_marker = "\n          PY\n"
-          start = workflow.index(begin_marker) + len(begin_marker)
-          end = workflow.index(end_marker, start)
-          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start:end].splitlines())
-          helper_start = code.index('def replace_once')
-          helper_end = code.index('\n\nrenderer =', helper_start)
-          robust_helper = '''def replace_once(path: str, old: str, new: str):
-              import re
-              p = Path(path)
-              text = p.read_text()
-              if old in text:
-                  p.write_text(text.replace(old, new, 1))
-                  return
-              pattern = r"\\s+".join(re.escape(part) for part in old.strip().split())
-              match = re.search(pattern, text)
-              if not match:
-                  raise SystemExit(f"Missing expected text in {path}: {old[:100]!r}")
-              p.write_text(text[:match.start()] + new + text[match.end():])'''
-          code = code[:helper_start] + robust_helper + code[helper_end:]
-          exec(compile(code, 'patch-pyraminx-branch.py', 'exec'))
-          PY
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ci.yml
-          rm .github/workflows/patch-pyraminx-branch.yml
-          git config user.name "cube-labs-doc-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add app/PyraminxGame.tsx docs/CURRENT_STATUS.md docs/ROADMAP.md docs/CUBE-ENGINE.md docs/DECISIONS.md docs/HISTORY.md .github/workflows/ci.yml .github/workflows/patch-pyraminx-branch.yml
-          git commit -m "Document and align physical Pyraminx solver [pyraminx-docs]"
-          git push origin HEAD:agent/pyraminx-manual-solver

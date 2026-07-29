@@ -487,3 +487,30 @@ miswire.
 - If ~25% is required, rewrite the reduction primitives (shorter twist
   operations / combined permutation-orientation) behind the same public
   entrypoint, with a move-count fixture, rather than tuning selection.
+
+
+---
+
+## ADR 0008 — Physical Pyraminx state and solver route
+
+- **Status:** accepted for draft PR #11; merge and hosted verification pending
+- **Date:** 2026-07-28
+- **Branch:** `agent/pyraminx-manual-solver`
+
+### Context
+
+The existing route displayed a playable Three.js Pyraminx under `/solver/pyraminx`, but it did not accept an arbitrary physical puzzle. Its logical state treated the four axial center pieces as fixed even though a standard Pyraminx deep turn rotates one axial center with the layer.
+
+### Decision
+
+Use one renderer-independent physical state containing six edge identities/orientations, four axial-center orientations, and four independent tip orientations. Uppercase U/L/R/B are deep turns; lowercase u/l/r/b are tip-only. Solve the edge + axial-center core exactly with bidirectional search, clean up tips afterward, and verify the emitted sequence by applying it to the entered state.
+
+Apply ADR 0005 consistently: `/solver/pyraminx` owns manual/scramble input and verified playback; `/play/pyraminx` owns the interactive game. Derive sticker mapping and the flat net from the same tetrahedron geometry. Correct the play renderer so its center groups move with deep turns rather than maintaining a second simplified visual model.
+
+### Consequences
+
+The solver can represent and validate all 36 visible stickers and reject piece-valid but unreachable arrangements. The engine state changes, so every renderer and test using `PyraState` must include `co`. Initial solution playback remains a flat net; a dedicated solver-only 3D playback can be added under ADR 0006 without changing solver truth.
+
+### Rollback
+
+Revert PR #11. No database, auth, provider, environment, or migration rollback is needed.
