@@ -8,15 +8,8 @@ import {
   setAuthCookies,
   supabaseRequest,
 } from "@/app/lib/supabase-rest";
+import { evaluateAgeBand, type AgeBand } from "@/lib/privacy/policy";
 
-/*
- * Origin used for Supabase email links (password reset, signup confirmation).
- * Prefer NEXT_PUBLIC_SITE_URL, then the real request origin so links always
- * return to the deployment the user is actually on, then a production
- * fallback. Never hard-code a single branch preview URL: those links break
- * the moment that preview is deleted. Each origin used here must also be
- * listed in Supabase Auth > URL Configuration > Redirect URLs.
- */
 function getSiteOrigin() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
   if (configured) return configured.replace(/\/$/, "");
@@ -31,11 +24,22 @@ function getSiteOrigin() {
   return "https://cubelabs3d.vercel.app";
 }
 
+type AuthUser = {
+  id: string;
+  email?: string;
+  user_metadata?: {
+    display_name?: string;
+    age_band?: AgeBand;
+    age_screening_outcome?: string;
+    profile_visibility?: "public" | "private";
+  };
+};
+
 type AuthResponse = {
   access_token?: string;
   refresh_token?: string;
   expires_in?: number;
-  user?: { id: string; email?: string };
+  user?: AuthUser;
   msg?: string;
   error?: string;
   error_description?: string;
@@ -51,21 +55,64 @@ function authErrorUrl(message: string) {
 
 async function upsertProfile(
   session: { access_token: string },
-  user: { id: string; email?: string },
-  displayName: string,
+  user: AuthUser,
+  displayName?: string,
+  ageBand?: AgeBand,
 ) {
+  const resolvedAgeBand = ageBand ?? user.user_metadata?.age_band ?? null;
+  const screening = resolvedAgeBand ? evaluateAgeBand(resolvedAgeBand) : null;
+  const existing = await supabaseRequest<Array<{
+    display_name: string | null;
+    age_band?: AgeBand | null;
+    age_screened_at?: string | null;
+    profile_visibility?: string | null;
+  }>>(
+    `/rest/v1/profiles?id=eq.${user.id}&select=display_name,age_band,age_screened_at,profile_visibility&limit=1`,
+    {},
+    session.access_token,
+  ).catch(() => []);
+  const current = existing[0];
+
   await supabaseRequest(
     "/rest/v1/profiles",
     {
       method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates" },
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({
         id: user.id,
-        display_name: displayName || user.email?.split("@")[0] || "Cube Solver",
+        display_name: current?.display_name || displayName || user.user_metadata?.display_name || user.email?.split("@")[0] || "Cube Solver",
+        ...(resolvedAgeBand && !current?.age_band ? {
+          age_band: resolvedAgeBand,
+          age_screened_at: new Date().toISOString(),
+          guardian_status: "not_required",
+        } : {}),
+        ...(screening?.outcome === "teen_defaults" && !current?.age_screened_at ? {
+          profile_visibility: "private",
+          show_location: false,
+          show_collection: false,
+          show_activity: false,
+        } : {}),
       }),
     },
     session.access_token,
   );
+
+  if (screening) {
+    await supabaseRequest(
+      "/rest/v1/age_screenings?on_conflict=user_id,source",
+      {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({
+          user_id: user.id,
+          age_band: screening.ageBand,
+          outcome: screening.outcome,
+          source: "signup",
+        }),
+      },
+      session.access_token,
+    ).catch(() => undefined);
+  }
 }
 
 export async function signIn(formData: FormData) {
@@ -90,6 +137,9 @@ export async function signIn(formData: FormData) {
     refresh_token: result.refresh_token,
     expires_in: result.expires_in,
   });
+  if (result.user) {
+    await upsertProfile({ access_token: result.access_token }, result.user).catch(() => undefined);
+  }
   redirect("/profile");
 }
 
@@ -97,15 +147,30 @@ export async function signUp(formData: FormData) {
   const email = value(formData, "email");
   const password = value(formData, "password");
   const displayName = value(formData, "display_name");
-  const { url, key } = getSupabaseConfig();
+  let screening;
+  try {
+    screening = evaluateAgeBand(value(formData, "age_band"));
+  } catch (error) {
+    redirect(authErrorUrl(error instanceof Error ? error.message : "Choose an age range."));
+  }
 
+  if (!screening.canCreateAccount) {
+    redirect(`/privacy/requests?type=parent_request&subject_email=${encodeURIComponent(email)}&message=${encodeURIComponent("A parent or guardian must contact Cube Labs before an under-13 account can be considered.")}`);
+  }
+
+  const { url, key } = getSupabaseConfig();
   const response = await fetch(`${url}/auth/v1/signup`, {
     method: "POST",
     headers: { apikey: key, "Content-Type": "application/json" },
     body: JSON.stringify({
       email,
       password,
-      data: { display_name: displayName },
+      data: {
+        display_name: displayName,
+        age_band: screening.ageBand,
+        age_screening_outcome: screening.outcome,
+        profile_visibility: screening.defaultProfileVisibility,
+      },
       redirect_to: `${getSiteOrigin()}/auth/email?mode=login&message=${encodeURIComponent("Email confirmed. Log in to continue.")}`,
     }),
     cache: "no-store",
@@ -123,12 +188,12 @@ export async function signUp(formData: FormData) {
       expires_in: result.expires_in,
     });
 
-    try {
-      await upsertProfile({ access_token: result.access_token }, result.user, displayName);
-    } catch {
-      // The profile trigger/backfill can repair identity fields later.
-    }
-
+    await upsertProfile(
+      { access_token: result.access_token },
+      result.user,
+      displayName,
+      screening.ageBand,
+    ).catch(() => undefined);
     redirect("/profile");
   }
 
