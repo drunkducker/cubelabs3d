@@ -1,6 +1,5 @@
 create unique index if not exists age_screenings_user_source_unique
-  on public.age_screenings (user_id, source)
-  where user_id is not null;
+  on public.age_screenings (user_id, source);
 
 grant insert on public.age_screenings to authenticated;
 
