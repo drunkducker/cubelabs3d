@@ -164,7 +164,14 @@ async function uploadEvidence(requestId: string, file: File): Promise<{ path: st
 
 function detectEvidenceType(bytes: Uint8Array, claimed: string): string | null {
   let detected: string | null = null;
-  if (bytes.length >= 5 && String.fromCharCode(...bytes.slice(0, 5)) === "%PDF-") detected = "application/pdf";
+  if (
+    bytes.length >= 5 &&
+    bytes[0] === 0x25 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x44 &&
+    bytes[3] === 0x46 &&
+    bytes[4] === 0x2d
+  ) detected = "application/pdf";
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) detected = "image/jpeg";
   if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) detected = "image/png";
   if (!detected || (claimed && claimed !== detected)) return null;
