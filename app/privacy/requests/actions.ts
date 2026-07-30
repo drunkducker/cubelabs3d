@@ -18,6 +18,7 @@ type RequestType = (typeof REQUEST_TYPES)[number];
 type RequesterType = (typeof REQUESTER_TYPES)[number];
 
 export async function submitPublicPrivacyRequest(formData: FormData) {
+  let destination: string;
   try {
     const requestType = enumField(formData, "request_type", REQUEST_TYPES);
     const requesterType = enumField(formData, "requester_type", REQUESTER_TYPES);
@@ -58,29 +59,39 @@ export async function submitPublicPrivacyRequest(formData: FormData) {
 
     const evidence = formData.get("evidence");
     if (evidence instanceof File && evidence.size > 0) {
-      const uploaded = await uploadEvidence(result.id, evidence);
-      await adminJson(`/rest/v1/account_data_requests?id=eq.${encodeURIComponent(result.id)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          payload: {
-            details,
-            ...(correctionFields ? { fields: correctionFields } : {}),
-            requested_from: "privacy_rights_portal",
-            evidence_path: uploaded.path,
-            evidence_mime_type: uploaded.mimeType,
-            evidence_bytes: evidence.size,
-          },
-        }),
-      });
+      try {
+        const uploaded = await uploadEvidence(result.id, evidence);
+        await adminJson(`/rest/v1/account_data_requests?id=eq.${encodeURIComponent(result.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            payload: {
+              details,
+              ...(correctionFields ? { fields: correctionFields } : {}),
+              requested_from: "privacy_rights_portal",
+              evidence_path: uploaded.path,
+              evidence_mime_type: uploaded.mimeType,
+              evidence_bytes: evidence.size,
+            },
+          }),
+        });
+      } catch (evidenceError) {
+        await adminJson(`/rest/v1/account_data_requests?id=eq.${encodeURIComponent(result.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            error_message: evidenceError instanceof Error ? evidenceError.message : "Supporting evidence upload failed.",
+          }),
+        }).catch(() => undefined);
+      }
     }
 
-    redirect(`/privacy/requests?submitted=1&case=${encodeURIComponent(result.id)}&email_sent=${result.emailSent ? "1" : "0"}`);
+    destination = `/privacy/requests?submitted=1&case=${encodeURIComponent(result.id)}&email_sent=${result.emailSent ? "1" : "0"}`;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to submit the privacy request.";
-    if (message === "NEXT_REDIRECT") throw error;
-    redirect(`/privacy/requests?error=${encodeURIComponent(message)}`);
+    destination = `/privacy/requests?error=${encodeURIComponent(message)}`;
   }
+  redirect(destination);
 }
 
 function text(formData: FormData, name: string, max: number, required = true): string {
