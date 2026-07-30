@@ -47,6 +47,16 @@ export default function EmailAuthPage({ searchParams = {} }: EmailAuthPageProps)
             </div>
             <label className="grid gap-2 text-sm font-bold">Display name<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="display_name" maxLength={40} required autoComplete="nickname" placeholder="Ducker" /></label>
             <p className="-mt-2 text-xs leading-5 text-[var(--muted)]">This is what everyone sees. Your private unique tag, such as Ducker#1234, is generated automatically.</p>
+            <label className="grid gap-2 text-sm font-bold">
+              Which age range applies to the person using this account?
+              <select name="age_band" required defaultValue="" className="min-h-12 rounded-xl border border-[var(--border-2)] bg-[#080c15] px-4 text-base text-white">
+                <option value="" disabled>Choose an age range</option>
+                <option value="under_13">Under 13</option>
+                <option value="13_17">13–17</option>
+                <option value="18_plus">18 or older</option>
+              </select>
+            </label>
+            <p className="-mt-2 text-xs leading-5 text-[var(--muted)]">We use an age range instead of a birth date. Under-13 requests are routed to a parent or guardian process. Teen accounts start private.</p>
             <label className="grid gap-2 text-sm font-bold">Email<input className="min-h-12 rounded-xl border border-[var(--border-2)] bg-black/20 px-4 text-base text-white" name="email" type="email" required autoComplete="email" /></label>
             <PasswordField name="password" autoComplete="new-password" minLength={8} />
             <button className="cta-green mt-2 min-h-12 rounded-xl px-5 font-black" type="submit">Create my Cube ID</button>
