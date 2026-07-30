@@ -1,13 +1,7 @@
 /*
  * Centralized role/permission matrix.
- *
- * This is the single source of truth for what each role may do. UI visibility
- * MAY read this matrix, but every privileged server operation must call
- * hasPermission()/requirePermission() independently — the browser is never the
- * security boundary. This module is safe to import from client components (it
- * contains no secrets and no data access).
+ * Every privileged server operation checks this independently of UI visibility.
  */
-
 export const ADMIN_ROLES = [
   "owner",
   "admin",
@@ -26,6 +20,9 @@ export const PERMISSIONS = [
   "users.delete",
   "users.export",
   "users.premium.manage",
+  "privacy.read",
+  "privacy.manage",
+  "avatars.moderate",
   "roles.manage",
   "ads.read",
   "ads.manage",
@@ -51,7 +48,6 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-// Owner is handled by short-circuit in hasPermission() (implicitly all).
 const ROLE_PERMISSIONS: Record<Exclude<AdminRole, "owner">, Permission[]> = {
   admin: [
     "admin.overview.read",
@@ -59,6 +55,9 @@ const ROLE_PERMISSIONS: Record<Exclude<AdminRole, "owner">, Permission[]> = {
     "users.suspend",
     "users.export",
     "users.premium.manage",
+    "privacy.read",
+    "privacy.manage",
+    "avatars.moderate",
     "ads.read",
     "ads.manage",
     "ads.publish",
@@ -80,6 +79,8 @@ const ROLE_PERMISSIONS: Record<Exclude<AdminRole, "owner">, Permission[]> = {
     "admin.overview.read",
     "users.read",
     "users.suspend",
+    "privacy.read",
+    "avatars.moderate",
     "leaderboards.read",
     "leaderboards.moderate",
     "challenges.read",
@@ -98,6 +99,7 @@ const ROLE_PERMISSIONS: Record<Exclude<AdminRole, "owner">, Permission[]> = {
   support: [
     "admin.overview.read",
     "users.read",
+    "privacy.read",
   ],
   analyst: [
     "admin.overview.read",
@@ -109,13 +111,11 @@ const ROLE_PERMISSIONS: Record<Exclude<AdminRole, "owner">, Permission[]> = {
   ],
 };
 
-// Capabilities that ONLY the Owner may ever perform, even if a future edit to
-// the matrix above accidentally grants them elsewhere.
 export const OWNER_ONLY: Permission[] = [
   "roles.manage",
   "users.delete",
   "leaderboards.reset",
-  "settings.manage", // dangerous global settings still gate on owner in the action
+  "settings.manage",
   "migration.manage",
   "test_data.display_mode",
 ];
@@ -128,9 +128,7 @@ export function hasPermission(role: AdminRole | null | undefined, permission: Pe
 }
 
 export function permissionsForRole(role: AdminRole): Permission[] {
-  // Derived from hasPermission so the effective grant and the listed grant can
-  // never diverge (owner-only permissions are filtered for non-owners).
-  return PERMISSIONS.filter((p) => hasPermission(role, p));
+  return PERMISSIONS.filter((permission) => hasPermission(role, permission));
 }
 
 export function isOwnerOnly(permission: Permission): boolean {

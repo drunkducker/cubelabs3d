@@ -13,8 +13,10 @@ const expectedMarkdown = [
   "docs/DECISIONS.md",
   "docs/GOVERNANCE.md",
   "docs/HISTORY.md",
+  "docs/PRIVACY-ACCOUNT-LIFECYCLE-2026-07-30.md",
   "docs/README.md",
   "docs/ROADMAP.md",
+  "docs/SKEWB-REV2-2026-07-29.md",
   "docs/SOCIAL-AND-MULTIPLAYER.md",
 ];
 const ignoredDirectories = new Set([".git", ".next", "node_modules"]);

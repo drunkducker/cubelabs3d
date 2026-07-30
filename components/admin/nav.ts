@@ -1,9 +1,5 @@
 import type { Permission } from "@/lib/admin/permissions";
 
-/*
- * Admin navigation config. `permission` gates visibility in the UI, but the
- * page itself re-checks server-side — hiding a link is never the boundary.
- */
 export type AdminNavItem = {
   href: string;
   label: string;
@@ -15,6 +11,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", permission: "admin.overview.read", icon: "▦" },
   { href: "/admin/todo", label: "Admin Roadmap", permission: "admin.overview.read", icon: "☑" },
   { href: "/admin/users", label: "Users", permission: "users.read", icon: "◍" },
+  { href: "/admin/privacy", label: "Privacy & Avatars", permission: "privacy.read", icon: "◉" },
   { href: "/admin/roles", label: "Roles & Access", permission: "roles.manage", icon: "◆" },
   { href: "/admin/ads", label: "Ads & Campaigns", permission: "ads.read", icon: "◈" },
   { href: "/admin/carousels", label: "Carousels & Affiliates", permission: "ads.read", icon: "▤" },
