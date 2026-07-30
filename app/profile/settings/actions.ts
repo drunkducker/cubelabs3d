@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireProfileSession } from "@/app/lib/profile-service";
 import { supabaseRequest } from "@/app/lib/supabase-rest";
+import { createVerifiedAccountRequest } from "@/lib/privacy/service";
 
 function field(formData: FormData, name: string, maxLength: number) {
   const value = String(formData.get(name) ?? "").trim();
@@ -49,27 +50,14 @@ export async function updateProfileSettings(formData: FormData) {
 
 export async function requestDataExport() {
   const { token, user } = await requireProfileSession();
-
-  await queuePrivacyRequest(token, {
-    user_id: user.id,
-    request_type: "export",
-    requested_email: user.email ?? null,
-    export_before_delete: false,
+  await createVerifiedAccountRequest({
+    userId: user.id,
+    email: user.email ?? null,
+    requestType: "export",
     payload: {
       requested_from: "profile_settings",
       delivery: "email",
       export_format: "json",
-      tables: [
-        "profiles",
-        "solve_results",
-        "scramble_attempts",
-        "solver_memories",
-        "cube_collection",
-        "user_achievements",
-        "friendships",
-        "challenges",
-        "notification_preferences",
-      ],
     },
   });
 
@@ -98,12 +86,12 @@ export async function requestAccountClosure(formData: FormData) {
 
   const { token, user } = await requireProfileSession();
   const now = new Date().toISOString();
-
-  await queuePrivacyRequest(token, {
-    user_id: user.id,
-    request_type: "close_account",
-    requested_email: user.email ?? null,
-    export_before_delete: true,
+  await createVerifiedAccountRequest({
+    userId: user.id,
+    email: user.email ?? null,
+    requestType: "close_account",
+    exportBeforeDelete: true,
+    deleteMode: "full_delete",
     payload: {
       requested_from: "profile_settings",
       delivery: "email_then_delete",
@@ -132,28 +120,4 @@ export async function requestAccountClosure(formData: FormData) {
   revalidatePath("/profile");
   revalidatePath("/profile/settings");
   redirect("/profile/settings?privacy=closure-queued");
-}
-
-async function queuePrivacyRequest(
-  token: string,
-  body: {
-    user_id: string;
-    request_type: "export" | "close_account" | "delete_data";
-    requested_email: string | null;
-    export_before_delete: boolean;
-    payload: Record<string, unknown>;
-  },
-) {
-  await supabaseRequest(
-    "/rest/v1/account_data_requests?select=id",
-    {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        ...body,
-        status: "queued",
-      }),
-    },
-    token,
-  );
 }
