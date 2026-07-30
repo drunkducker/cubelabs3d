@@ -13,6 +13,12 @@ coding standards are consolidated inside [`GOVERNANCE.md`](./GOVERNANCE.md)
 (standards and best practices) and [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 (dependency-graph handbook).
 
+Two active implementation references remain separate because they are operational
+runbooks tied to code and migrations rather than historical handoff notes:
+
+- [`PRIVACY-ACCOUNT-LIFECYCLE-2026-07-30.md`](./PRIVACY-ACCOUNT-LIFECYCLE-2026-07-30.md) — privacy, avatar moderation, export, deletion, verification, age-screening, deployment variables, and rollback boundaries.
+- [`SKEWB-REV2-2026-07-29.md`](./SKEWB-REV2-2026-07-29.md) — the active Skewb Rev 2 redesign specification until the physical renderer work is fully reconciled into `CUBE-ENGINE.md`.
+
 ## Read this first
 
 For every meaningful task:
@@ -37,6 +43,8 @@ contract.
 | [`CUBE-ENGINE.md`](./CUBE-ENGINE.md) | Puzzle engines, rendering, gestures, camera, solver state, detailed 5×5 handoff | Puzzle or solver work |
 | [`SOCIAL-AND-MULTIPLAYER.md`](./SOCIAL-AND-MULTIPLAYER.md) | Product vision, friends, challenges, leaderboards, multiplayer | Social/product work |
 | [`ADMIN-PORTAL.md`](./ADMIN-PORTAL.md) | Admin architecture, operator guide, ads, affiliates, billing/media operations | Admin or managed-content work |
+| [`PRIVACY-ACCOUNT-LIFECYCLE-2026-07-30.md`](./PRIVACY-ACCOUNT-LIFECYCLE-2026-07-30.md) | Privacy requests, avatars, export/deletion workers, age screening, environment and operational boundaries | Privacy, account lifecycle, data-rights, avatar moderation, or deployment work |
+| [`SKEWB-REV2-2026-07-29.md`](./SKEWB-REV2-2026-07-29.md) | Active Skewb Rev 2 design and verification target | Skewb Rev 2 implementation or visual verification |
 | [`DECISIONS.md`](./DECISIONS.md) | Append-only ADRs with stable numbers | Structural choices |
 | [`HISTORY.md`](./HISTORY.md) | Changelog, daily evidence, checkpoints, handoffs, deploy records | Search by date/feature/branch/commit |
 
