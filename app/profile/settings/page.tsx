@@ -3,7 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signOut } from "@/app/auth/actions";
 import { getProfileSettingsPageData } from "@/app/lib/profile-service";
+import { getAvatarSettingsData } from "@/app/profile/settings/avatar-data";
 import { requestAccountClosure, requestDataExport, updateProfileSettings } from "@/app/profile/settings/actions";
+import AvatarCropper from "@/components/AvatarCropper";
 import { ChevronRightIcon, LockIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
@@ -13,8 +15,12 @@ export const metadata: Metadata = {
 
 export default async function ProfileSettingsPage({ searchParams }: { searchParams?: { saved?: string; privacy?: string } }) {
   let data;
+  let avatar;
   try {
-    data = await getProfileSettingsPageData();
+    [data, avatar] = await Promise.all([
+      getProfileSettingsPageData(),
+      getAvatarSettingsData(),
+    ]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (message === "Sign in required.") redirect("/auth");
@@ -42,7 +48,7 @@ export default async function ProfileSettingsPage({ searchParams }: { searchPara
             <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[var(--purple)]">Cube ID</p>
             <h1 className="mt-2 text-[38px] font-black leading-none text-white">Profile Settings</h1>
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              Update the account fields that power the approved dashboard, friend lookup, and public profile hooks.
+              Update your profile, moderated avatar, privacy choices, and account lifecycle.
             </p>
             {searchParams?.saved ? (
               <p className="mt-4 rounded-[8px] border border-green-400/25 bg-green-500/10 px-3 py-2 text-sm font-black text-[var(--green)]">
@@ -52,6 +58,15 @@ export default async function ProfileSettingsPage({ searchParams }: { searchPara
             <PrivacyStatus value={searchParams?.privacy} />
           </div>
         </section>
+
+        <div className="mt-4">
+          <AvatarCropper avatarUrl={avatar.avatarUrl} avatarStatus={avatar.avatarStatus} />
+          {avatar.moderationReason ? (
+            <p className="mt-2 rounded-[8px] border border-red-400/25 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-100">
+              Avatar review note: {avatar.moderationReason}
+            </p>
+          ) : null}
+        </div>
 
         <form action={updateProfileSettings} className="mt-4 grid gap-3 rounded-[8px] border border-[var(--border)] bg-white/[.035] p-4">
           <Field label="Display name" name="display_name" defaultValue={profile?.display_name ?? ""} placeholder="Cube Solver" />
@@ -134,7 +149,7 @@ export default async function ProfileSettingsPage({ searchParams }: { searchPara
             <div className="min-w-0">
               <h2 className="text-lg font-black text-white">Data export and close account</h2>
               <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                Export is queued for email first. Closing your account hides public profile data now, then the backend privacy worker can email the export and delete/de-identify the remaining records.
+                The privacy worker builds a private JSON export and emails a seven-day secure link. Account closure immediately hides the profile, waits through the deletion window, delivers the export, removes owned files, and then deletes the Auth account and dependent data.
               </p>
             </div>
           </div>
@@ -147,7 +162,7 @@ export default async function ProfileSettingsPage({ searchParams }: { searchPara
 
           <form action={requestAccountClosure} className="mt-3 grid gap-3 rounded-[8px] border border-red-400/25 bg-red-500/[.06] p-3">
             <p className="text-sm font-bold leading-6 text-red-100">
-              To close the account, type DELETE MY CUBE ID. This queues export-before-delete and makes the profile private immediately.
+              To close the account, type DELETE MY CUBE ID. Your profile becomes private immediately. Export-before-delete and a seven-day deletion hold are enforced by the worker.
             </p>
             <input
               name="close_confirmation"
@@ -159,6 +174,13 @@ export default async function ProfileSettingsPage({ searchParams }: { searchPara
             </button>
           </form>
 
+          <Link
+            href="/privacy/requests"
+            className="mt-3 flex min-h-11 items-center justify-center rounded-[8px] border border-[var(--border-2)] bg-black/20 px-3 text-center text-sm font-black text-[var(--blue)]"
+          >
+            Correction, appeal, parent, or authorized-agent request
+          </Link>
+
           {privacyRequests.length ? (
             <div className="mt-4 grid gap-2">
               <h3 className="text-sm font-black uppercase tracking-[.12em] text-[var(--muted)]">Recent requests</h3>
@@ -166,7 +188,7 @@ export default async function ProfileSettingsPage({ searchParams }: { searchPara
                 <article key={request.id} className="rounded-[8px] border border-[var(--border)] bg-black/20 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-black capitalize text-white">{request.request_type.replaceAll("_", " ")}</p>
-                    <span className="rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-black capitalize text-[var(--blue)]">{request.status}</span>
+                    <span className="rounded-full bg-blue-500/15 px-2 py-1 text-[10px] font-black capitalize text-[var(--blue)]">{request.status.replaceAll("_", " ")}</span>
                   </div>
                   <p className="mt-1 text-xs font-semibold text-[var(--muted)]">
                     {request.requested_email ? `Email target: ${request.requested_email}` : "No email on this account"} - {new Date(request.created_at).toLocaleString()}
@@ -226,11 +248,11 @@ function PrivacyStatus({ value }: { value?: string }) {
   const messages: Record<string, { tone: string; text: string }> = {
     "export-queued": {
       tone: "border-green-400/25 bg-green-500/10 text-[var(--green)]",
-      text: "Data export request queued. The email worker can pick this up and send the export package.",
+      text: "Data export request queued. The worker will build the package and send the secure link.",
     },
     "closure-queued": {
       tone: "border-yellow-400/25 bg-yellow-500/10 text-[var(--gold)]",
-      text: "Account closure queued. Your public profile was switched private while export-before-delete is pending.",
+      text: "Account closure queued. Your public profile is private while export-before-delete and the deletion hold are pending.",
     },
     "confirm-close": {
       tone: "border-red-400/25 bg-red-500/10 text-red-100",
