@@ -1,29 +1,23 @@
 "use client";
 
 /**
- * 5x5 reduced-state solver with manual entry.
+ * Full arbitrary-state 5x5 solver with manual entry.
  *
- * Full arbitrary 5x5 reduction (centers + edge triplets) is still in
- * development (see the 5x5 handoff in docs/CUBE-ENGINE.md), so this ships the
- * honest slice that works today: any *reduced* 5x5 — centers solved, edge triplets paired — is
- * sampled to a 3x3, solved by the same cubejs engine as the 3x3 page, and the
- * solution is verified move-for-move on the full 5x5. States that aren't
- * reduced are scored and clearly labelled, never pretend-solved.
- *
- * The reduced solve is a single fast 3x3 call, so unlike the 4x4 this needs no
- * Web Worker.
+ * The heavy reduction (solving the six 3x3 centers and pairing the twelve edge
+ * triplets with commutator 3-cycles) runs in a Web Worker
+ * (components/solver5.worker), so the UI never freezes. The worker builds its
+ * 3-cycle banks once — warmed up front while the user is still scrambling — and
+ * every returned solution is replayed move-for-move on the full 5x5 before it
+ * is shown. Works from a scramble or from a hand-entered cube.
  */
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Cube from "cubejs";
 import {
   buildFastModel,
   applyFastSeq,
   centerProgressFast,
   edgeProgressFast,
-  isSolvedFast,
-  reducedFaceletStringFast,
 } from "@/lib/nxn-fast";
 import { nxnNet } from "@/lib/nxn-net";
 
@@ -47,6 +41,9 @@ const SPEEDS = [
   { label: "1.5×", duration: 300 },
   { label: "2×", duration: 220 },
 ];
+// Warm solves finish in well under a second; this guards a misread manual entry
+// or a first solve that races the one-time bank warm-up.
+const SOLVE_TIMEOUT_MS = 45000;
 
 type Mode = "scramble" | "manual";
 
@@ -84,27 +81,6 @@ function fullScramble(count = 50): string[] {
   return out;
 }
 
-// Standard 3x3 solvability check — must run before cubejs.solve(), which
-// otherwise hangs the tab on an illegal state (same guard the 3x3 page uses).
-function permutationParity(perm: number[]) {
-  const seen = Array(perm.length).fill(false);
-  let parity = 0;
-  for (let i = 0; i < perm.length; i++) {
-    if (seen[i]) continue;
-    let len = 0, j = i;
-    while (!seen[j]) { seen[j] = true; j = perm[j]; len++; }
-    parity += len - 1;
-  }
-  return parity % 2;
-}
-function isLegal3x3(cube: Cube) {
-  const isPerm = (p: number[], n: number) => p.length === n && new Set(p).size === n && p.every((v) => v >= 0 && v < n);
-  if (!isPerm(cube.cp, 8) || !isPerm(cube.ep, 12)) return false;
-  if (cube.co.reduce((a: number, b: number) => a + b, 0) % 3 !== 0) return false;
-  if (cube.eo.reduce((a: number, b: number) => a + b, 0) % 2 !== 0) return false;
-  return permutationParity(cube.cp) === permutationParity(cube.ep);
-}
-
 export default function FiveSolver() {
   const [mode, setMode] = useState<Mode>("scramble");
   const [cubeFacelets, setCubeFacelets] = useState<number[]>(() => Array.from(MODEL.solvedState));
@@ -114,6 +90,7 @@ export default function FiveSolver() {
   const [solution, setSolution] = useState<string[]>([]);
   const [step, setStep] = useState(0);
   const [ready, setReady] = useState(false);
+  const [solving, setSolving] = useState(false);
   const [status, setStatus] = useState("Preparing 5×5 solver…");
   const [time, setTime] = useState(0);
   const [animating, setAnimating] = useState(false);
@@ -122,13 +99,38 @@ export default function FiveSolver() {
   const autoplay = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onAnimating = useCallback((v: boolean) => setAnimating(v), []);
 
-  useEffect(() => {
-    const id = setTimeout(() => {
-      try { Cube.initSolver(); setReady(true); setStatus("Reduced 5×5 solver ready"); }
-      catch { setStatus("Solver failed to initialize"); }
-    }, 30);
-    return () => clearTimeout(id);
+  const worker = useRef<Worker | null>(null);
+  const requestId = useRef(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const solveStart = useRef(0);
+
+  const spawnWorker = useCallback(() => {
+    const w = new Worker(new URL("./solver5.worker.ts", import.meta.url));
+    w.onmessage = (event: MessageEvent) => {
+      const data = event.data as { id: number; ok: boolean; ready?: boolean; solution?: string[]; verified?: boolean; error?: string };
+      if (data.ready) { setReady(true); setStatus("5×5 solver ready — scramble or enter a cube."); return; }
+      if (data.id !== requestId.current) return;
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      setSolving(false);
+      setTime(Math.round(performance.now() - solveStart.current));
+      if (data.ok) {
+        setSolution(data.solution ?? []);
+        setStep(0);
+        setPlaying(false);
+        setStatus(data.verified ? `Verified solution — ${data.solution?.length ?? 0} moves` : "Solved, but verification failed");
+      } else {
+        setStatus(data.error === "Reduction did not complete" ? "Couldn't solve this cube — check for a misread sticker" : `Could not solve: ${data.error}`);
+      }
+    };
+    worker.current = w;
   }, []);
+
+  useEffect(() => {
+    spawnWorker();
+    setStatus("Building the full 5×5 solver (one-time)… you can scramble meanwhile.");
+    worker.current?.postMessage({ id: -1, warmup: true });
+    return () => { worker.current?.terminate(); if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, [spawnWorker]);
 
   useEffect(() => {
     if (autoplay.current) clearTimeout(autoplay.current);
@@ -149,8 +151,6 @@ export default function FiveSolver() {
     const state = Uint8Array.from(displayFacelets);
     return { centers: centerProgressFast(MODEL, state), edges: edgeProgressFast(MODEL, state) };
   }, [displayFacelets]);
-  const isReduced = summary != null && summary.centers === CENTER_TARGET && summary.edges === 12;
-
   const initialString = faceletsToString(displayFacelets.some((v) => v < 0) ? Array.from(MODEL.solvedState) : displayFacelets);
   const canShow3D = mode === "scramble" || manualComplete;
 
@@ -160,58 +160,41 @@ export default function FiveSolver() {
     if (next === mode) return;
     setMode(next);
     resetSolution();
-    setStatus(next === "manual" ? "Tap a color, then tap stickers to match your cube" : "Load a reduced scramble to solve.");
+    setStatus(next === "manual" ? "Tap a color, then tap stickers to match your cube" : "Load a scramble to solve.");
   };
 
-  const loadScramble = (moves: string[], reducedKind: boolean) => {
+  const loadScramble = (moves: string[]) => {
     const state = applyFastSeq(MODEL, MODEL.solvedState.slice(), moves);
     setCubeFacelets(Array.from(state));
     setSourceMoves(moves.join(" "));
     resetSolution();
-    const centers = centerProgressFast(MODEL, state), edges = edgeProgressFast(MODEL, state);
-    setStatus(reducedKind
-      ? "Reduced 5×5 ready — press Solve."
-      : `Full 5×5 loaded — not reduced yet (centers ${centers}/${CENTER_TARGET}, edge bars ${edges}/12). Full reduction is in development.`);
+    setStatus(ready ? "Scramble loaded — press Solve." : "Scramble loaded — finishing solver setup…");
   };
 
   const paintCell = (slot: number) => setManualFacelets((prev) => { const n = [...prev]; n[slot] = paintColor; return n; });
   const clearManual = () => { setManualFacelets(initManual()); resetSolution(); setStatus("Entry cleared"); };
 
   const solve = () => {
-    if (!ready) return;
+    if (!worker.current || !ready || solving) return;
     const facelets = mode === "manual" ? manualFacelets : cubeFacelets;
     if (facelets.includes(-1)) { setStatus("Fill in every sticker first"); return; }
     if (mode === "manual") {
       const counts = COLORS.map((_, i) => facelets.filter((v) => v === i).length);
       if (counts.some((c) => c !== PER_COLOR)) { setStatus(`Each color must appear ${PER_COLOR} times — check your entry`); return; }
     }
-    const state = Uint8Array.from(facelets);
-    const centers = centerProgressFast(MODEL, state), edges = edgeProgressFast(MODEL, state);
-    if (centers !== CENTER_TARGET || edges !== 12) {
-      resetSolution();
-      setStatus(`This 5×5 isn't reduced yet — centers ${centers}/${CENTER_TARGET}, edge bars ${edges}/12. Full center + edge reduction is in development.`);
-      return;
-    }
-    const start = performance.now();
-    try {
-      const facelet3x3 = reducedFaceletStringFast(MODEL, state);
-      const parsed = Cube.fromString(facelet3x3);
-      if (!isLegal3x3(parsed)) {
-        resetSolution();
-        setStatus("These colors don't form a solvable reduced cube — check for a swapped sticker.");
-        return;
-      }
-      const text = parsed.solve().trim();
-      const moves = text ? text.split(/\s+/) : [];
-      const verified = isSolvedFast(applyFastSeq(MODEL, state, moves), MODEL);
-      setSolution(moves);
-      setStep(0);
-      setPlaying(false);
-      setTime(Math.round(performance.now() - start));
-      setStatus(verified ? `Verified solution — ${moves.length} moves` : "Solved, but verification failed");
-    } catch {
-      setStatus("This reduced 5×5 state could not be solved.");
-    }
+    resetSolution();
+    setSolving(true);
+    setStatus("Solving 5×5… reducing centers and pairing edges");
+    solveStart.current = performance.now();
+    const id = ++requestId.current;
+    timeoutRef.current = setTimeout(() => {
+      worker.current?.terminate();
+      spawnWorker();
+      worker.current?.postMessage({ id: -1, warmup: true });
+      setSolving(false);
+      setStatus("Solve timed out — try again, or re-check a hard-to-read sticker.");
+    }, SOLVE_TIMEOUT_MS);
+    worker.current.postMessage({ id, facelets });
   };
 
   const previous = () => { if (!animating) { setPlaying(false); setStep((v) => Math.max(0, v - 1)); } };
@@ -248,11 +231,11 @@ export default function FiveSolver() {
 
     {mode === "scramble" ? <>
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={() => loadScramble(reducedScramble(), true)} disabled={animating} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">REDUCED SCRAMBLE</button>
-        <button onClick={() => loadScramble(fullScramble(), false)} disabled={animating} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">FULL SCRAMBLE</button>
+        <button onClick={() => loadScramble(reducedScramble())} disabled={solving || animating} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">REDUCED SCRAMBLE</button>
+        <button onClick={() => loadScramble(fullScramble())} disabled={solving || animating} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">FULL SCRAMBLE</button>
       </div>
-      <button onClick={solve} disabled={!ready || animating || !isReduced} className="cta-green w-full rounded-2xl p-4 font-extrabold disabled:opacity-50">SOLVE 5×5</button>
-      <section className="glass rounded-[22px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SOURCE MOVES</p><p className="mt-2 min-h-12 leading-7 text-[var(--text)] break-words">{sourceMoves || "Reduced scramble solves fully. Full scramble shows how much reduction is left."}</p></section>
+      <button onClick={solve} disabled={!ready || solving || animating} className="cta-green w-full rounded-2xl p-4 font-extrabold disabled:opacity-50">{solving ? "SOLVING…" : "SOLVE 5×5"}</button>
+      <section className="glass rounded-[22px] p-4"><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SOURCE MOVES</p><p className="mt-2 min-h-12 leading-7 text-[var(--text)] break-words">{sourceMoves || "Load a reduced or full scramble, then Solve. Both solve completely."}</p></section>
     </> : <>
       <section className="glass rounded-[22px] p-4">
         <div className="mb-3 flex items-center justify-between gap-3"><span className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">TAP A COLOR, THEN TAP STICKERS</span><Link href="/cube-notation" className="text-xs font-bold text-[var(--green)]">Learn notation →</Link></div>
@@ -267,10 +250,10 @@ export default function FiveSolver() {
         </div>
       </section>
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={clearManual} disabled={animating} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">CLEAR ENTRY</button>
-        <button onClick={solve} disabled={!ready || animating || !manualComplete} className="cta-green rounded-2xl p-4 font-extrabold disabled:opacity-50">SOLVE MY CUBE</button>
+        <button onClick={clearManual} disabled={solving || animating} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">CLEAR ENTRY</button>
+        <button onClick={solve} disabled={!ready || solving || animating || !manualComplete} className="cta-green rounded-2xl p-4 font-extrabold disabled:opacity-50">{solving ? "SOLVING…" : "SOLVE MY CUBE"}</button>
       </div>
-      <section className="glass rounded-[22px] p-4 text-sm leading-6 text-[var(--muted)]"><p><strong className="text-[var(--text)]">Face centers are fixed</strong> and pre-filled. This solves cubes that are already <strong className="text-[var(--text)]">reduced</strong> (centers solved, edge bars paired) — full center + edge reduction is in development, so it will tell you how far along an unreduced cube is.</p></section>
+      <section className="glass rounded-[22px] p-4 text-sm leading-6 text-[var(--muted)]"><p><strong className="text-[var(--text)]">Face centers are fixed</strong> and pre-filled. Paint the other stickers to match your cube (25 of each color), then Solve — the solver reduces the centers and edges from any state and verifies the full solution.</p></section>
     </>}
 
     <section className="glass rounded-[22px] p-4">
@@ -287,6 +270,6 @@ export default function FiveSolver() {
       <div className="cube-card relative mt-4 h-[350px] overflow-hidden rounded-[22px]"><div className="platform-ring absolute bottom-[58px] left-1/2 z-[1] h-[66px] w-[230px] -translate-x-1/2 rounded-[50%]" />{canShow3D ? <><div className="absolute inset-0 z-[2]"><NxNSolverCube3D size={SIZE} initialFacelets={initialString} solution={solution} step={step} onAnimating={onAnimating} durationMs={SPEEDS[speedIndex].duration} /></div><div className="pointer-events-none absolute bottom-4 left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">Drag to rotate • verified playback</div></> : <div className="absolute inset-0 z-[2] grid place-items-center px-6 text-center text-sm text-[var(--faint)]">Your cube will appear here once every sticker is filled in.</div>}</div>
     </section>
 
-    <section className="glass rounded-[22px] p-4 text-sm leading-6 text-[var(--muted)]"><b className="text-[var(--text)]">Reduced 5×5 mode:</b> a reduced cube (centers solved, edge triplets paired) is sampled to a 3×3, solved by the same engine as the 3×3 page, and verified move-for-move on the full 5×5. Full arbitrary-state reduction (building centers and pairing edges from any scramble) is the next build layer.</section>
+    <section className="glass rounded-[22px] p-4 text-sm leading-6 text-[var(--muted)]"><b className="text-[var(--text)]">How it solves:</b> the six 3×3 centers are built and the twelve edge triplets paired using commutator 3-cycles (the reduction), the reduced cube is sampled to a 3×3 and solved by the same engine as the 3×3 page, and the whole solution is verified move-for-move on the full 5×5 before it is shown.</section>
   </div>;
 }

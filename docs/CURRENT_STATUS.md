@@ -154,7 +154,11 @@ The repo has two unrelated Git histories. `main` and the recent `gpt/*` and `cla
   solver, result tracking, and save/share/send UI pass all branch checks on PR
   #9; hosted phone/account verification and merge remain
 - [~] 3×3 manual entry, 4×4 arbitrary-state solver, and interim 5×5 solver are merged; broader correctness fixtures remain
-- [ ] Complete deterministic 5×5 solver
+- [x] Complete deterministic 5×5 solver — implemented on `claude/5x5-solver-obguu5`
+  (`lib/cube5-reduction.ts` commutator-3-cycle centers + edge pairing, worker,
+  full `/solver/5x5` wiring, `tests/cube5-solver.test.ts`); verified on 120+
+  random scrambles with zero failures; pending merge to `main`. Follow-ups:
+  shorten solutions and serialise the 3-cycle banks to cut the one-time warm-up.
 - [ ] Add 3×3/4×4/5×5 correctness fixtures and regression suite
 - [ ] Build camera/photo/video state scanning
 

@@ -117,3 +117,16 @@ export function solveState(start: Uint8Array): SolveResult {
 export function solveCubies(cubies: Cubie[]): SolveResult {
   return solveState(stateFromFaces(toFacelets(cubies, SIZE)));
 }
+
+/**
+ * Build the reduction 3-cycle banks (centers and edges) ahead of the first
+ * real solve. The banks are heavy to construct but are built once and then
+ * cached, so warming them up front — off the main thread, while the user is
+ * still scrambling — keeps every real solve fast. Reduces a fixed scramble so
+ * all three banks and the cubejs tables are exercised.
+ */
+export function warmup(): void {
+  const scramble = "Rw B2 Uw' L F2 Rw D Fw' U2 Lw R' Bw F Dw2 U Lw' B Rw2 F' Uw".split(/\s+/);
+  const scrambled = applyFastSeq(MODEL_5, MODEL_5.solvedState.slice(), scramble);
+  solveState(scrambled);
+}
