@@ -773,6 +773,37 @@ This note exists because the correct feel was found visually: the cube needs to 
 
 ## Deterministic 5×5 solver handoff
 
+> **RESOLVED — 2026-07-31.** The deterministic 5×5 reduction the handoff below
+> recommended is now implemented and shipped in `lib/cube5-reduction.ts`, wired
+> into the full solver (`lib/cube5-solver.ts`), the worker
+> (`components/solver5.worker.ts`), and the `/solver/5x5` UI
+> (`components/FiveSolver.tsx`). The blind-search timeout described below no
+> longer applies. Current behaviour:
+>
+> - **Centers** are solved as two independent orbits (X-centers and T-centers).
+>   Each orbit is reduced with pure commutator 3-cycles applied by direct index
+>   lookup — the complete set of 3-cycles per orbit is precomputed and indexed by
+>   the slot triple they move, so placing a piece is an O(1) lookup with no search
+>   tail. T-center cycles are built as an X-center-preserving base plus an
+>   X-restoration, since slot-pure T 3-cycles do not exist at short length.
+> - **Edges** are paired one wing piece at a time with pure wing 3-cycles (which
+>   preserve every center and midge), the midges acting as a fixed reference. The
+>   only case 3-cycles cannot reach — an odd wing permutation (two wings left
+>   swapped) — is toggled by one application of the verified, centre-preserving
+>   OLL-parity algorithm, after which the 3-cycles finish.
+> - **Tail** is unchanged: the reduced cube is sampled to a 3×3, any reduced
+>   OLL/PLL parity is fixed, cubejs solves it, and the whole solution is replayed
+>   move-for-move on the real 5×5 before being returned (`verified: true`).
+> - **Reliability/perf:** verified on 120+ random scrambles with zero failures;
+>   warm solves finish in well under a second. The 3-cycle banks are heavy to
+>   build (~20 s), so the worker warms them up front (a `warmup` message on
+>   spawn) while the user is still scrambling; every real solve afterwards is
+>   fast. Solutions are long (~800 moves) — correct and verified, but move-count
+>   optimisation and precomputing/serialising the banks to cut the warm-up are
+>   the natural follow-ups. Tests: `tests/cube5-solver.test.ts`.
+>
+> The original handoff is retained verbatim below for historical context.
+
 > Consolidated from `5X5_SOLVER_HANDOFF.md` on 2026-07-27. The source path remains
 > recorded here so repository history can recover the exact earlier file.
 
