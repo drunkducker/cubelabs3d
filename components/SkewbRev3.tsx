@@ -151,10 +151,6 @@ export default function SkewbRev3() {
           <span className={styles.kicker}>CUBE LABS · STANDALONE</span>
           <h1>SKEWB <span className={styles.rev}>rev3</span></h1>
         </div>
-        <div className={styles.headerLinks}>
-          <Link href="/solver/skewb" className={styles.ghostLink}>rev2</Link>
-          <Link href="/solver/skewb/rev1" className={styles.ghostLink}>rev1</Link>
-        </div>
       </header>
 
       <section className={styles.stats}>
