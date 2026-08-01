@@ -3,26 +3,23 @@
 /**
  * Skewb rev3 — a fully standalone Skewb experience.
  *
- * Own engine (lib/skewb3-engine), own 3D renderer (SkewbRev3Cube), own design.
- * Nothing here is shared with rev1/rev2. Moves flow through a small animation
- * queue so scrambles and solutions play back one twist at a time; the optimal
- * solver returns a shortest (≤11 move) solution which is verified before it is
- * shown.
+ * Own engine (lib/skewb3-engine), own 3D renderer (SkewbRev3Cube), styled with
+ * the shared Cube Labs design system so it sits alongside the other solvers.
+ * Twist by swiping a corner; the optimal solver returns a shortest (≤11-move)
+ * solution which is verified before it plays back one twist at a time.
  */
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   solved, applyMove, isSolved, invertMove, solve, verifySolution,
-  randomScramble, formatMoves, MOVE_AXES,
+  randomScramble, formatMoves,
   type Move, type MoveAxis, type SkewbState,
 } from "@/lib/skewb3-engine";
 import type { Anim } from "./SkewbRev3Cube";
-import styles from "./SkewbRev3.module.css";
 
 const Cube = dynamic(() => import("./SkewbRev3Cube"), {
   ssr: false,
-  loading: () => <div className={styles.cubeLoading}>Loading Skewb…</div>,
+  loading: () => <div className="grid h-full place-items-center text-sm text-[var(--faint)]">Loading Skewb…</div>,
 });
 
 const fmtTime = (ms: number) => {
@@ -34,7 +31,7 @@ export default function SkewbRev3() {
   const [state, setState] = useState<SkewbState>(solved);
   const [queue, setQueue] = useState<Move[]>([]);
   const [anim, setAnim] = useState<Anim>(null);
-  const [status, setStatus] = useState("Scramble to begin, or twist a corner.");
+  const [status, setStatus] = useState("Swipe a corner to twist, or scramble to begin.");
   const [userMoves, setUserMoves] = useState(0);
   const [assisted, setAssisted] = useState(false);
   const [scrambleText, setScrambleText] = useState("");
@@ -43,7 +40,8 @@ export default function SkewbRev3() {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAt = useRef<number | null>(null);
-  const playingBack = useRef(false); // true while a scramble/solution auto-plays
+  const playingBack = useRef(false);
+  const historyRef = useRef<Move[]>([]);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -71,52 +69,44 @@ export default function SkewbRev3() {
     });
   }, [anim, queue]);
 
-  // detect solved
+  // solved detection
   useEffect(() => {
     if (queue.length === 0 && !anim && isSolved(state) && (userMoves > 0 || assisted) && startedAt.current !== null) {
       stopTimer();
-      const finalMs = Date.now() - (startedAt.current ?? Date.now());
+      const finalMs = Date.now() - startedAt.current;
       setElapsed(finalMs);
       startedAt.current = null;
       playingBack.current = false;
-      setStatus(assisted ? `Solved by the app in ${solutionText ? solutionText.split(" ").length : 0} moves.` : `Solved! ${userMoves} moves · ${fmtTime(finalMs)} 🎉`);
+      setStatus(assisted ? "Solved by the app 🎉" : `Solved! ${userMoves} moves · ${fmtTime(finalMs)} 🎉`);
     }
-  }, [state, queue.length, anim, userMoves, assisted, solutionText, stopTimer]);
+  }, [state, queue.length, anim, userMoves, assisted, stopTimer]);
 
   const busy = anim !== null || queue.length > 0;
-
   const enqueue = (moves: Move[]) => setQueue((q) => [...q, ...moves]);
 
-  const twist = (axis: MoveAxis, dir: 1 | -1) => {
+  const twist = useCallback((axis: MoveAxis, dir: 1 | -1) => {
     if (playingBack.current) return;
-    if (startedAt.current === null && !isSolved(state)) startTimer();
-    else if (startedAt.current === null) startTimer();
+    if (startedAt.current === null) startTimer();
     setUserMoves((n) => n + 1);
     setAssisted(false);
     setSolutionText("");
     setStatus("Nice — keep going.");
+    historyRef.current.push({ axis, dir });
     enqueue([{ axis, dir }]);
-  };
-
-  const onGrab = useCallback((axis: MoveAxis, e: { shiftKey?: boolean }) => {
-    twist(axis, e?.shiftKey ? -1 : 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, queue, anim]);
+  }, [startTimer]);
 
   const scramble = () => {
     if (busy) return;
     stopTimer(); startedAt.current = null; setElapsed(0);
     const moves = randomScramble(12);
     setState(solved());
-    setUserMoves(0);
-    setAssisted(false);
-    setSolutionText("");
+    historyRef.current = [];
+    setUserMoves(0); setAssisted(false); setSolutionText("");
     setScrambleText(formatMoves(moves));
     setStatus("Scrambling…");
     playingBack.current = true;
     enqueue(moves);
-    // playback flag clears when the user next twists or on solve; also clear when queue drains
-    setTimeout(() => { playingBack.current = false; setStatus("Your turn — solve it, or tap Solve."); }, moves.length * 360 + 200);
+    setTimeout(() => { playingBack.current = false; setStatus("Your turn — swipe to solve, or tap Solve."); }, moves.length * 360 + 220);
   };
 
   const solveIt = () => {
@@ -124,7 +114,7 @@ export default function SkewbRev3() {
     if (isSolved(state)) { setStatus("Already solved."); return; }
     let solution: Move[];
     try { solution = solve(state); } catch { setStatus("Couldn't find a solution."); return; }
-    if (!verifySolution(state, solution)) { setStatus("Solver produced an unverified solution — aborting."); return; }
+    if (!verifySolution(state, solution)) { setStatus("Unverified solution — aborting."); return; }
     setSolutionText(formatMoves(solution));
     setAssisted(true);
     if (startedAt.current === null) startTimer();
@@ -133,66 +123,73 @@ export default function SkewbRev3() {
     enqueue(solution);
   };
 
-  const reset = () => {
-    stopTimer(); startedAt.current = null;
-    setState(solved()); setQueue([]); setAnim(null);
-    setUserMoves(0); setAssisted(false); setScrambleText(""); setSolutionText(""); setElapsed(0);
-    setStatus("Reset. Scramble to begin, or twist a corner.");
+  const undo = () => {
+    if (busy || playingBack.current) return;
+    const last = historyRef.current.pop();
+    if (!last) return;
+    setUserMoves((n) => n + 1);
+    setStatus("Undo");
+    enqueue([invertMove(last)]);
   };
 
-  const solvedNow = useMemo(() => isSolved(state) && !busy, [state, busy]);
+  const reset = () => {
+    stopTimer(); startedAt.current = null;
+    setState(solved()); setQueue([]); setAnim(null); historyRef.current = [];
+    setUserMoves(0); setAssisted(false); setScrambleText(""); setSolutionText(""); setElapsed(0);
+    setStatus("Reset. Swipe a corner to twist, or scramble.");
+  };
+
+  const solvedNow = isSolved(state) && !busy;
+
+  const statCard = (label: string, value: string, good = false) => (
+    <div className={`glass rounded-[18px] p-4 ${good ? "border-[rgba(52,208,88,.5)]" : ""}`}>
+      <p className="text-xs font-extrabold tracking-[.14em] text-[var(--muted)]">{label}</p>
+      <p className={`mt-2 text-2xl font-extrabold tabular-nums ${good ? "text-[var(--leaf)]" : "text-[var(--text)]"}`}>{value}</p>
+    </div>
+  );
 
   return (
-    <div className={styles.root}>
-      <div className={styles.aurora} aria-hidden />
-      <header className={styles.header}>
-        <Link href="/solve" className={styles.back} aria-label="All solvers">←</Link>
-        <div className={styles.title}>
-          <span className={styles.kicker}>CUBE LABS · STANDALONE</span>
-          <h1>SKEWB <span className={styles.rev}>rev3</span></h1>
+    <div className="space-y-4">
+      <section className="glass rounded-[22px] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">LIVE SKEWB</span>
+          <span className="text-right text-xs font-bold text-[var(--green)]">{status}</span>
         </div>
-      </header>
-
-      <section className={styles.stats}>
-        <div className={styles.stat}><span>TIME</span><strong>{fmtTime(elapsed)}</strong></div>
-        <div className={styles.stat}><span>MOVES</span><strong>{userMoves}</strong></div>
-        <div className={`${styles.stat} ${solvedNow ? styles.good : ""}`}><span>STATE</span><strong>{solvedNow ? "SOLVED" : busy ? "…" : "MIXED"}</strong></div>
       </section>
 
-      <div className={styles.stageWrap}>
-        <div className={styles.stage}>
-          <Cube state={state} anim={anim} onGrab={onGrab} />
-          <div className={styles.hint}>Drag to orbit · tap a top corner to twist (⇧ for reverse)</div>
+      <section className="grid grid-cols-3 gap-3">
+        {statCard("TIME", fmtTime(elapsed))}
+        {statCard("MOVES", String(userMoves))}
+        {statCard("STATE", solvedNow ? "SOLVED" : busy ? "…" : "MIXED", solvedNow)}
+      </section>
+
+      <section className="glass overflow-hidden rounded-[22px] p-4">
+        <div className="cube-card relative h-[350px] overflow-hidden rounded-[22px]">
+          <div className="platform-ring absolute bottom-[52px] left-1/2 z-[1] h-[64px] w-[220px] -translate-x-1/2 rounded-[50%]" />
+          <div className="absolute inset-0 z-[2]"><Cube state={state} anim={anim} onTwist={twist} /></div>
+          <div className="pointer-events-none absolute bottom-3 left-1/2 z-[3] -translate-x-1/2 whitespace-nowrap text-[13px] font-semibold text-[var(--muted)]">Drag to orbit • swipe a corner to twist</div>
         </div>
-        <p className={styles.status}>{status}</p>
+      </section>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={scramble} disabled={busy} className="cta-purple rounded-2xl p-4 font-extrabold disabled:opacity-50">SCRAMBLE</button>
+        <button onClick={solveIt} disabled={busy || solvedNow} className="cta-green rounded-2xl p-4 font-extrabold disabled:opacity-50">{anim || queue.length ? "SOLVING…" : "SOLVE"}</button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={undo} disabled={busy || historyRef.current.length === 0} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">UNDO</button>
+        <button onClick={reset} disabled={busy} className="glass rounded-2xl p-4 font-extrabold disabled:opacity-50">RESET</button>
       </div>
 
-      <section className={styles.pad} aria-label="Twist controls">
-        {MOVE_AXES.map((axis) => (
-          <div key={axis} className={styles.padCol}>
-            <button className={styles.padBtn} disabled={busy} onClick={() => twist(axis, 1)}>{axis}</button>
-            <button className={`${styles.padBtn} ${styles.prime}`} disabled={busy} onClick={() => twist(axis, -1)}>{axis}′</button>
-          </div>
-        ))}
-      </section>
-
-      <section className={styles.actions}>
-        <button className={`${styles.action} ${styles.primary}`} disabled={busy} onClick={scramble}>SCRAMBLE</button>
-        <button className={`${styles.action} ${styles.accent}`} disabled={busy || solvedNow} onClick={solveIt}>SOLVE</button>
-        <button className={styles.action} disabled={busy} onClick={reset}>RESET</button>
-      </section>
-
       {(scrambleText || solutionText) && (
-        <section className={styles.readouts}>
-          {scrambleText && <div><span>SCRAMBLE</span><code>{scrambleText}</code></div>}
-          {solutionText && <div><span>SOLUTION</span><code>{solutionText}</code></div>}
+        <section className="glass rounded-[22px] p-4 space-y-3">
+          {scrambleText && <div><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SCRAMBLE</p><p className="mt-1 text-[15px] font-bold tracking-wide text-[var(--text)] break-words">{scrambleText}</p></div>}
+          {solutionText && <div><p className="text-xs font-extrabold tracking-[.16em] text-[var(--muted)]">SOLUTION</p><p className="mt-1 text-[15px] font-bold tracking-wide text-[var(--text)] break-words">{solutionText}</p></div>}
         </section>
       )}
 
-      <footer className={styles.footer}>
-        Independent build — own engine, renderer, and design. The solver returns a shortest
-        (≤11-move) solution and verifies it before playback.
-      </footer>
+      <section className="glass rounded-[22px] p-4 text-sm leading-6 text-[var(--muted)]">
+        <b className="text-[var(--text)]">Standalone build:</b> own engine, 3D renderer, and design. Swipe any of the four turnable corners to twist; the solver returns a shortest (≤11-move) solution and verifies it move-for-move on the real cube before playback.
+      </section>
     </div>
   );
 }

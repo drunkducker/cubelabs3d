@@ -129,27 +129,32 @@ function centroidOfPiece(slot: Slot): Vec3 {
   return slot.kind === "corner" ? slot.corner! : slot.normal;
 }
 
-function buildMovePerm(axis: MoveAxis, dir: 1 | -1): Int32Array {
-  const k = norm(AXIS_CORNER[axis]);
+/** Permutation for a 120° twist of the half on the tip side of `corner`. */
+function buildCornerPerm(corner: Vec3, dir: 1 | -1): Int32Array {
+  const k = norm(corner);
   const theta = dir * (2 * Math.PI) / 3;
   const perm = new Int32Array(STICKER_COUNT);
   for (let d = 0; d < STICKER_COUNT; d++) perm[d] = d; // identity default
-  // for each slot in the moving half, compute where its sticker goes
   for (const src of SLOTS) {
     const rep = centroidOfPiece(src);
-    if (dot(rep, AXIS_CORNER[axis]) <= 1e-9) continue; // stays put
+    if (dot(rep, corner) <= 1e-9) continue; // stays put
     const newPos = snap(rotate(src.pos, k, theta));
     const newNormal = snap(rotate(src.normal, k, theta));
     const dest = SLOTS.find((s) => vEq(s.pos, newPos) && vEq(s.normal, newNormal));
-    if (!dest) throw new Error(`skewb3: move ${axis}${dir} lost sticker ${src.index}`);
+    if (!dest) throw new Error(`skewb3: twist about ${corner.join(",")} lost sticker ${src.index}`);
     perm[dest.index] = src.index;
   }
   return perm;
 }
 
 for (const axis of MOVE_AXES) for (const dir of [1, -1] as const) {
-  MOVE_PERM[`${axis}${dir}`] = buildMovePerm(axis, dir);
+  MOVE_PERM[`${axis}${dir}`] = buildCornerPerm(AXIS_CORNER[axis], dir);
 }
+
+/** The four twistable corners, exposed for the renderer's swipe interaction.
+ * (Only these keep the cube inside the solver's group; twisting the opposite
+ * four corners is a whole-cube reorientation the fixed-face solver can't undo.) */
+export const AXIS_CORNERS: { axis: MoveAxis; corner: Vec3 }[] = MOVE_AXES.map((axis) => ({ axis, corner: AXIS_CORNER[axis] }));
 
 // ---- state -----------------------------------------------------------
 /** State = colour (a Face) at each sticker slot, in canonical slot order. */
